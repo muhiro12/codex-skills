@@ -1,0 +1,4 @@
+interface:
+  display_name: "SwiftData Schema Auditor"
+  short_description: "Inspect SwiftData schema and review model design"
+  default_prompt: "Use $swiftdata-schema-auditor to inspect this repository's SwiftData models, summarize entities and relationships in Japanese, and review schema quality and migration risks without changing code."

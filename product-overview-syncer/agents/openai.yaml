@@ -1,0 +1,4 @@
+interface:
+  display_name: "Product Overview Syncer"
+  short_description: "Audit and minimally sync existing overview docs to code"
+  default_prompt: "Use $product-overview-syncer to read the existing product overview Markdown first, detect drift against current code, and apply only minimal evidence-backed updates without speculating or creating a new document unless explicitly requested."

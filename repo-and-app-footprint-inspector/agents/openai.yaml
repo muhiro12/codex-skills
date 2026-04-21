@@ -1,0 +1,4 @@
+interface:
+  display_name: "Repo & App Footprint"
+  short_description: "Inspect footprint with maintenance and structure diagnosis"
+  default_prompt: "Use $repo-and-app-footprint-inspector to summarize repository and app footprint with practical conclusions about maintenance risk, test surface health, architectural concentration, biggest modules, and healthy structure signals without changing source code."

@@ -1,0 +1,33 @@
+# Default to ignoring everything in this private skills workspace.
+/*
+
+# Keep this allowlist itself under version control.
+!/.gitignore
+!/README.md
+
+# Public-safe skills to track without source changes.
+!/match-user-language/
+!/match-user-language/**
+
+!/product-overview-syncer/
+!/product-overview-syncer/**
+
+!/repo-and-app-footprint-inspector/
+!/repo-and-app-footprint-inspector/**
+
+!/string-catalog-maintainer/
+!/string-catalog-maintainer/**
+
+!/swiftdata-schema-auditor/
+!/swiftdata-schema-auditor/**
+
+!/verify-contract-maintainer/
+!/verify-contract-maintainer/**
+
+!/xcode-preview-auditor/
+!/xcode-preview-auditor/**
+
+# Re-ignore local junk even inside allowed directories.
+**/.DS_Store
+**/__pycache__/
+**/*.pyc

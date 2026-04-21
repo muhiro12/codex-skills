@@ -1,0 +1,4 @@
+interface:
+  display_name: "String Catalog Maintainer"
+  short_description: "Audit and repair Xcode string catalogs"
+  default_prompt: "Use $string-catalog-maintainer to audit my app's string catalogs, remove stale keys, and fill missing locale entries."

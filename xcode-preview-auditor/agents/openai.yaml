@@ -1,0 +1,4 @@
+interface:
+  display_name: "Xcode Preview Auditor"
+  short_description: "Audit SwiftUI #Preview with MCP-first coverage reporting"
+  default_prompt: "Use $xcode-preview-auditor to audit SwiftUI #Preview screens with Xcode MCP first, report capture coverage by file and screen, explain failed attempts and blocker ownership, and keep the run audit-only unless fixes are explicitly requested."

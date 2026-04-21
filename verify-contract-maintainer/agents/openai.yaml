@@ -1,0 +1,4 @@
+interface:
+  display_name: "Verify Contract Maintainer"
+  short_description: "Bootstrap and normalize ci_scripts verify contracts safely"
+  default_prompt: "Use $verify-contract-maintainer to bootstrap or normalize verify contracts in repositories with ci_scripts."
