@@ -1,0 +1,4 @@
+interface:
+  display_name: "Internal Fixture CI Push Readiness Skill"
+  short_description: "Run verify CI and judge final push readiness"
+  default_prompt: "Use $internal-fixture-ci-push-readiness-skill to run verify CI, read only the newest .build/ci/runs artifacts, and judge push readiness."

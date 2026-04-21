@@ -1,4 +1,4 @@
 interface:
   display_name: "Apple Repo Verify Bootstrapper"
   short_description: "Prepare Apple repo verify/build/test/lint shells"
-  default_prompt: "Use $apple-repo-verify-bootstrapper to prepare or repair an Apple-platform repository's verification scaffolding by establishing repo-specific ci_scripts, AGENTS.md entrypoints, and optional pre-commit wiring, while using a locally available sibling reference repository such as ../Incomes only as a read-only reference."
+  default_prompt: "Use $apple-repo-verify-bootstrapper to prepare or repair an Apple-platform repository's verification scaffolding by establishing repo-specific ci_scripts, AGENTS.md entrypoints, and optional pre-commit wiring, while using a locally available sibling reference repository only as a read-only reference."

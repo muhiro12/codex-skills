@@ -9,7 +9,7 @@ Stay inside the current repository unless the user explicitly says otherwise.
 - Prefer small, adjacent changes that can be implemented and verified in one turn.
 - Reject large refactors, architecture rewrites, broad renames, or cross-cutting cleanup unless the user explicitly asks.
 - Reject tasks that require touching multiple repositories.
-- For Apple-platform repositories, inspect a locally available sibling reference repository such as `../Incomes` only as a read-only tie-breaker after current-repo evidence and Apple official guidance.
+- For Apple-platform repositories, inspect a locally available sibling reference repository only as a read-only tie-breaker after current-repo evidence and Apple official guidance.
 
 ## 2. Preflight Blockers
 

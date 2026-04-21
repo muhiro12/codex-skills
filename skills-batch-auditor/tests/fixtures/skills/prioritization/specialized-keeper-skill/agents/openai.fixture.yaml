@@ -1,0 +1,4 @@
+interface:
+  display_name: "Internal Fixture Specialized Keeper Skill"
+  short_description: "Assess release-blocking risk for one repository"
+  default_prompt: "Use $internal-fixture-specialized-keeper-skill to review release-blocking risk for one repository and summarize a safe ship decision."

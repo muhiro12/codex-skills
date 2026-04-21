@@ -1,0 +1,4 @@
+interface:
+  display_name: "Developer Principles"
+  short_description: "Capture cross-repo judgments and evolving principles"
+  default_prompt: "Use $track-developer-principles to capture or consult my cross-repo design and business principles."

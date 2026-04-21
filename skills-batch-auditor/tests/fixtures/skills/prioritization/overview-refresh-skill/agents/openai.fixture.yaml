@@ -1,0 +1,4 @@
+interface:
+  display_name: "Internal Fixture Overview Refresh Skill"
+  short_description: "Polish existing overview report wording for fixtures"
+  default_prompt: "Use $internal-fixture-overview-refresh-skill to polish overview report wording."

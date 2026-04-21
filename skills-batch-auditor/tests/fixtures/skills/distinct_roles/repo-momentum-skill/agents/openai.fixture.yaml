@@ -1,0 +1,4 @@
+interface:
+  display_name: "Internal Fixture Repo Momentum Skill"
+  short_description: "Choose one safe next task in the current repository"
+  default_prompt: "Use $internal-fixture-repo-momentum-skill to inspect the current repository, choose one safe next task, and implement it."

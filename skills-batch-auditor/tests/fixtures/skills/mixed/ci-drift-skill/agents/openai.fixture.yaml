@@ -1,0 +1,4 @@
+interface:
+  display_name: "Internal Fixture CI Drift Skill"
+  short_description: "Check CI alignment behavior with internal fixtures"
+  default_prompt: "Use $internal-fixture-ci-drift-skill to validate CI alignment."

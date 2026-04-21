@@ -1,0 +1,4 @@
+interface:
+  display_name: "Internal Fixture Skills Portfolio Auditor Skill"
+  short_description: "Audit a local skill portfolio and report actions"
+  default_prompt: "Use $internal-fixture-skills-portfolio-auditor-skill to audit multiple local skills and return a portfolio-level skill-audit report."

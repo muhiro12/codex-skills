@@ -1,51 +1,17 @@
-# Default to ignoring everything in this private skills workspace.
-/*
+# Workspace-local or non-public directories
+/.system/
+/codex-primary-runtime/
+/ci_scripts/
 
-# Keep this allowlist itself under version control.
-!/.gitignore
-!/README.md
+# Private local principle records
+track-developer-principles/references/current-principles.md
+track-developer-principles/references/evolution-log.md
 
-# Public-safe skills to track without source changes.
-!/match-user-language/
-!/match-user-language/**
-
-!/product-overview-syncer/
-!/product-overview-syncer/**
-
-!/apple-ios-dev-flow/
-!/apple-ios-dev-flow/**
-
-!/apple-repo-verify-bootstrapper/
-!/apple-repo-verify-bootstrapper/**
-
-!/ci-verify-and-summarize/
-!/ci-verify-and-summarize/**
-
-!/release-risk-analyzer/
-!/release-risk-analyzer/**
-
-!/repo-and-app-footprint-inspector/
-!/repo-and-app-footprint-inspector/**
-
-!/repo-consistency-refiner/
-!/repo-consistency-refiner/**
-
-!/repo-momentum-driver/
-!/repo-momentum-driver/**
-
-!/string-catalog-maintainer/
-!/string-catalog-maintainer/**
-
-!/swiftdata-schema-auditor/
-!/swiftdata-schema-auditor/**
-
-!/verify-contract-maintainer/
-!/verify-contract-maintainer/**
-
-!/xcode-preview-auditor/
-!/xcode-preview-auditor/**
-
-# Re-ignore local junk even inside allowed directories.
+# Local junk / generated files
 **/.DS_Store
 **/__pycache__/
 **/*.pyc
+**/.pytest_cache/
+**/.build/
+**/build/
+**/DerivedData/

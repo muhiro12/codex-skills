@@ -1,0 +1,4 @@
+interface:
+  display_name: "Internal Fixture Footprint Diagnosis Skill"
+  short_description: "Inspect footprint and explain maintenance cost"
+  default_prompt: "Use $internal-fixture-footprint-diagnosis-skill to inspect repository and app footprint and summarize maintenance risk."

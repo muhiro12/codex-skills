@@ -1,0 +1,4 @@
+interface:
+  display_name: Internal Fixture Bare Scalar Skill
+  short_description: Validate bare scalar OpenAI parsing in fixtures
+  default_prompt: Use $internal-fixture-bare-scalar-skill to validate bare scalar parsing.

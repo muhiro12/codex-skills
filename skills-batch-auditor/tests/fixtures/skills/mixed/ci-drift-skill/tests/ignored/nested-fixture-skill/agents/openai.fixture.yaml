@@ -1,0 +1,4 @@
+interface:
+  display_name: "Internal Fixture Nested Fixture Skill"
+  short_description: "Nested fixture that should stay out of discovery"
+  default_prompt: "Use $internal-fixture-nested-fixture-skill only in nested fixtures."

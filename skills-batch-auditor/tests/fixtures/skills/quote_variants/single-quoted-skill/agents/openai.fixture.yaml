@@ -1,0 +1,4 @@
+interface:
+  display_name: 'Internal Fixture Single Quoted Skill'
+  short_description: 'Validate single quoted OpenAI parsing in fixtures'
+  default_prompt: 'Use $internal-fixture-single-quoted-skill to validate quoted parsing.'

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Internal Fixture App Store Release Notes Skill"
+  short_description: "Write App Store release notes for each locale"
+  default_prompt: "Use $internal-fixture-app-store-release-notes-skill to draft App Store What's New text for each supported locale."

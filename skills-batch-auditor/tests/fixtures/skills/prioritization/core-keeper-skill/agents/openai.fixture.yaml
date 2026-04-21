@@ -1,0 +1,4 @@
+interface:
+  display_name: "Internal Fixture Core Keeper Skill"
+  short_description: "Audit multiple skills with reusable maintenance guidance"
+  default_prompt: "Use $internal-fixture-core-keeper-skill to review several local skills and summarize safe maintenance priorities."

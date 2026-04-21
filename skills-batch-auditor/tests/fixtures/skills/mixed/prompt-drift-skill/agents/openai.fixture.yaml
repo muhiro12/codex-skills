@@ -1,0 +1,4 @@
+interface:
+  display_name: "Internal Fixture Prompt Drift Skill"
+  short_description: "Check default prompt validation in internal fixtures"
+  default_prompt: "Audit prompt metadata for fixture coverage."

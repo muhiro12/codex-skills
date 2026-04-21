@@ -1,0 +1,4 @@
+interface:
+  display_name: "Internal Fixture Repo Specific Dev Skill"
+  short_description: "Develop one repository with sibling references"
+  default_prompt: "Use $internal-fixture-repo-specific-dev-skill to develop ClientPortal while treating sibling repositories as read-only references."

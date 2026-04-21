@@ -20,7 +20,7 @@ Use this skill when the user asks for things such as:
 - `verify.sh を用意して`
 - `build/test/lint の共通 shell を作って`
 - `push 前に verify を走らせたい`
-- `Incomes を参考に repo の検証フローを整備して`
+- `参照用の sibling repo を参考に repo の検証フローを整備して`
 
 ## Workflow
 
@@ -33,7 +33,7 @@ Use this skill when the user asks for things such as:
 - Treat explicit repository constraints and direct user instructions as higher priority than older archived principles when they conflict.
 
 3. Inspect a locally available sibling reference repository third only when needed.
-- If a sibling reference repository such as `../Incomes` is available and relevant, use it as a read-only reference when the current repository lacks a coherent pattern or the user explicitly wants alignment.
+- If a locally available sibling reference repository is available and relevant, use it as a read-only reference when the current repository lacks a coherent pattern or the user explicitly wants alignment.
 - Learn reusable workflow structure, not finance-specific behavior or app-specific naming.
 
 4. Establish one source of truth for verification.

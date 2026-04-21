@@ -1,0 +1,4 @@
+interface:
+  display_name: "Internal Fixture Release Risk Skill"
+  short_description: "Assess release-blocking risk before shipping"
+  default_prompt: "Use $internal-fixture-release-risk-skill to review release-blocking risk and return a block or proceed decision."

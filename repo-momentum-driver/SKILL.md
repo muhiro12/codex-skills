@@ -26,7 +26,7 @@ Use this skill when requests indicate autonomous continuation, such as:
 1. Set boundaries before exploring.
 - Stay inside the current repository by default.
 - If multiple repositories are visible, ignore siblings or children unless the user explicitly names another repository.
-- For Apple-platform repositories, inspect a locally available sibling reference repository such as `../Incomes` only as a read-only fallback after local evidence plus Apple official guidance still leave the implementation shape unresolved.
+- For Apple-platform repositories, inspect a locally available sibling reference repository only as a read-only fallback after local evidence plus Apple official guidance still leave the implementation shape unresolved.
 - Select and execute exactly one next task per invocation.
 - Do not broaden into a roadmap, batch cleanup, or multi-commit plan.
 - Do not start large refactors, architecture rewrites, broad renames, or cross-cutting cleanup unless the user explicitly asks.

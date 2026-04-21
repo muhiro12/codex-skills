@@ -1,0 +1,4 @@
+interface:
+  display_name: "Skills Batch Auditor"
+  short_description: "Audit custom skills and prioritize maintenance work"
+  default_prompt: "Use $skills-batch-auditor to audit my custom skills, score reuse value, clarity of invocation, safety, and maintenance burden, classify each skill by portfolio value, and return report-only recommendations in concise polite Japanese unless I explicitly ask for low-risk implementation."

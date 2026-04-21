@@ -1,0 +1,4 @@
+interface:
+  display_name: "Respect Incomes Architecture"
+  short_description: "Align repo architecture with read-only Incomes patterns"
+  default_prompt: "Use $respect-incomes-architecture to review this repository against ../Incomes and guide architecture-aligned changes."

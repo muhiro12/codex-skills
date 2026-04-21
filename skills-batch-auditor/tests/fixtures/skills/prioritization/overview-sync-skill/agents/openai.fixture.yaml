@@ -1,0 +1,4 @@
+interface:
+  display_name: "Internal Fixture Overview Sync Skill"
+  short_description: "Sync reusable overview notes across related skills"
+  default_prompt: "Use $internal-fixture-overview-sync-skill to keep shared overview notes aligned across related skills."

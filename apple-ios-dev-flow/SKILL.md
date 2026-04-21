@@ -40,7 +40,7 @@ Prefer specialized skills instead for:
 - Prefer Apple or Swift official guidance over general web advice.
 
 4. Use a locally available sibling reference repository fourth as a read-only fallback.
-- If a sibling reference repository such as `../Incomes` is available and relevant, inspect it only after current-repo evidence plus Apple official guidance still do not settle the approach.
+- If a locally available sibling reference repository is available and relevant, inspect it only after current-repo evidence plus Apple official guidance still do not settle the approach.
 - Borrow reusable workflow or architecture intent, not app-specific UX, domain models, or naming.
 
 ## Workflow

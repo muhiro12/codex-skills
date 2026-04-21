@@ -1,0 +1,4 @@
+interface:
+  display_name: Internal Fixture Self-Audit Skills Batch Auditor
+  short_description: Self-audit fixture for batch auditor coverage
+  default_prompt: Use $internal-fixture-self-audit-skills-batch-auditor to audit the fixture skill set.

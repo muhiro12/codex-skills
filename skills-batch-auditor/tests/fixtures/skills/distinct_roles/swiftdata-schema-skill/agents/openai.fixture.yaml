@@ -1,0 +1,4 @@
+interface:
+  display_name: "Internal Fixture SwiftData Schema Skill"
+  short_description: "Inspect SwiftData schema and migration hotspots"
+  default_prompt: "Use $internal-fixture-swiftdata-schema-skill to inspect SwiftData schema entities and review migration risk."

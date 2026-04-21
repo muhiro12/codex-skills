@@ -1,0 +1,4 @@
+interface:
+  display_name: "Internal Fixture Scan Drift Skill"
+  short_description: "Check generated directory guard with internal fixtures"
+  default_prompt: "Use $internal-fixture-scan-drift-skill to validate scan safety."

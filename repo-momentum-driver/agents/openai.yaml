@@ -1,4 +1,4 @@
 interface:
   display_name: "Repo Momentum Driver"
   short_description: "Pick one safe next repo task per turn"
-  default_prompt: "Use $repo-momentum-driver to inspect the current repository, choose exactly one low-risk next task, prefer current-repo evidence first plus Apple official guidance and a locally available sibling reference repository such as ../Incomes only when needed for Apple-platform repos, implement it, and finish by running the repo's standard verification entrypoint."
+  default_prompt: "Use $repo-momentum-driver to inspect the current repository, choose exactly one low-risk next task, prefer current-repo evidence first plus Apple official guidance and a locally available sibling reference repository only when needed for Apple-platform repos, implement it, and finish by running the repo's standard verification entrypoint."

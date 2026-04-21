@@ -1,0 +1,4 @@
+interface:
+  display_name: "Internal Fixture Improve Next Skill"
+  short_description: "Verify reusable skill contract alignment with fixtures"
+  default_prompt: "Verify shared skill contract drift and summarize fixes."
