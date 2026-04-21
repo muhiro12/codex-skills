@@ -1,0 +1,4 @@
+interface:
+  display_name: "Internal Fixture Apple Verify Bootstrap Skill"
+  short_description: "Bootstrap first-pass verify scaffolding for Apple repositories"
+  default_prompt: "Use $internal-fixture-apple-verify-bootstrap-skill to shape initial Apple repository verify scaffolding from Xcode or Swift package surfaces."

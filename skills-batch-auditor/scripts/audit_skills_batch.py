@@ -88,48 +88,120 @@ MERGE_STOPWORDS = {
     "across",
     "agent",
     "agents",
+    "all",
+    "and",
+    "any",
+    "are",
+    "artifact",
+    "artifacts",
     "audit",
     "batch",
+    "before",
+    "build",
     "check",
     "checks",
+    "coherent",
+    "commit",
+    "compatibility",
+    "compatible",
+    "condition",
+    "conditions",
+    "config",
+    "configs",
+    "contract",
+    "contracts",
     "codex",
     "concise",
+    "convention",
+    "conventions",
     "coverage",
     "custom",
     "default",
     "drift",
+    "entrypoint",
+    "entrypoints",
+    "existing",
     "fixture",
+    "for",
+    "from",
     "guidance",
+    "hook",
+    "hooks",
     "implement",
     "implementation",
     "improve",
+    "internal",
     "japanese",
     "local",
+    "lint",
     "maintenance",
     "multiple",
+    "naming",
+    "newest",
+    "older",
+    "only",
     "output",
     "polite",
     "prompt",
+    "push",
+    "read",
+    "repo",
+    "report",
+    "repository",
+    "return",
     "refresh",
     "reports",
     "reuse",
     "risk",
+    "role",
+    "roles",
+    "run",
+    "runs",
     "safe",
     "safely",
     "scan",
+    "script",
+    "scripts",
+    "shell",
     "skill",
     "skills",
+    "standard",
+    "state",
+    "such",
     "summaries",
     "summary",
     "sync",
+    "task",
+    "tasks",
+    "that",
+    "the",
+    "their",
+    "them",
+    "there",
+    "these",
+    "this",
     "test",
     "tests",
+    "trigger",
+    "under",
     "update",
     "updates",
     "use",
     "verify",
+    "verification",
+    "when",
+    "while",
+    "with",
+    "without",
+    "workflow",
+    "wrapper",
+    "wrappers",
     "workflow",
 }
+
+MERGE_KEYWORD_MAX_DOCUMENT_FREQUENCY = 3
+MERGE_MIN_SHARED_KEYWORDS = 2
+MERGE_MIN_SIMILARITY = 0.18
 
 FALLBACK_REQUIRED_INPUTS = [
     "全 Skill 名の一覧",
@@ -1054,6 +1126,25 @@ def extract_skill_keywords(skill: SkillRecord) -> set[str]:
     return keywords
 
 
+def build_keyword_document_frequency(keyword_map: dict[str, set[str]]) -> dict[str, int]:
+    document_frequency: dict[str, int] = {}
+    for keywords in keyword_map.values():
+        for keyword in keywords:
+            document_frequency[keyword] = document_frequency.get(keyword, 0) + 1
+    return document_frequency
+
+
+def filter_distinctive_keywords(
+    keywords: set[str],
+    document_frequency: dict[str, int],
+) -> set[str]:
+    return {
+        keyword
+        for keyword in keywords
+        if document_frequency.get(keyword, 0) <= MERGE_KEYWORD_MAX_DOCUMENT_FREQUENCY
+    }
+
+
 def portfolio_strength(item: dict[str, Any]) -> int:
     scores = item["scores"]
     strength = (
@@ -1073,13 +1164,17 @@ def choose_merge_target(
     item: dict[str, Any],
     report_items: list[dict[str, Any]],
     keyword_map: dict[str, set[str]],
+    keyword_document_frequency: dict[str, int],
     compatibility_profiles: dict[str, SkillCompatibilityProfile],
 ) -> tuple[str, list[str]]:
     if item["portfolio_classification"] in {"core", "retire candidate"}:
         return "", []
 
-    current_keywords = keyword_map.get(item["name"], set())
-    if len(current_keywords) < 2:
+    current_keywords = filter_distinctive_keywords(
+        keyword_map.get(item["name"], set()),
+        keyword_document_frequency,
+    )
+    if len(current_keywords) < MERGE_MIN_SHARED_KEYWORDS:
         return "", []
 
     current_profile = compatibility_profiles.get(item["name"])
@@ -1102,14 +1197,17 @@ def choose_merge_target(
         if other_profile != current_profile:
             continue
 
-        other_keywords = keyword_map.get(other["name"], set())
+        other_keywords = filter_distinctive_keywords(
+            keyword_map.get(other["name"], set()),
+            keyword_document_frequency,
+        )
         overlap = sorted(current_keywords & other_keywords)
-        if len(overlap) < 2:
+        if len(overlap) < MERGE_MIN_SHARED_KEYWORDS:
             continue
 
         union = current_keywords | other_keywords
         similarity = len(overlap) / max(1, len(union))
-        if similarity < 0.18:
+        if similarity < MERGE_MIN_SIMILARITY:
             continue
 
         other_strength = portfolio_strength(other)
@@ -1179,6 +1277,7 @@ def enrich_portfolio_prioritization(
         for name in skill_records
         if name in {item["name"] for item in report_items}
     }
+    keyword_document_frequency = build_keyword_document_frequency(keyword_map)
     compatibility_profiles = {
         name: build_skill_compatibility_profile(skill_records[name])
         for name in skill_records
@@ -1190,6 +1289,7 @@ def enrich_portfolio_prioritization(
             item,
             report_items,
             keyword_map,
+            keyword_document_frequency,
             compatibility_profiles,
         )
         item["merge_target"] = merge_target

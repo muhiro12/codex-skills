@@ -249,6 +249,23 @@ class AuditSkillsBatchCLITests(unittest.TestCase):
             [],
         )
 
+    def test_verify_bootstrap_and_contract_maintenance_stay_separate(self) -> None:
+        payload = self._run_json("without_ci", "distinct_verify_roles")
+
+        for skill_name in [
+            "internal-fixture-apple-verify-bootstrap-skill",
+            "internal-fixture-verify-contract-maintenance-skill",
+        ]:
+            item = self._find_report_item(payload, skill_name)
+            self.assertEqual(item["status"], "aligned")
+            self.assertEqual(item["recommended_action"], "keep as-is")
+            self.assertEqual(item["merge_target"], "")
+
+        self.assertEqual(
+            [entry["name"] for entry in payload["batch_decisions"]["merge with another skill"]],
+            [],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,24 +1,27 @@
 ---
 name: verify-contract-maintainer
-description: Bootstrap and maintain a minimal verify contract for repositories that use `ci_scripts`, so verification entrypoints are predictable, commit-time hooks stay lightweight, and name drift is reduced. Use when Codex needs to initialize missing verify shells, normalize naming across existing scripts, align `AGENTS.md` with executable entrypoints, migrate heavy checks away from commit-time hooks, or audit contract compliance without broad refactors.
+description: Define, audit, and maintain a minimal verify contract for repositories that already have or are deliberately adopting `ci_scripts`, so verification entrypoints stay predictable, commit-time hooks stay lightweight, and name drift is reduced without broad rewrites.
 ---
 
 # Verify Contract Maintainer
 
 ## Overview
 
-Define and enforce a small, practical verification contract for repositories that already have `ci_scripts` or want to adopt it.
+Define and enforce a small, practical verification contract for repositories that already have `ci_scripts` or have already decided to adopt them.
 Keep repository behavior stable by preferring low-risk normalization and explicit reporting over broad rewrites.
+Treat this skill as the owner of contract-level maintenance: `AGENTS.md` alignment, entrypoint normalization, push/manual routing for heavy checks, and compatibility-first upkeep.
+Do not use this skill to design first-pass Apple-platform verification scaffolding from Xcode project layout, `Package.swift`, or sibling reference repositories. Use `$apple-repo-verify-bootstrapper` for that initial bootstrap work.
 
 ## Trigger Conditions
 
 Use this skill when the user asks for topics such as:
 
-- `ci_scripts` の初期整備をしたい
+- `ci_scripts` 採用後の最小契約を整えたい
 - verify系スクリプトの名前揺れを減らしたい
 - `AGENTS.md` の検証入口記述と実体を一致させたい
 - 重い verify を commit 時ではなく push 前または手動実行へ寄せたい
 - 契約を満たしているかだけ監査したい
+- 既存 verify 導線を大きく変えずに軽量メンテしたい
 
 ## Contract Definition
 
@@ -59,7 +62,8 @@ Use one mode per run:
 
 1. Inspect repository ground truth first.
 - Read `AGENTS.md`, `ci_scripts/`, and existing hook config when present.
-- Detect current verify entrypoints before proposing changes.
+- Detect current or intentionally planned verify entrypoints before proposing changes.
+- If the repository still lacks first-pass Apple-repo scaffolding entirely, hand the work to `$apple-repo-verify-bootstrapper` instead of inventing that structure here.
 
 2. Build a contract map.
 - Map current files to contract roles:
@@ -76,6 +80,7 @@ Use one mode per run:
 - Keep existing entrypoint behavior unless broken.
 - If standard filenames are absent but an equivalent entrypoint exists, prefer documenting and wrapping before replacing.
 - Keep script names, interfaces, and invocation compatibility stable where possible.
+- Do not expand scope into Apple-specific build surface discovery or sibling-reference-repo alignment.
 
 5. Verify and summarize.
 - Run repository-standard verification command when available.
@@ -97,11 +102,12 @@ Treat these as manual review:
 
 ## Safety / Guardrails
 
-- Do not mutate sibling repositories.
+- Do not require or introduce sibling reference repositories to define the contract.
 - Do not scan historical generated artifacts unless explicitly requested.
 - Do not enforce one hard-coded script name when repository-standard entrypoints already exist and are documented.
 - Do not reintroduce heavy commit-time verification as the default path unless the user explicitly asks for it.
 - Prefer compatibility-first normalization and clear reporting.
+- Do not use this skill for first-time Apple-specific verify scaffolding or mixed app-package bootstrap design.
 
 ## Response Contract
 

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Internal Fixture Verify Contract Maintenance Skill"
+  short_description: "Maintain an existing verify contract with low churn"
+  default_prompt: "Use $internal-fixture-verify-contract-maintenance-skill to audit or normalize an existing verify contract after ci_scripts adoption is already in scope."

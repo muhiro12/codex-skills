@@ -53,6 +53,8 @@ Use `--implementation-mode low-risk` only for weekly maintenance runs or when th
   - `short_description` length (25-64)
   - `default_prompt` includes `$<skill-name>`
 - Treat skills with `metadata.visibility: internal` as intentionally UI-hidden and allow them to omit `agents/openai.yaml`.
+- Distinguish true merge candidates from intentionally split neighboring skills.
+- Do not recommend `merge with another skill` when the overlap is mostly broad repository-workflow vocabulary such as `ci_scripts`, `AGENTS.md`, `verify`, `hook`, or `entrypoint`.
 - Score every skill explicitly on these four dimensions:
   - `reuse value`
   - `clarity of invocation`
