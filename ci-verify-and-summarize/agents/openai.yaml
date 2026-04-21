@@ -1,0 +1,4 @@
+interface:
+  display_name: "CI Verify and Summarize"
+  short_description: "Run final verify gate and assess push readiness"
+  default_prompt: "Use $ci-verify-and-summarize as the final gate: run the repository's standard verify CI shell, review the current diff, inspect only the newest CI run artifacts, and distinguish current-change issues from clearly external or pre-existing ones."

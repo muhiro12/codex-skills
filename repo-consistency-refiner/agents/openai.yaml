@@ -1,0 +1,4 @@
+interface:
+  display_name: "Repo Consistency Refiner"
+  short_description: "Audit repository consistency and propose refinements"
+  default_prompt: "Use $repo-consistency-refiner to inspect this repository for structural, architectural, workflow, and documentation inconsistencies, then return a prioritized Japanese report without touching external repositories."

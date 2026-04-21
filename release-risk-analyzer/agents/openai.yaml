@@ -1,0 +1,4 @@
+interface:
+  display_name: "Release Risk Analyzer"
+  short_description: "Assess release-blocking risk since the latest tag"
+  default_prompt: "Use $release-risk-analyzer to check whether changes since the latest release tag contain release-blocking risk that needs manual review."

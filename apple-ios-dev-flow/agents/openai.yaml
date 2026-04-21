@@ -1,0 +1,6 @@
+interface:
+  display_name: "Apple iOS Dev Flow"
+  short_description: "Default Apple app implementation flow with repo gates"
+  default_prompt: "Use $apple-ios-dev-flow as the default workflow for Apple-platform implementation work: decide from current repository evidence first, Apple official guidance second, and a locally available sibling reference repository such as ../Incomes only as a read-only fallback, then run the repository's standard verification shell before replying."
+policy:
+  allow_implicit_invocation: true
