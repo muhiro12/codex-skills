@@ -1,6 +1,6 @@
 ---
 name: repo-and-app-footprint-inspector
-description: Diagnose repository and app footprint without modifying source code. Use when Codex needs practical conclusions from repository size, app codebase size, meaningful LOC, directory or module concentration, maintenance risk, test surface health, architectural hotspots, or structural health signals, especially for requests about project volume, codebase footprint, biggest modules, maintenance burden, or whether the current structure is healthy enough to keep extending.
+description: Diagnose repository and app footprint without modifying source code. Use this skill when you need practical conclusions from repository size, app codebase size, meaningful LOC, directory or module concentration, maintenance risk, test surface health, architectural hotspots, or structural health signals, especially for requests about project volume, codebase footprint, biggest modules, maintenance burden, or whether the current structure is healthy enough to keep extending.
 ---
 
 # Repo And App Footprint Inspector
@@ -8,6 +8,7 @@ description: Diagnose repository and app footprint without modifying source code
 ## Overview
 
 Use this skill for read-only footprint diagnosis.
+Keep the core instructions in this file portable across agent runtimes where practical; platform-specific metadata can live beside the skill.
 Keep size metrics, but treat them as evidence for maintenance cost, change safety, and structural health.
 Default response language is concise, polite Japanese unless the user asks for another language.
 

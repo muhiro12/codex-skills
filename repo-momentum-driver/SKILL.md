@@ -8,6 +8,7 @@ description: Drive bounded autonomous continuation of development from vague "ke
 ## Overview
 
 Use this skill to convert ambiguous continuation requests into exactly one concrete, low-risk, high-signal implementation task per turn.
+Keep the task-selection and implementation rules in this file portable across agent runtimes where practical; platform-specific metadata can live beside the skill.
 Default explanation language is concise, practical Japanese.
 For Apple-platform repositories, keep the default decision order as current repository evidence first, Apple official guidance second, and a locally available sibling reference repository only as a read-only fallback when implementation shape is still unclear.
 When choosing the next task depends on durable cross-repository judgment, consult a local principle archive skill when available (for example `$track-developer-principles`) and let it inform both task selection and implementation shape.

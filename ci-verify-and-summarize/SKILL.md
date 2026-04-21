@@ -8,8 +8,9 @@ description: Run the repository's final verification gate by executing its stand
 ## Overview
 
 Use this skill as the repository's final verification gate before treating implementation work as ready.
+Keep the review logic in this file portable across agent runtimes where practical; the helper invocation below is simply the local installation adapter for this machine.
 Run the standard verify-oriented CI entrypoint, inspect the newest CI artifacts, perform a focused diff review, and classify push readiness from build/test/lint/warning signals plus the current git diff.
-When the user explicitly invokes `$ci-verify-and-summarize`, still run the workflow even if staged and unstaged diffs are both empty, and report that the worktree is clean instead of treating the skill as not applicable.
+When the user explicitly invokes this skill, including `$ci-verify-and-summarize` in runtimes that support that syntax, still run the workflow even if staged and unstaged diffs are both empty, and report that the worktree is clean instead of treating the skill as not applicable.
 Keep execution thin and deterministic by delegating CI execution to the bundled helper script.
 
 ## Trigger Conditions
@@ -22,7 +23,7 @@ Typical phrases include:
 - `コミット前チェックして`
 - `push前に見て`
 - `最後に危ない差分がないか見て`
-- explicit `$ci-verify-and-summarize` invocation to run the final gate even on a clean worktree
+- explicit invocation of this skill, including `$ci-verify-and-summarize` where that syntax is supported, to run the final gate even on a clean worktree
 
 ## Workflow
 

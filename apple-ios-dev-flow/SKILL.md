@@ -8,6 +8,7 @@ description: Implement or refine Apple-platform app changes with a default workf
 ## Overview
 
 Use this skill as the default workflow for ordinary Apple-platform implementation requests.
+Keep the workflow core in this file portable across agent runtimes where practical; platform-specific metadata can live beside the skill.
 Return user-facing explanations in concise, practical Japanese.
 Keep code, commands, file names, identifiers, and repository documents in English unless the target repository already uses another convention.
 When implementation depends on recurring cross-repository judgment, consult a local principle archive skill when available (for example `$track-developer-principles`) before settling the approach.

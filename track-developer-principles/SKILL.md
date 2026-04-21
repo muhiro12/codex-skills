@@ -1,6 +1,6 @@
 ---
 name: track-developer-principles
-description: Capture, maintain, harvest, and consult the user's cross-repository design judgments, engineering principles, product or business heuristics, and changes in thinking over time. Use when the user explicitly wants to record a durable idea, tradeoff rule, or rationale; when ordinary repository conversations reveal a durable cross-repository preference even without an explicit recording request; when the user says their thinking has changed and wants that evolution preserved; or when Codex should load the stored principles before proposing or implementing repository-specific work.
+description: Capture, maintain, harvest, and consult the user's cross-repository design judgments, engineering principles, product or business heuristics, and changes in thinking over time. Use when the user explicitly wants to record a durable idea, tradeoff rule, or rationale; when ordinary repository conversations reveal a durable cross-repository preference even without an explicit recording request; when the user says their thinking has changed and wants that evolution preserved; or when the current agent should load the stored principles before proposing or implementing repository-specific work.
 ---
 
 # Track Developer Principles
@@ -8,6 +8,7 @@ description: Capture, maintain, harvest, and consult the user's cross-repository
 ## Overview
 
 Use this skill as a cross-repository memory for the user's durable judgment.
+Keep the recording rules in this file portable across agent runtimes where practical; platform-specific metadata can live beside the skill.
 Keep the current stance easy to consult, keep the change history explicit, and avoid polluting product repositories with personal operating notes unless the user asks for a different storage location.
 Treat this skill as a loop between daily repository work and a shared personal principle archive: harvest durable thinking from normal work, then feed that stored judgment back into future work across repositories.
 
@@ -117,7 +118,7 @@ In `references/evolution-log.md`, append entries in reverse chronological order 
 - The record reflects a durable cross-repository judgment, not a one-off local note.
 - `references/current-principles.md` contains only the latest active stance.
 - `references/evolution-log.md` captures the historical change with an absolute date when applicable.
-- Future Codex work can understand the principle without re-reading the full chat.
+- Future agent work can understand the principle without re-reading the full chat.
 
 ## Workflow Alignment (skills-batch-auditor)
 

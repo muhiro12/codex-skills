@@ -1,6 +1,6 @@
 ---
 name: release-risk-analyzer
-description: Assess release-blocking risk between the latest reachable release tag and the current commit, with emphasis on changes that can leave lasting product damage if released unnoticed. Use when Codex needs to decide whether a release should be blocked for manual review, especially for permissions and capabilities, SwiftData or database migration surfaces, persistent settings such as UserDefaults or AppStorage, and other high-risk product surfaces. It can still summarize changes, but risk judgment should come first.
+description: Assess release-blocking risk between the latest reachable release tag and the current commit, with emphasis on changes that can leave lasting product damage if released unnoticed. Use this skill when you need to decide whether a release should be blocked for manual review, especially for permissions and capabilities, SwiftData or database migration surfaces, persistent settings such as UserDefaults or AppStorage, and other high-risk product surfaces. It can still summarize changes, but risk judgment should come first.
 ---
 
 # Release Risk Analyzer
@@ -8,6 +8,7 @@ description: Assess release-blocking risk between the latest reachable release t
 ## Overview
 
 Use this skill to turn `<latest-tag>..HEAD` into a release-blocking risk assessment.
+Keep the core review logic in this file portable across agent runtimes where practical; platform-specific metadata can live beside the skill.
 Default explanation language is concise, polite Japanese, and the report must lead with the release decision before detailed summaries.
 
 ## Trigger Conditions

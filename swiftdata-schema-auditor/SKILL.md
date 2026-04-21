@@ -1,6 +1,6 @@
 ---
 name: swiftdata-schema-auditor
-description: Inspect SwiftData schema definitions in the current repository and turn them into a human-readable Japanese review. Use when Codex needs to explain or audit `@Model` entities, persisted properties, defaults, optionality, `@Relationship`, inverse relationships, delete rules, `@Attribute`, `@Transient`, computed vs persisted fields, schema coupling, or SwiftData migration risk.
+description: Inspect SwiftData schema definitions in the current repository and turn them into a human-readable Japanese review. Use this skill when you need to explain or audit `@Model` entities, persisted properties, defaults, optionality, `@Relationship`, inverse relationships, delete rules, `@Attribute`, `@Transient`, computed vs persisted fields, schema coupling, or SwiftData migration risk.
 ---
 
 # SwiftData Schema Auditor
@@ -8,6 +8,7 @@ description: Inspect SwiftData schema definitions in the current repository and 
 ## Overview
 
 Use this skill for read-only inspection and design review of SwiftData model code.
+Keep the core instructions in this file portable across agent runtimes where practical; platform-specific metadata can live beside the skill.
 Default explanation language is concise, practical Japanese. Keep code identifiers, type names, attributes, and file names in English.
 
 ## Trigger Conditions
