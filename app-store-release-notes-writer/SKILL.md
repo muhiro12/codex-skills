@@ -28,6 +28,9 @@ Use this skill when the user asks to:
 - Read `Localizable.xcstrings` and `*.xcodeproj/project.pbxproj`.
 - Exclude `Base` from output locales.
 - Preserve stable locale order for reproducible outputs.
+- Emit locale blocks in App Store Connect display order for the supported locales shown in the UI: `en`, `es`, `fr`, `zh-Hans`, `ja`.
+- Apply the same ordering to regional variants such as `en-US`, `es-ES`, `fr-FR`, `zh-CN`, and `ja-JP`.
+- Do not move the source locale to the front if that would break the App Store Connect display order.
 
 3. Generate source draft.
 - Run `scripts/generate_release_notes.py` and extract user-visible changes.
@@ -52,6 +55,7 @@ Use this skill when the user asks to:
 - Never fabricate user-facing changes that are not grounded in commits.
 - Avoid implementation-detail-heavy bullets.
 - Keep locale ordering stable and deterministic.
+- Match the emitted locale order to App Store Connect display order instead of source-locale-first ordering.
 - Preserve placeholders and formatting tokens exactly.
 
 ## Response Contract
@@ -66,7 +70,7 @@ Return a concise Japanese summary plus locale blocks:
 ## Verification
 
 - Confirm all target locales are present exactly once.
-- Confirm locale order matches detected support order.
+- Confirm locale order matches App Store Connect display order for supported locales: `en`, `es`, `fr`, `zh-Hans`, `ja`.
 - Confirm unresolved translations are explicitly labeled.
 - Confirm generated blocks are plain text and App Store Connect ready.
 
@@ -81,7 +85,7 @@ python3 scripts/generate_release_notes.py   --repo /path/to/repository   --from-
 Useful options:
 
 - `--max-items`: Set max bullets per locale.
-- `--locales`: Override detected locales (`en,ja,es,fr,zh-Hans`).
+- `--locales`: Override detected locales (`en,ja,es,fr,zh-Hans`) while still emitting in App Store Connect display order.
 - `--source-locale`: Force source locale.
 - `--copy-source-to-all-locales`: Fill non-source locales with source text.
 - `--translations-json`: Inject finalized localized intro/items/outro.

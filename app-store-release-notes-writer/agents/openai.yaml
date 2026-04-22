@@ -1,4 +1,4 @@
 interface:
   display_name: "App Store Release Notes Writer"
   short_description: "Write App Store notes for each supported locale"
-  default_prompt: "Use $app-store-release-notes-writer to generate App Store What's New text for all supported locales from a specified git range."
+  default_prompt: "Use $app-store-release-notes-writer to generate App Store What's New text for all supported locales from a specified git range, and emit locale blocks in App Store Connect display order."

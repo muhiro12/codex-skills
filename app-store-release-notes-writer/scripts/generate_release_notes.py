@@ -80,6 +80,27 @@ IGNORED_DISCOVERY_DIRECTORIES = {
     "node_modules",
 }
 
+APP_STORE_CONNECT_LOCALE_FAMILY_ORDER = (
+    "en",
+    "es",
+    "fr",
+    "zh-Hans",
+    "ja",
+)
+
+APP_STORE_CONNECT_EXACT_LOCALE_ORDER = {
+    "en-US": 0,
+    "en": 1,
+    "es-ES": 0,
+    "es": 1,
+    "fr": 0,
+    "fr-FR": 1,
+    "zh-Hans": 0,
+    "zh-CN": 1,
+    "ja": 0,
+    "ja-JP": 1,
+}
+
 
 @dataclass
 class Commit:
@@ -385,6 +406,42 @@ def load_locales_from_pbxproj(project_path: Path) -> set[str]:
     return locales
 
 
+def locale_family(locale: str) -> str | None:
+    normalized = locale.strip()
+    if not normalized:
+        return None
+
+    if normalized == "zh-Hans" or normalized.startswith("zh-Hans-") or normalized == "zh-CN":
+        return "zh-Hans"
+
+    language = normalized.split("-", 1)[0]
+    if language in {"en", "es", "fr", "ja"}:
+        return language
+
+    return None
+
+
+def locale_template_key(locale: str) -> str:
+    family = locale_family(locale)
+    if family:
+        return family
+    return locale
+
+
+def app_store_connect_locale_sort_key(locale: str) -> tuple[int, int, str]:
+    family = locale_family(locale)
+    if family in APP_STORE_CONNECT_LOCALE_FAMILY_ORDER:
+        family_rank = APP_STORE_CONNECT_LOCALE_FAMILY_ORDER.index(family)
+        exact_rank = APP_STORE_CONNECT_EXACT_LOCALE_ORDER.get(locale, 99)
+        return (family_rank, exact_rank, locale)
+
+    return (len(APP_STORE_CONNECT_LOCALE_FAMILY_ORDER), 999, locale)
+
+
+def order_locales_for_app_store_connect(locales: list[str] | set[str]) -> list[str]:
+    return sorted(locales, key=app_store_connect_locale_sort_key)
+
+
 def normalize_locale_order(locales: set[str], source_locale: str) -> list[str]:
     filtered = {locale for locale in locales if locale and locale != "Base"}
     if not filtered:
@@ -393,8 +450,7 @@ def normalize_locale_order(locales: set[str], source_locale: str) -> list[str]:
     if source_locale not in filtered:
         filtered.add(source_locale)
 
-    sorted_locales = sorted(locale for locale in filtered if locale != source_locale)
-    return [source_locale, *sorted_locales]
+    return order_locales_for_app_store_connect(filtered)
 
 
 def parse_locale_override(raw_locales: str) -> list[str]:
@@ -411,7 +467,7 @@ def parse_locale_override(raw_locales: str) -> list[str]:
         seen.add(locale)
         locales.append(locale)
 
-    return locales
+    return order_locales_for_app_store_connect(locales)
 
 
 def normalize_items_from_unknown_payload(value: object) -> list[str]:
@@ -471,16 +527,25 @@ def product_label(app_name: str, version: str | None) -> str:
 
 
 def compose_intro(locale: str, app_name: str, version: str | None) -> str:
-    template = INTRO_TEMPLATE_BY_LOCALE.get(locale, INTRO_TEMPLATE_BY_LOCALE["en"])
+    template = INTRO_TEMPLATE_BY_LOCALE.get(
+        locale_template_key(locale),
+        INTRO_TEMPLATE_BY_LOCALE["en"],
+    )
     return template.format(product_label=product_label(app_name, version))
 
 
 def compose_outro(locale: str) -> str:
-    return OUTRO_TEMPLATE_BY_LOCALE.get(locale, OUTRO_TEMPLATE_BY_LOCALE["en"])
+    return OUTRO_TEMPLATE_BY_LOCALE.get(
+        locale_template_key(locale),
+        OUTRO_TEMPLATE_BY_LOCALE["en"],
+    )
 
 
 def fallback_line_for_locale(locale: str) -> str:
-    return DEFAULT_FALLBACK_LINE_BY_LOCALE.get(locale, DEFAULT_FALLBACK_LINE_BY_LOCALE["en"])
+    return DEFAULT_FALLBACK_LINE_BY_LOCALE.get(
+        locale_template_key(locale),
+        DEFAULT_FALLBACK_LINE_BY_LOCALE["en"],
+    )
 
 
 def build_localized_notes(
@@ -832,10 +897,8 @@ def main() -> int:
             if not source_locale or source_locale == "Base":
                 raise RuntimeError("--source-locale must be a valid locale code")
 
-        if source_locale in locales:
-            locales = [source_locale, *[locale for locale in locales if locale != source_locale]]
-        else:
-            locales = [source_locale, *locales]
+        if source_locale not in locales:
+            locales = order_locales_for_app_store_connect([*locales, source_locale])
 
         app_name = arguments.app_name or repository_path.name
 
