@@ -1,6 +1,6 @@
 interface:
   display_name: "Match User Language"
   short_description: "Match Codex replies and plans to the user language"
-  default_prompt: "Use $match-user-language to keep Codex replies and plan text aligned with the user conversation language while leaving code and repository artifacts unchanged."
+  default_prompt: "Use $match-user-language to keep Codex replies, Plan Mode plan text, and other user-facing structured UI text aligned with the user conversation language while leaving code and repository artifacts unchanged."
 policy:
   allow_implicit_invocation: true
