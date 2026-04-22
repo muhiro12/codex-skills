@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import copy
 import json
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 import re
@@ -44,6 +45,13 @@ PLACEHOLDER_HINTS = {
     "number": ("%f", "%lld"),
     "decimal": ("%f",),
 }
+
+
+@dataclass(frozen=True)
+class JSONFormatting:
+    indent: int | str | None
+    newline: str
+    trailing_newline: bool
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -125,6 +133,10 @@ def render_report_path(project_root: Path, path: Path) -> str:
     return str(path)
 
 
+def read_raw_text(path: Path) -> str:
+    return path.read_text(encoding="utf-8", newline="")
+
+
 def discover_catalogs(project_root: Path, raw_catalogs: list[str]) -> list[Path]:
     if raw_catalogs:
         catalogs = [resolve_catalog_path(project_root, raw_path) for raw_path in raw_catalogs]
@@ -142,9 +154,37 @@ def discover_catalogs(project_root: Path, raw_catalogs: list[str]) -> list[Path]
 
 def load_catalog(path: Path) -> dict[str, Any]:
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        return json.loads(read_raw_text(path))
     except json.JSONDecodeError as error:
         raise ValueError(f"Failed to parse {path}: {error}") from error
+
+
+def detect_indentation(raw_text: str) -> int | str | None:
+    if "\n" not in raw_text and "\r" not in raw_text:
+        return None
+
+    for line in raw_text.splitlines():
+        stripped = line.lstrip(" \t")
+        if not stripped:
+            continue
+        prefix = line[: len(line) - len(stripped)]
+        if not prefix:
+            continue
+        if set(prefix) == {" "}:
+            return len(prefix)
+        return prefix
+
+    return 2
+
+
+def detect_json_formatting(raw_text: str) -> JSONFormatting:
+    newline = "\r\n" if "\r\n" in raw_text else "\n"
+    trailing_newline = raw_text.endswith(("\n", "\r\n"))
+    return JSONFormatting(
+        indent=detect_indentation(raw_text),
+        newline=newline,
+        trailing_newline=trailing_newline,
+    )
 
 
 def normalize_string_literal(raw_literal: str) -> str:
@@ -423,8 +463,17 @@ def build_seed_localization(
 
 
 def write_catalog(path: Path, catalog: dict[str, Any]) -> None:
-    serialized = json.dumps(catalog, ensure_ascii=False, indent=2)
-    path.write_text(serialized + "\n", encoding="utf-8")
+    formatting = detect_json_formatting(read_raw_text(path))
+    serialized = json.dumps(
+        catalog,
+        ensure_ascii=False,
+        indent=formatting.indent,
+    )
+    if formatting.newline != "\n":
+        serialized = serialized.replace("\n", formatting.newline)
+    if formatting.trailing_newline:
+        serialized += formatting.newline
+    path.write_text(serialized, encoding="utf-8", newline="")
 
 
 def audit_catalog(

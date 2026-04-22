@@ -58,6 +58,7 @@ Use this skill when the user asks to:
 ## Safety / Guardrails
 
 - Keep diffs minimal; do not rewrite unrelated tables.
+- Preserve existing JSON whitespace conventions when rewriting catalogs, including indentation style, line ending style, and whether the file ends with a trailing newline.
 - Preserve placeholders, plural structure, punctuation, and `shouldTranslate: false` semantics.
 - Never auto-prune keys known to depend on generated/runtime composition without source verification.
 - Keep source-code fixes out of scope for this skill unless the user explicitly asks to expand beyond catalog maintenance.
@@ -80,6 +81,7 @@ Return a concise Japanese report with:
 - Re-run `audit_xcstrings.py` after edits.
 - Confirm missing-locale and unused-candidate counts changed as intended.
 - Confirm referenced `stale` keys were reported separately as code-side follow-ups and were not deleted by catalog cleanup.
+- Confirm rewritten catalogs did not gain formatting-only diffs such as indentation changes or trailing newline changes unrelated to the intended content edits.
 - Confirm no unresolved placeholder handling errors were introduced.
 
 ## Script
