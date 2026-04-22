@@ -62,6 +62,15 @@ def parse_arguments() -> argparse.Namespace:
         help="Relative or absolute path to a specific xcstrings file. Repeat as needed.",
     )
     parser.add_argument(
+        "--source-root",
+        action="append",
+        default=[],
+        help=(
+            "Relative or absolute source root to scan for static string references. "
+            "Repeat as needed. Defaults to the whole project root."
+        ),
+    )
+    parser.add_argument(
         "--required-locales",
         help="Comma-separated locale list to enforce for selected catalogs.",
     )
@@ -74,6 +83,16 @@ def parse_arguments() -> argparse.Namespace:
         "--prune-unused",
         action="store_true",
         help="Remove keys that have no static literal matches in project source files.",
+    )
+    parser.add_argument(
+        "--prune-stale-unused",
+        action="store_true",
+        help="Remove keys that are marked stale and have no static literal matches.",
+    )
+    parser.add_argument(
+        "--normalize-stale-referenced",
+        action="store_true",
+        help="Clear the stale extraction marker from keys that still have static references.",
     )
     parser.add_argument(
         "--apply",
@@ -97,7 +116,13 @@ def resolve_catalog_path(project_root: Path, raw_path: str) -> Path:
     path = Path(raw_path)
     if not path.is_absolute():
         path = (project_root / path).resolve()
-    return path
+    return path.resolve()
+
+
+def render_report_path(project_root: Path, path: Path) -> str:
+    if path.is_relative_to(project_root):
+        return str(path.relative_to(project_root))
+    return str(path)
 
 
 def discover_catalogs(project_root: Path, raw_catalogs: list[str]) -> list[Path]:
@@ -249,22 +274,54 @@ def collect_catalog_keys(catalogs: dict[Path, dict[str, Any]]) -> set[str]:
     return keys
 
 
-def collect_source_files(project_root: Path) -> list[Path]:
+def resolve_source_roots(project_root: Path, raw_roots: list[str]) -> list[Path] | None:
+    if not raw_roots:
+        return None
+
+    resolved_roots: list[Path] = []
+    for raw_root in raw_roots:
+        root = resolve_catalog_path(project_root, raw_root)
+        if not root.exists():
+            raise ValueError(f"Source root not found: {root}")
+        resolved_roots.append(root)
+    return sorted(dict.fromkeys(resolved_roots))
+
+
+def iter_source_candidates(project_root: Path, source_roots: list[Path] | None) -> list[Path]:
+    if source_roots is None:
+        return [project_root]
+    return source_roots
+
+
+def collect_source_files(
+    project_root: Path,
+    source_roots: list[Path] | None = None,
+) -> list[Path]:
     files: list[Path] = []
-    for path in project_root.rglob("*"):
-        if (
-            path.is_file()
-            and path.suffix in SOURCE_SUFFIXES
-            and not should_skip_path(path)
-            and path.suffix != ".xcstrings"
-        ):
-            files.append(path)
+    for candidate_root in iter_source_candidates(project_root, source_roots):
+        if candidate_root.is_file():
+            candidates = [candidate_root]
+        else:
+            candidates = candidate_root.rglob("*")
+
+        for path in candidates:
+            if (
+                path.is_file()
+                and path.suffix in SOURCE_SUFFIXES
+                and not should_skip_path(path)
+                and path.suffix != ".xcstrings"
+            ):
+                files.append(path)
     return sorted(files)
 
 
-def build_literal_reference_map(project_root: Path, keys: set[str]) -> dict[str, list[str]]:
+def build_literal_reference_map(
+    project_root: Path,
+    keys: set[str],
+    source_roots: list[Path] | None = None,
+) -> dict[str, list[str]]:
     reference_map = {key: [] for key in keys}
-    for source_file in collect_source_files(project_root):
+    for source_file in collect_source_files(project_root, source_roots):
         try:
             content = source_file.read_text(encoding="utf-8")
         except UnicodeDecodeError:
@@ -272,7 +329,7 @@ def build_literal_reference_map(project_root: Path, keys: set[str]) -> dict[str,
         matched_keys: set[str] = set()
         for match in STRING_LITERAL_PATTERN.finditer(content):
             matched_keys.update(expand_literal_variants(match.group(1)))
-        relative_path = str(source_file.relative_to(project_root))
+        relative_path = render_report_path(project_root, source_file)
         for key in matched_keys & keys:
             reference_map[key].append(relative_path)
     return reference_map
@@ -377,8 +434,11 @@ def audit_catalog(
     reference_map: dict[str, list[str]],
     required_locales_override: list[str] | None,
     prune_unused: bool,
+    prune_stale_unused: bool,
+    normalize_stale_referenced: bool,
     seed_missing_locales: bool,
     apply_changes: bool,
+    source_roots: list[Path] | None,
 ) -> dict[str, Any]:
     source_language = catalog.get("sourceLanguage", "en")
     required_locales = required_locales_override or collect_catalog_locales(catalog, source_language)
@@ -390,10 +450,18 @@ def audit_catalog(
     unused_candidates: list[dict[str, Any]] = []
     seeded_entries: list[dict[str, Any]] = []
     pruned_keys: list[str] = []
+    stale_keys: list[str] = []
+    stale_unused_candidates: list[dict[str, Any]] = []
+    stale_referenced_keys: list[dict[str, Any]] = []
+    normalized_stale_keys: list[str] = []
 
     for key in list(string_table.keys()):
         entry = string_table[key]
         localizations = entry.get("localizations", {})
+        is_stale = entry.get("extractionState") == "stale"
+
+        if is_stale:
+            stale_keys.append(key)
 
         if entry.get("shouldTranslate", True):
             missing_locales: list[str] = []
@@ -435,33 +503,61 @@ def audit_catalog(
                 )
 
         references = reference_map.get(key, [])
+        if is_stale:
+            if references:
+                stale_referenced_keys.append(
+                    {
+                        "key": key,
+                        "references": references,
+                    }
+                )
+                if normalize_stale_referenced:
+                    entry.pop("extractionState", None)
+                    normalized_stale_keys.append(key)
+            else:
+                stale_unused_candidates.append(
+                    {
+                        "key": key,
+                        "references": references,
+                    }
+                )
+
         if not references:
             unused_candidates.append(
                 {
                     "key": key,
                     "references": references,
+                    "is_stale": is_stale,
                 }
             )
-            if prune_unused:
+            if prune_unused or (prune_stale_unused and is_stale):
                 pruned_keys.append(key)
 
-    if prune_unused:
+    if prune_unused or prune_stale_unused:
         for key in pruned_keys:
             string_table.pop(key, None)
 
-    mutated = bool(seeded_entries or pruned_keys)
+    mutated = bool(seeded_entries or pruned_keys or normalized_stale_keys)
     if mutated and apply_changes:
         write_catalog(path, catalog)
 
     return {
-        "path": str(path.relative_to(project_root)),
+        "path": render_report_path(project_root, path),
+        "source_roots": [
+            render_report_path(project_root, root)
+            for root in source_roots or [project_root]
+        ],
         "source_language": source_language,
         "required_locales": required_locales,
         "key_count": len(string_table),
         "incomplete_keys": incomplete_keys,
+        "stale_keys": stale_keys,
+        "stale_unused_candidates": stale_unused_candidates,
+        "stale_referenced_keys": stale_referenced_keys,
         "unused_candidates": unused_candidates,
         "seeded_entries": seeded_entries,
         "pruned_keys": pruned_keys,
+        "normalized_stale_keys": normalized_stale_keys,
         "applied": mutated and apply_changes,
         "dry_run_changes": mutated and not apply_changes,
     }
@@ -485,10 +581,14 @@ def format_markdown(report: dict[str, Any]) -> str:
                 "",
                 f"## `{catalog['path']}`",
                 "",
+                f"- Source roots: `{', '.join(catalog['source_roots'])}`",
                 f"- Source language: `{catalog['source_language']}`",
                 f"- Required locales: `{', '.join(catalog['required_locales'])}`",
                 f"- Key count: {catalog['key_count']}",
                 f"- Incomplete keys: {len(catalog['incomplete_keys'])}",
+                f"- Stale keys: {len(catalog['stale_keys'])}",
+                f"- Stale unused candidates: {len(catalog['stale_unused_candidates'])}",
+                f"- Stale referenced keys: {len(catalog['stale_referenced_keys'])}",
                 f"- Unused candidates: {len(catalog['unused_candidates'])}",
             ]
         )
@@ -507,6 +607,15 @@ def format_markdown(report: dict[str, Any]) -> str:
             for key in catalog["pruned_keys"][:20]:
                 lines.append(f"  - `{key}`")
             if len(catalog["pruned_keys"]) > 20:
+                lines.append("  - ...")
+
+        if catalog["normalized_stale_keys"]:
+            lines.append(
+                f"- Normalized stale keys: {len(catalog['normalized_stale_keys'])}"
+            )
+            for key in catalog["normalized_stale_keys"][:20]:
+                lines.append(f"  - `{key}`")
+            if len(catalog["normalized_stale_keys"]) > 20:
                 lines.append("  - ...")
 
         if catalog["incomplete_keys"]:
@@ -530,8 +639,21 @@ def format_markdown(report: dict[str, Any]) -> str:
             lines.append("")
             lines.append("### Unused Candidates")
             for entry in catalog["unused_candidates"][:40]:
-                lines.append(f"- `{entry['key']}`")
+                suffix = " (stale)" if entry["is_stale"] else ""
+                lines.append(f"- `{entry['key']}`{suffix}")
             if len(catalog["unused_candidates"]) > 40:
+                lines.append("- ...")
+
+        if catalog["stale_referenced_keys"]:
+            lines.append("")
+            lines.append("### Stale Referenced Keys")
+            for entry in catalog["stale_referenced_keys"][:40]:
+                lines.append(f"- `{entry['key']}`")
+                for reference in entry["references"][:10]:
+                    lines.append(f"  - `{reference}`")
+                if len(entry["references"]) > 10:
+                    lines.append("  - ...")
+            if len(catalog["stale_referenced_keys"]) > 40:
                 lines.append("- ...")
 
     return "\n".join(lines) + "\n"
@@ -541,6 +663,11 @@ def main() -> int:
     arguments = parse_arguments()
     project_root = Path(arguments.project_root).resolve()
     required_locales_override = parse_required_locales(arguments.required_locales)
+    try:
+        source_roots = resolve_source_roots(project_root, arguments.source_root)
+    except ValueError as error:
+        print(str(error), file=sys.stderr)
+        return 1
 
     try:
         catalogs = discover_catalogs(project_root, arguments.catalog)
@@ -556,7 +683,11 @@ def main() -> int:
             print(str(error), file=sys.stderr)
             return 1
 
-    reference_map = build_literal_reference_map(project_root, collect_catalog_keys(catalog_data))
+    reference_map = build_literal_reference_map(
+        project_root,
+        collect_catalog_keys(catalog_data),
+        source_roots=source_roots,
+    )
 
     catalog_reports = [
         audit_catalog(
@@ -566,17 +697,26 @@ def main() -> int:
             reference_map=reference_map,
             required_locales_override=required_locales_override,
             prune_unused=arguments.prune_unused,
+            prune_stale_unused=arguments.prune_stale_unused,
+            normalize_stale_referenced=arguments.normalize_stale_referenced,
             seed_missing_locales=arguments.seed_missing_locales,
             apply_changes=arguments.apply,
+            source_roots=source_roots,
         )
         for catalog_path in catalogs
     ]
 
     report = {
         "project_root": str(project_root),
+        "source_roots": [
+            render_report_path(project_root, root)
+            for root in source_roots or [project_root]
+        ],
         "apply": arguments.apply,
         "planned_changes": any(
-            catalog_report["seeded_entries"] or catalog_report["pruned_keys"]
+            catalog_report["seeded_entries"]
+            or catalog_report["pruned_keys"]
+            or catalog_report["normalized_stale_keys"]
             for catalog_report in catalog_reports
         ),
         "catalogs": catalog_reports,
