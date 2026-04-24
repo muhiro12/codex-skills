@@ -624,14 +624,26 @@ def choose_run_required_entrypoint(
     return None
 
 
+def resolve_overview_doc_path(repo_root: Path) -> Path:
+    docs_dir = repo_root / "docs"
+    default_path = docs_dir / "current-overview.md"
+    if default_path.exists():
+        return default_path
+
+    if docs_dir.exists() and docs_dir.is_dir():
+        overview_matches = sorted(
+            path for path in docs_dir.glob("*current-overview.md") if path.is_file()
+        )
+        if overview_matches:
+            return overview_matches[0]
+
+    return default_path
+
+
 def extract_ground_truth(repo_root: Path, include_doc_source: bool) -> dict[str, Any]:
     agents_path = repo_root / "AGENTS.md"
     pre_commit_path = repo_root / ".pre-commit-config.yaml"
-    overview_doc_candidates = [
-        repo_root / "docs" / "current-overview.md",
-        repo_root / "docs" / "incomes-current-overview.md",
-    ]
-    docs_path = next((path for path in overview_doc_candidates if path.exists()), overview_doc_candidates[0])
+    docs_path = resolve_overview_doc_path(repo_root)
 
     ci_script_files: list[Path] = []
     ci_root = repo_root / "ci_scripts"
@@ -749,6 +761,21 @@ def text_contains_marker(text: str, markers: tuple[str, ...]) -> bool:
     return any(marker in text for marker in markers)
 
 
+def has_concrete_repository_reference(text: str) -> bool:
+    sibling_path_match = re.search(
+        r"(?<![\w./-])\.\./[a-z0-9][a-z0-9_-]*(?=(?:/|`|'|\"|\s|[.,:)\]]|$))",
+        text,
+    )
+    if sibling_path_match:
+        return True
+
+    scoped_work_match = re.search(
+        r"\b(?:develop|modify only|work inside|stay inside)\s+`?[a-z][a-z0-9_-]+/`?",
+        text,
+    )
+    return scoped_work_match is not None
+
+
 def infer_execution_family(text: str) -> str:
     if text_contains_marker(
         text,
@@ -815,15 +842,7 @@ def infer_execution_family(text: str) -> str:
     ):
         return "ci_verification"
 
-    if text_contains_marker(
-        text,
-        (
-            "../incomes",
-            "../cookle",
-            "mhplatform/",
-            "develop mhplatform",
-        ),
-    ):
+    if has_concrete_repository_reference(text):
         return "repo_specific_development"
 
     if text_contains_marker(
@@ -946,15 +965,7 @@ def infer_output_family(text: str) -> str:
 
 
 def infer_scope_family(text: str) -> str:
-    if text_contains_marker(
-        text,
-        (
-            "../incomes",
-            "../cookle",
-            "mhplatform/",
-            "develop mhplatform",
-        ),
-    ):
+    if has_concrete_repository_reference(text):
         return "repo_specific"
 
     return "repo_agnostic"

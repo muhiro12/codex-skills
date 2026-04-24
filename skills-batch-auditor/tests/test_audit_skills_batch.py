@@ -1,3 +1,4 @@
+import importlib.util
 import json
 import shutil
 import subprocess
@@ -62,6 +63,49 @@ class AuditSkillsBatchCLITests(unittest.TestCase):
             if item["name"] == skill_name:
                 return item
         self.fail(f"Skill report not found: {skill_name}")
+
+    def _load_script_module(self) -> object:
+        module_name = "audit_skills_batch_test_module"
+        spec = importlib.util.spec_from_file_location(module_name, SCRIPT_PATH)
+        if spec is None or spec.loader is None:
+            self.fail("Unable to load audit script module")
+
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[module_name] = module
+        spec.loader.exec_module(module)
+        return module
+
+    def test_repo_specific_detection_uses_generic_concrete_references(self) -> None:
+        module = self._load_script_module()
+        repo_specific_text = (
+            "Develop `ClientPortal/` while treating `../DesignSystem` and "
+            "`../SharedKit` as read-only references."
+        ).lower()
+        generic_sibling_text = (
+            "Use a locally available sibling reference repository as a read-only fallback."
+        ).lower()
+
+        self.assertEqual(
+            module.infer_execution_family(repo_specific_text),
+            "repo_specific_development",
+        )
+        self.assertEqual(module.infer_scope_family(repo_specific_text), "repo_specific")
+        self.assertEqual(module.infer_execution_family(generic_sibling_text), "general_analysis")
+        self.assertEqual(module.infer_scope_family(generic_sibling_text), "repo_agnostic")
+
+    def test_overview_doc_resolution_uses_generic_current_overview_suffix(self) -> None:
+        module = self._load_script_module()
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            repo_root = Path(temporary_directory)
+            docs_dir = repo_root / "docs"
+            docs_dir.mkdir()
+            (docs_dir / "alpha-current-overview.md").write_text("# Alpha\n", encoding="utf-8")
+
+            ground_truth = module.extract_ground_truth(repo_root, include_doc_source=True)
+
+        self.assertTrue(ground_truth["optional_doc_source_used"])
+        self.assertIn("docs/alpha-current-overview.md", ground_truth["sources_read"])
 
     def test_markdown_output_uses_japanese_sections_and_recommendation_cap(self) -> None:
         output = self._run_cli("with_ci", "mixed", "--format", "markdown")
