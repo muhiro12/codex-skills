@@ -9,7 +9,7 @@ import re
 import subprocess
 import sys
 from collections import Counter
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from fnmatch import fnmatchcase
 from pathlib import Path
 
@@ -21,6 +21,14 @@ SEVERITY_ORDER = {
     "critical": 4,
 }
 
+SEVERITY_DEFAULT_SCORES = {
+    "none": 0,
+    "low": 5,
+    "medium": 18,
+    "high": 30,
+    "critical": 50,
+}
+
 SEVERITY_LABELS = {
     "none": "なし",
     "low": "低",
@@ -29,10 +37,37 @@ SEVERITY_LABELS = {
     "critical": "重大",
 }
 
+SCORE_MAX = 100
+HEURISTIC_SCORE_MAX = 95
+FALLBACK_UNKNOWN_CHANGE_SCORE = 15
+
 BUILTIN_RULES = [
     {
-        "name": "永続データ・マイグレーション面の変更",
+        "name": "一意ID・外部固定設定の変更",
+        "severity": "critical",
+        "category": "external-identity-config",
+        "score": 25,
+        "mode": "any",
+        "paths": [
+            "**/*.xcodeproj/project.pbxproj",
+            "**/Info.plist",
+            "**/*.entitlements",
+            "**/*.xcconfig",
+            "project.yml",
+            "project.yaml",
+            "**/project.yml",
+            "**/project.yaml",
+            "**/*.storekit",
+            "**/StoreKit/**",
+        ],
+        "reason": "外部登録済みの一意IDや配布・連携設定値は、誤って出すと既存アプリ、外部サービス、ユーザー導線へ長く残りやすい。",
+        "advice": "既存の配布設定、外部連携、チーム/署名、購入/クラウド/ドメイン設定と照合し、新規作成や変更が意図的か確認する。",
+    },
+    {
+        "name": "永続化領域・スキーマ互換性の変更",
         "severity": "high",
+        "category": "durable-state",
+        "score": 30,
         "mode": "any",
         "paths": [
             "**/Persistence/**",
@@ -51,12 +86,14 @@ BUILTIN_RULES = [
             "**/*.sqlite",
             "**/*.xcdatamodeld/**",
         ],
-        "reason": "永続データや移行処理の変更は、既存ユーザーの起動不能やデータ不整合につながりやすい。",
-        "advice": "既存データを持つ状態での起動と移行成否を先に確認する。",
+        "reason": "端末やバックエンドに残る永続状態の構造・保存先・移行処理の変更は、既存ユーザーの起動不能やデータ不整合につながりやすい。",
+        "advice": "既存データを持つ状態での起動、読み書き、移行、ロールバック時の扱いを先に確認する。",
     },
     {
         "name": "権限・セキュリティ面の変更",
         "severity": "high",
+        "category": "security-capability",
+        "score": 30,
         "mode": "any",
         "paths": [
             "**/Auth/**",
@@ -75,12 +112,15 @@ BUILTIN_RULES = [
     {
         "name": "ビルド・依存関係・CI の変更",
         "severity": "high",
+        "category": "packaging",
+        "score": 25,
         "mode": "any",
         "paths": [
             ".github/workflows/**",
             "ci_scripts/**",
             "Dockerfile*",
             "docker/**",
+            "**/*.xcodeproj/project.pbxproj",
             "Package.swift",
             "Package.resolved",
             "**/Package.resolved",
@@ -98,6 +138,8 @@ BUILTIN_RULES = [
     {
         "name": "共有ロジックの変更",
         "severity": "medium",
+        "category": "shared-logic",
+        "score": 15,
         "mode": "any",
         "paths": [
             "**/Domain/**",
@@ -118,6 +160,8 @@ BUILTIN_RULES = [
     {
         "name": "API / 通信面の変更",
         "severity": "medium",
+        "category": "networking",
+        "score": 20,
         "mode": "any",
         "paths": [
             "**/API/**",
@@ -133,6 +177,8 @@ BUILTIN_RULES = [
     {
         "name": "UI・リソースのみの変更",
         "severity": "low",
+        "category": "ui-resource",
+        "score": 5,
         "mode": "all",
         "paths": [
             "Resources/**",
@@ -175,6 +221,8 @@ BUILTIN_RULES = [
     {
         "name": "テスト・ドキュメントのみの変更",
         "severity": "low",
+        "category": "tests-docs",
+        "score": 0,
         "mode": "all",
         "paths": [
             "**/Tests/**",
@@ -189,10 +237,33 @@ BUILTIN_RULES = [
     },
 ]
 
+IDENTIFIER_MARKER_PATTERNS = [
+    re.compile(r"\bPRODUCT_BUNDLE_IDENTIFIER\s*=\s*([^;]+);?"),
+    re.compile(r"\bDEVELOPMENT_TEAM\s*=\s*([^;]+);?"),
+    re.compile(r"\bPROVISIONING_PROFILE_SPECIFIER\s*=\s*([^;]+);?"),
+    re.compile(r"\bCODE_SIGN_ENTITLEMENTS\s*=\s*([^;]+);?"),
+    re.compile(r"\b(?:CFBundleIdentifier|CFBundleURLName|CFBundleURLSchemes)\b"),
+    re.compile(r"(group\.[A-Za-z0-9\.-]+)"),
+    re.compile(r"(iCloud\.[A-Za-z0-9\.-]+)"),
+    re.compile(r"(applinks:[^<>\s\",;]+)"),
+    re.compile(r"(webcredentials:[^<>\s\",;]+)"),
+    re.compile(r"(activitycontinuation:[^<>\s\",;]+)"),
+    re.compile(r"(com\.apple\.security\.application-groups)"),
+    re.compile(r"(com\.apple\.developer\.icloud-container-identifiers)"),
+    re.compile(r"(com\.apple\.developer\.associated-domains)"),
+    re.compile(r"(keychain-access-groups)"),
+    re.compile(r"\b(?:productID|productIdentifier)\b\s*[:=]\s*\"([^\"]+)\""),
+    re.compile(r"\bProduct\.products\s*\(\s*for:\s*(\[[^\]]+\])"),
+]
+
 CAPABILITY_MARKER_PATTERNS = [
-    re.compile(r"<key>([^<]+)</key>"),
+    re.compile(
+        r"<key>((?:NS[A-Za-z0-9]+UsageDescription)|(?:com\.apple\.[^<]+)|"
+        r"(?:aps-environment)|(?:keychain-access-groups))</key>"
+    ),
     re.compile(r"INFOPLIST_KEY_(NS[A-Za-z0-9]+UsageDescription)"),
     re.compile(r"(aps-environment|com\.apple\.developer\.[A-Za-z0-9\.-]+)"),
+    re.compile(r"\bSystemCapabilities\b"),
 ]
 
 PERSISTENT_USAGE_PATTERNS = [
@@ -208,10 +279,18 @@ MODEL_PROPERTY_PATTERN = re.compile(
     r"^\s*(?:(?:public|private|internal|fileprivate|open)\s+)*(?:private\(set\)\s+|public\(set\)\s+|package\(set\)\s+)*var\s+([A-Za-z_]\w*)\b"
 )
 
-STORAGE_INFRA_PATTERNS = [
+DURABLE_STORAGE_INFRA_PATTERNS = [
     "**/Database.swift",
     "**/*Migrator*.swift",
     "**/ModelContainerFactory.swift",
+    "**/*.xcdatamodeld/**",
+    "**/*.sql",
+    "**/*.sqlite",
+]
+
+DURABLE_MODEL_MARKERS = [
+    "@Model",
+    "NSManagedObject",
 ]
 
 PERSISTENT_SETTINGS_PATTERNS = [
@@ -245,6 +324,8 @@ class FileChange:
 class RiskRule:
     name: str
     severity: str
+    category: str
+    score: int
     mode: str
     paths: list[str]
     exclude_paths: list[str]
@@ -256,6 +337,8 @@ class RiskRule:
 class RiskSignal:
     name: str
     severity: str
+    category: str
+    score: int
     mode: str
     reason: str
     advice: str
@@ -266,12 +349,24 @@ class RiskSignal:
 class DiffLines:
     added: list[str]
     removed: list[str]
+    changed: list[str] = field(default_factory=list)
+
+
+@dataclass
+class DiffSnippet:
+    title: str
+    category: str
+    source: str
+    file: str
+    lines: list[str]
 
 
 @dataclass
 class ReviewFinding:
     title: str
     severity: str
+    category: str
+    score: int
     reason: str
     advice: str
     files: list[str]
@@ -361,6 +456,8 @@ def load_rules_from_dicts(raw_rules: list[dict]) -> list[RiskRule]:
             RiskRule(
                 name=raw_rule["name"],
                 severity=raw_rule["severity"],
+                category=raw_rule.get("category", raw_rule["name"]),
+                score=int(raw_rule.get("score", SEVERITY_DEFAULT_SCORES[raw_rule["severity"]])),
                 mode=raw_rule.get("mode", "any"),
                 paths=[normalize_path(pattern) for pattern in raw_rule["paths"]],
                 exclude_paths=[normalize_path(pattern) for pattern in raw_rule.get("exclude_paths", [])],
@@ -372,7 +469,11 @@ def load_rules_from_dicts(raw_rules: list[dict]) -> list[RiskRule]:
 
 
 def path_matches(path: str, patterns: list[str]) -> bool:
-    return any(fnmatchcase(path, pattern) for pattern in patterns)
+    return any(
+        fnmatchcase(path, pattern)
+        or (pattern.startswith("**/") and fnmatchcase(path, pattern[3:]))
+        for pattern in patterns
+    )
 
 
 def evaluate_rule(rule: RiskRule, files: list[FileChange]) -> RiskSignal | None:
@@ -396,6 +497,8 @@ def evaluate_rule(rule: RiskRule, files: list[FileChange]) -> RiskSignal | None:
     return RiskSignal(
         name=rule.name,
         severity=rule.severity,
+        category=rule.category,
+        score=rule.score,
         mode=rule.mode,
         reason=rule.reason,
         advice=rule.advice,
@@ -469,15 +572,21 @@ def get_diff_lines(repo: Path, base_ref: str, head_ref: str, files: list[FileCha
         )
         added: list[str] = []
         removed: list[str] = []
+        changed: list[str] = []
         for line in patch.splitlines():
-            if line.startswith("+++ ") or line.startswith("--- ") or line.startswith("@@"):
+            if line.startswith("+++ ") or line.startswith("--- "):
+                continue
+            if line.startswith("@@"):
+                changed.append(line)
                 continue
             if line.startswith("+"):
+                changed.append(line)
                 added.append(line[1:])
                 continue
             if line.startswith("-"):
+                changed.append(line)
                 removed.append(line[1:])
-        diffs[file.path] = DiffLines(added=added, removed=removed)
+        diffs[file.path] = DiffLines(added=added, removed=removed, changed=changed)
     return diffs
 
 
@@ -548,7 +657,62 @@ def find_model_properties(lines: list[str]) -> list[str]:
 
 
 def matches_any(path: str, patterns: list[str]) -> bool:
-    return any(fnmatchcase(path, pattern) for pattern in patterns)
+    return path_matches(path, patterns)
+
+
+def has_durable_model_marker(content: str, diff: DiffLines) -> bool:
+    changed_lines = [*diff.added, *diff.removed]
+    return (
+        any(marker in content for marker in DURABLE_MODEL_MARKERS)
+        or ("Object" in content and "Realm" in content)
+        or any(marker in line for line in changed_lines for marker in DURABLE_MODEL_MARKERS)
+    )
+
+
+def detect_external_identity_config_findings(
+    files: list[FileChange],
+    diff_by_file: dict[str, DiffLines],
+) -> list[ReviewFinding]:
+    identifier_files = [
+        file.path
+        for file in files
+        if file.path.endswith(".entitlements")
+        or file.path.endswith("Info.plist")
+        or file.path.endswith("project.pbxproj")
+        or file.path.endswith(".xcconfig")
+        or file.path.endswith(".storekit")
+        or file.path.endswith("project.yml")
+        or file.path.endswith("project.yaml")
+        or "/StoreKit/" in file.path
+    ]
+    if not identifier_files:
+        return []
+
+    added_markers: list[str] = []
+    removed_markers: list[str] = []
+    for path in identifier_files:
+        diff = diff_by_file.get(path)
+        if not diff:
+            continue
+        added_markers.extend(collect_markers(diff.added, IDENTIFIER_MARKER_PATTERNS))
+        removed_markers.extend(collect_markers(diff.removed, IDENTIFIER_MARKER_PATTERNS))
+
+    if not added_markers and not removed_markers:
+        return []
+
+    evidence = truncate_list(unique([*added_markers, *removed_markers]), 8)
+    return [
+        ReviewFinding(
+            title="一意ID・外部固定設定の変更候補",
+            severity="critical",
+            category="external-identity-config",
+            score=80,
+            reason="外部登録済みの一意IDや連携設定値は、誤って出すと既存アプリ、外部サービス、ユーザー導線へ長く残りやすく後戻りが難しい。",
+            advice="配布・署名・クラウド・ドメイン・購入・連携先に登録済みの値と照合し、新規IDや設定値変更が意図的か確認する。",
+            files=unique(identifier_files),
+            evidence=evidence,
+        )
+    ]
 
 
 def detect_capability_findings(files: list[FileChange], diff_by_file: dict[str, DiffLines]) -> list[ReviewFinding]:
@@ -580,6 +744,8 @@ def detect_capability_findings(files: list[FileChange], diff_by_file: dict[str, 
         ReviewFinding(
             title="権限・Capability の追加/変更候補",
             severity=severity,
+            category="security-capability",
+            score=70 if severity == "critical" else 50,
             reason="不要な権限要求や審査リスク、既存機能の破壊につながる変更面。",
             advice="entitlements / Info.plist / project 設定の差分が意図通りかを手動確認する。",
             files=unique(capability_files),
@@ -588,7 +754,7 @@ def detect_capability_findings(files: list[FileChange], diff_by_file: dict[str, 
     ]
 
 
-def detect_swiftdata_findings(
+def detect_durable_state_findings(
     repo: Path,
     files: list[FileChange],
     diff_by_file: dict[str, DiffLines],
@@ -601,10 +767,10 @@ def detect_swiftdata_findings(
         path = file.path
         diff = diff_by_file.get(path, DiffLines([], []))
         content = read_file(repo, path)
-        if matches_any(path, STORAGE_INFRA_PATTERNS):
+        if matches_any(path, DURABLE_STORAGE_INFRA_PATTERNS):
             storage_infra_files.append(path)
 
-        if "@Model" in content or any("@Model" in line for line in [*diff.added, *diff.removed]):
+        if has_durable_model_marker(content, diff):
             model_files.append(path)
             property_changes.extend(find_model_properties(diff.added))
             property_changes.extend(find_model_properties(diff.removed))
@@ -617,14 +783,27 @@ def detect_swiftdata_findings(
             evidence.extend(
                 line.strip()
                 for line in [*diff.added, *diff.removed]
-                if any(token in line for token in ["ModelContainer", "Database", "legacyURL", "fileName", "url"])
+                if any(
+                    token in line
+                    for token in [
+                        "ModelContainer",
+                        "Database",
+                        "Migration",
+                        "legacyURL",
+                        "fileName",
+                        "url",
+                        "Schema",
+                    ]
+                )
             )
         findings.append(
             ReviewFinding(
-                title="SwiftData の保存先・移行導線の変更候補",
+                title="永続化領域の保存先・移行導線の変更候補",
                 severity="critical",
-                reason="保存先 URL や移行処理の変更は、既存 DB の起動不能やデータ欠落に直結しやすい。",
-                advice="既存 DB を持つ端末/シミュレータで起動し、移行とデータ維持を確認する。",
+                category="durable-state",
+                score=75,
+                reason="保存先、スキーマ定義、移行処理、既存データ読込経路の変更は、起動不能やデータ欠落に直結しやすい。",
+                advice="既存データを持つ環境で起動、読み書き、移行、失敗時の扱いを確認する。",
                 files=unique(storage_infra_files),
                 evidence=truncate_list(unique(evidence), 6),
             )
@@ -633,10 +812,12 @@ def detect_swiftdata_findings(
     if model_files:
         findings.append(
             ReviewFinding(
-                title="SwiftData モデル変更候補",
+                title="永続化モデル・保存プロパティ変更候補",
                 severity="high" if not property_changes else "critical",
-                reason="`@Model` の変更は永続スキーマへ影響する可能性がある。",
-                advice="保存プロパティ追加・削除・型変更の意図と移行影響を確認する。",
+                category="durable-state",
+                score=40 if not property_changes else 55,
+                reason="保存モデルや永続化プロパティの追加・削除・型変更は、既存データとの互換性に影響する可能性がある。",
+                advice="追加・削除・型変更・既定値・optional 化の意図と、旧データからの読み込み可否を確認する。",
                 files=unique(model_files),
                 evidence=truncate_list([f"保存プロパティ候補: {name}" for name in unique(property_changes)], 6),
             )
@@ -665,6 +846,8 @@ def detect_persistent_settings_findings(
             ReviewFinding(
                 title="永続設定キーの追加/変更候補",
                 severity="high",
+                category="persistent-settings",
+                score=30,
                 reason="UserDefaults / AppStorage のキーは一度導入すると長く背負いやすい。",
                 advice="その設定が本当に永続化すべきか、名称と寿命が妥当かを確認する。",
                 files=unique(settings_files),
@@ -694,6 +877,8 @@ def detect_persistent_settings_findings(
             ReviewFinding(
                 title="永続設定の利用箇所追加候補",
                 severity="medium",
+                category="persistent-settings",
+                score=25,
                 reason="新しい保存値や読み出し前提が増えると、将来の開発で考慮し続ける必要が出る。",
                 advice="その値が永続化である必要があるか、一時状態で済まないかを確認する。",
                 files=unique(usage_files),
@@ -710,35 +895,211 @@ def build_review_findings(
     diff_by_file: dict[str, DiffLines],
 ) -> list[ReviewFinding]:
     findings = [
+        *detect_external_identity_config_findings(files, diff_by_file),
         *detect_capability_findings(files, diff_by_file),
-        *detect_swiftdata_findings(repo, files, diff_by_file),
+        *detect_durable_state_findings(repo, files, diff_by_file),
         *detect_persistent_settings_findings(files, diff_by_file),
     ]
-    return sorted(findings, key=lambda finding: (-SEVERITY_ORDER[finding.severity], finding.title))
+    return sorted(findings, key=lambda finding: (-finding.score, -SEVERITY_ORDER[finding.severity], finding.title))
 
 
-def overall_risk(files: list[FileChange], findings: list[ReviewFinding], signals: list[RiskSignal]) -> str:
-    if not files:
+def score_items(
+    files: list[FileChange],
+    findings: list[ReviewFinding],
+    signals: list[RiskSignal],
+) -> list[dict[str, int | str]]:
+    items: list[dict[str, int | str]] = []
+    covered_finding_paths = {path for finding in findings for path in finding.files}
+    for finding in findings:
+        items.append(
+            {
+                "source": "finding",
+                "name": finding.title,
+                "severity": finding.severity,
+                "category": finding.category,
+                "score": finding.score,
+            }
+        )
+    for signal in signals:
+        if signal.matched_files and set(signal.matched_files).issubset(covered_finding_paths):
+            continue
+        items.append(
+            {
+                "source": "path-rule",
+                "name": signal.name,
+                "severity": signal.severity,
+                "category": signal.category,
+                "score": signal.score,
+            }
+        )
+
+    if files and not items:
+        items.append(
+            {
+                "source": "fallback",
+                "name": "未分類の出荷差分",
+                "severity": "medium",
+                "category": "unknown-change",
+                "score": FALLBACK_UNKNOWN_CHANGE_SCORE,
+            }
+        )
+
+    strongest_by_category: dict[str, dict[str, int | str]] = {}
+    for item in items:
+        category = str(item["category"])
+        existing = strongest_by_category.get(category)
+        if existing is None:
+            strongest_by_category[category] = item
+            continue
+
+        item_score = int(item["score"])
+        existing_score = int(existing["score"])
+        if item_score > existing_score:
+            strongest_by_category[category] = item
+            continue
+
+        if (
+            item_score == existing_score
+            and SEVERITY_ORDER[str(item["severity"])] > SEVERITY_ORDER[str(existing["severity"])]
+        ):
+            strongest_by_category[category] = item
+
+    return sorted(
+        strongest_by_category.values(),
+        key=lambda item: (-int(item["score"]), str(item["name"])),
+    )
+
+
+def truncate_diff_lines(lines: list[str], limit: int) -> list[str]:
+    if len(lines) <= limit:
+        return lines
+    remaining = len(lines) - limit
+    return [*lines[:limit], f"... (+{remaining} 行)"]
+
+
+def build_snippets_for_files(
+    title: str,
+    category: str,
+    source: str,
+    files: list[str],
+    diff_by_file: dict[str, DiffLines],
+    *,
+    max_files: int = 3,
+    max_lines: int = 14,
+) -> list[DiffSnippet]:
+    snippets: list[DiffSnippet] = []
+    for path in unique(files)[:max_files]:
+        diff = diff_by_file.get(path)
+        if not diff or not diff.changed:
+            continue
+        snippets.append(
+            DiffSnippet(
+                title=title,
+                category=category,
+                source=source,
+                file=path,
+                lines=truncate_diff_lines(diff.changed, max_lines),
+            )
+        )
+    return snippets
+
+
+def build_risk_diff_snippets(
+    findings: list[ReviewFinding],
+    signals: list[RiskSignal],
+    diff_by_file: dict[str, DiffLines],
+    *,
+    max_snippets: int = 8,
+) -> list[DiffSnippet]:
+    snippets: list[DiffSnippet] = []
+    covered_finding_paths = {path for finding in findings for path in finding.files}
+
+    for finding in findings:
+        if finding.score < 20:
+            continue
+        snippets.extend(
+            build_snippets_for_files(
+                finding.title,
+                finding.category,
+                "finding",
+                finding.files,
+                diff_by_file,
+            )
+        )
+
+    for signal in signals:
+        if signal.score < 20:
+            continue
+        if signal.matched_files and set(signal.matched_files).issubset(covered_finding_paths):
+            continue
+        snippets.extend(
+            build_snippets_for_files(
+                signal.name,
+                signal.category,
+                "path-rule",
+                signal.matched_files,
+                diff_by_file,
+            )
+        )
+
+    return snippets[:max_snippets]
+
+
+def total_score(items: list[dict[str, int | str]]) -> int:
+    scores = sorted((int(item["score"]) for item in items), reverse=True)
+    if not scores:
+        return 0
+
+    score = scores[0]
+    for secondary_score in scores[1:]:
+        if secondary_score >= 60:
+            score += 5
+        elif secondary_score >= 40:
+            score += 3
+        elif secondary_score >= 25:
+            score += 1
+
+    return min(HEURISTIC_SCORE_MAX, score)
+
+
+def risk_from_score(score: int) -> str:
+    if score <= 0:
         return "none"
-
-    severities = [finding.severity for finding in findings] + [signal.severity for signal in signals]
-    if not severities:
+    if score < 20:
+        return "low"
+    if score < 40:
         return "medium"
-    return max(severities, key=lambda severity: SEVERITY_ORDER[severity])
+    if score < 80:
+        return "high"
+    return "critical"
 
 
-def release_posture(risk: str, findings: list[ReviewFinding]) -> str:
-    if risk == "none":
+def release_decision(score: int) -> str:
+    if score >= 80:
+        return "Block"
+    if score >= 60:
+        return "Hold for review"
+    if score >= 40:
+        return "Proceed with caution"
+    if score >= 20:
+        return "Review recommended"
+    return "Proceed"
+
+
+def release_posture(score: int, files: list[FileChange], findings: list[ReviewFinding]) -> str:
+    if not files:
         return "未リリース差分は見つかっていません。"
-    if any(SEVERITY_ORDER[finding.severity] >= SEVERITY_ORDER["high"] for finding in findings):
-        return "先に手動レビューを入れてから出す方が安全です。"
-    if risk == "low":
-        return "限定的な確認で進めやすい状態です。"
-    if risk == "medium":
-        return "機能周辺の回帰確認をしてから出すのが無難です。"
-    if risk == "high":
-        return "急いで出さず、変更意図と検証結果を揃えてから出す方が安全です。"
-    return "重大な変更候補があります。根拠を確認し終えるまでリリースを止めるべきです。"
+    if score >= 90:
+        return "そのまま出すと大きな問題につながる可能性が高い変更候補があります。リリースを止めて原因を確認するべきです。"
+    if score >= 80:
+        return "重大な変更候補があります。根拠を確認し終えるまでリリースを止めるべきです。"
+    if score >= 60:
+        return "リリース前に手動レビューで可否を判断するべき変更候補があります。"
+    if score >= 40:
+        return "明確なリスク候補があります。変更意図と重点検証を揃えてから出す方が安全です。"
+    if score >= 20:
+        return "軽い手動レビューで変更意図を確認してから進めるのが無難です。"
+    return "限定的な確認で進めやすい状態です。"
 
 
 def confidence(findings: list[ReviewFinding], signals: list[RiskSignal]) -> str:
@@ -746,10 +1107,12 @@ def confidence(findings: list[ReviewFinding], signals: list[RiskSignal]) -> str:
         return "中"
     return "低"
 
+
 def sort_signals(signals: list[RiskSignal]) -> list[RiskSignal]:
     return sorted(
         signals,
         key=lambda signal: (
+            -signal.score,
             -SEVERITY_ORDER[signal.severity],
             signal.name.lower(),
         ),
@@ -767,7 +1130,7 @@ def render_findings(title: str, findings: list[ReviewFinding]) -> list[str]:
         return lines
 
     for finding in findings:
-        lines.append(f"- `[{format_severity(finding.severity)}]` {finding.title}")
+        lines.append(f"- `[{format_severity(finding.severity)} / {finding.score}点]` {finding.title}")
         lines.append(f"  理由: {finding.reason}")
         lines.append(f"  対象: {', '.join(truncate_list(finding.files, 4))}")
         if finding.evidence:
@@ -783,10 +1146,44 @@ def render_signals(title: str, signals: list[RiskSignal]) -> list[str]:
         return lines
 
     for signal in signals:
-        lines.append(f"- `[{format_severity(signal.severity)}]` {signal.name}")
+        lines.append(f"- `[{format_severity(signal.severity)} / {signal.score}点]` {signal.name}")
         lines.append(f"  理由: {signal.reason or '理由なし'}")
         lines.append(f"  対象: {', '.join(truncate_list(signal.matched_files, 4))}")
         lines.append(f"  確認: {signal.advice or '確認手順なし'}")
+    return lines
+
+
+def render_score_breakdown(items: list[dict[str, int | str]]) -> list[str]:
+    lines = ["## スコア内訳"]
+    if not items:
+        lines.append("- `0/100` 未リリース差分なし")
+        return lines
+
+    for item in items[:8]:
+        lines.append(
+            f"- `{item['score']}点` {item['name']} ({format_severity(str(item['severity']))}, {item['source']}, {item['category']})"
+        )
+    if len(items) > 8:
+        lines.append(f"- ... (+{len(items) - 8} 件)")
+    lines.append("- 点数は単純合計ではありません。最も高いリスク軸を基準に、独立した追加リスクだけを小さく補正します。")
+    lines.append("- `100点` は大きな実害がほぼ避けられないと判断できる場合の上限で、通常のヒューリスティック検出は `95点` を上限にします。")
+    return lines
+
+
+def render_diff_snippets(snippets: list[dict]) -> list[str]:
+    lines = ["## リスク差分抜粋"]
+    if not snippets:
+        lines.append("- 該当なし")
+        return lines
+
+    for snippet in snippets:
+        lines.append(
+            f"- {snippet['title']} (`{snippet['category']}`, {snippet['source']}) / `{snippet['file']}`"
+        )
+        lines.append("```diff")
+        lines.extend(snippet["lines"])
+        lines.append("```")
+    lines.append("- 抜粋はリスク確認用に短く丸めています。全差分が必要なら `--verbose` と `git diff` を併用してください。")
     return lines
 
 
@@ -807,8 +1204,15 @@ def render_markdown(report: dict, max_files: int, max_commits: int, verbose: boo
     lines.append("# リリースリスク診断")
     lines.append("")
     lines.append("## 判定")
+    lines.append(f"- リスクスコア: `{report['risk_score']}/{report['risk_score_max']}`")
+    lines.append(f"- ヒューリスティック上限: `{report['heuristic_score_max']}`")
     lines.append(f"- 総合リスク: `{format_severity(report['overall_risk'])}`")
+    lines.append(f"- リリース判定: `{report['release_decision']}`")
     lines.append(f"- リリース方針: {report['release_posture']}")
+    lines.append(
+        "- 判定しきい値: `80-100=Block`, `60-79=Hold for review`, "
+        "`40-59=Proceed with caution`, `20-39=Review recommended`, `0-19=Proceed`"
+    )
     lines.append(f"- 信頼度: `{report['confidence']}`")
     lines.append(f"- 比較範囲: `{report['range']}`")
     lines.append(f"- 基準タグ: `{report['base_ref']}`")
@@ -823,6 +1227,10 @@ def render_markdown(report: dict, max_files: int, max_commits: int, verbose: boo
         lines.append(f"- 主な変更領域: {areas}")
     lines.append("")
 
+    lines.extend(render_score_breakdown(report["score_breakdown"]))
+    lines.append("")
+    lines.extend(render_diff_snippets(report["risk_diff_snippets"]))
+    lines.append("")
     lines.extend(render_findings("先に止めて確認したい項目", blocker_findings))
     lines.append("")
     lines.extend(render_findings("追加で確認したい項目", minor_findings))
@@ -881,7 +1289,10 @@ def build_report(args: argparse.Namespace) -> dict:
 
     findings = build_review_findings(repo, files, diff_by_file)
 
-    risk = overall_risk(files, findings, signals)
+    score_breakdown = score_items(files, findings, signals)
+    risk_diff_snippets = build_risk_diff_snippets(findings, signals, diff_by_file)
+    risk_score = total_score(score_breakdown)
+    risk = risk_from_score(risk_score)
     return {
         "repo": str(repo),
         "range": f"{base_ref}..{head_ref}",
@@ -890,10 +1301,16 @@ def build_report(args: argparse.Namespace) -> dict:
         "head_commit": short_ref(repo, head_ref),
         "commit_count": len(commits),
         "file_count": len(files),
+        "risk_score": risk_score,
+        "risk_score_max": SCORE_MAX,
+        "heuristic_score_max": HEURISTIC_SCORE_MAX,
         "overall_risk": risk,
+        "release_decision": release_decision(risk_score),
         "confidence": confidence(findings, signals),
-        "release_posture": release_posture(risk, findings),
+        "release_posture": release_posture(risk_score, files, findings),
         "top_areas": top_areas(files),
+        "score_breakdown": score_breakdown,
+        "risk_diff_snippets": [asdict(snippet) for snippet in risk_diff_snippets],
         "review_findings": [asdict(finding) for finding in findings],
         "risk_signals": [asdict(signal) for signal in signals],
         "files": [asdict(file) for file in files],
