@@ -1,6 +1,6 @@
 ---
 name: apple-ios-dev-flow
-description: Implement or refine Apple-platform app changes with a default workflow that uses current-repository evidence first, Apple official guidance second, and a locally available sibling reference repository as a read-only fallback before running the repository's standard verification shell.
+description: Implement or refine Apple-platform app changes with a default workflow that uses current-repository evidence first, stored cross-repository principles second when judgment matters, Apple official guidance third, and a locally available sibling reference repository as a read-only fallback before running the repository's standard verification shell.
 ---
 
 # Apple iOS Dev Flow
@@ -12,6 +12,7 @@ Keep the workflow core in this file portable across agent runtimes where practic
 Return user-facing explanations in concise, practical Japanese.
 Keep code, commands, file names, identifiers, and repository documents in English unless the target repository already uses another convention.
 When implementation depends on recurring cross-repository judgment, consult a local principle archive skill when available (for example `$track-developer-principles`) before settling the approach.
+When available and relevant, use Build iOS Apps / XcodeBuildMCP for simulator build, run, test, screenshots, logs, or debugging workflows, while still treating the repository's standard shell as the final verification gate.
 
 ## Trigger Conditions
 
@@ -34,6 +35,7 @@ Prefer specialized skills instead for:
 
 2. Use a local principle archive skill second when judgment matters.
 - Consult it when the task depends on tradeoffs such as maintainability, architecture direction, product intent, workflow philosophy, naming heuristics, or quality bars that may repeat across repositories.
+- If stored principles point to a maintained platform foundation such as `../MHPlatform` for shared stack, reusable plumbing, or cross-app implementation direction, treat that as part of the current decision context before falling back to a generic sibling reference repository.
 - Treat explicit current-task instructions and hard repository constraints as higher priority than older archived principles when they conflict.
 
 3. Use Apple official guidance third.
@@ -50,6 +52,7 @@ Prefer specialized skills instead for:
 - Resolve the repository's standard verification entrypoint from `AGENTS.md` first, then `ci_scripts/**/*.sh`, then repo-native aggregate commands.
 - If the repository provides an explicit repo-managed autofix step for edited files such as `format_swift.sh`, treat it as part of the main implementation flow before the final verification gate.
 - If the repository does not have a coherent standard shell for build/test/lint verification, switch to `$apple-repo-verify-bootstrapper` or tell the user that the repo needs that scaffolding first.
+- For simulator execution or UI/debug validation, prefer XcodeBuildMCP tools when available; call `session_show_defaults` before the first XcodeBuildMCP build/run/test call in a session, and use the repo-standard shell afterward for final readiness.
 
 2. Implement with local evidence first.
 - Inspect the target files, adjacent tests, and current diagnostics before editing.
@@ -80,6 +83,7 @@ Prefer specialized skills instead for:
 
 - Never start with a sibling reference repository.
 - Never let archived principles override explicit user instructions or hard repository constraints.
+- Never treat a generic sibling repository as stronger evidence than a relevant stored platform-foundation principle.
 - Never use non-Apple sources as the primary guidance when Apple official material is available.
 - Never report success while current-change or clearly introduced verification issues remain unresolved.
 - Never rely on `pre-commit` as the first place that auto-fixes SwiftLint issues; keep autofix in the main flow and leave the final gate non-destructive.
