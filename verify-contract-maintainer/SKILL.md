@@ -52,8 +52,9 @@ Use one mode per run:
   - Propose a minimal bundle; do not modify files.
 
 - `bootstrap`
-  - Add missing minimal contract pieces in repositories that already adopted or are adopting `ci_scripts`.
+  - Add missing minimal contract pieces only in repositories that already adopted or have explicitly decided to adopt `ci_scripts`.
   - Prefer creating only the smallest required set.
+  - This is not first-pass Apple build/test surface discovery; hand that to `$apple-repo-verify-bootstrapper`.
 
 - `maintenance`
   - Normalize naming drift and stale wrappers while preserving external behavior.
@@ -76,6 +77,7 @@ Use one mode per run:
 3. Decide action set by mode.
 - In `report-only`, produce findings and a minimal patch plan only.
 - In `bootstrap` or `maintenance`, apply only low-risk minimal-diff updates.
+- If `bootstrap` would require discovering app/package verification surfaces from scratch, stop and route the task to `$apple-repo-verify-bootstrapper` instead.
 
 4. Normalize with minimal blast radius.
 - Keep existing entrypoint behavior unless broken.
@@ -127,3 +129,4 @@ For each touched or assessed repository, include:
 
 - Read only the newest `.build/ci/runs/<RUN_ID>/` artifacts when summarizing CI runs.
 - Do not scan older runs under `.build/ci/runs/`.
+- Keep public metadata and prompts clear that this skill maintains an existing or intentionally adopted verify contract; it does not design Apple verification scaffolding from scratch.

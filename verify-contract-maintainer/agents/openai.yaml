@@ -1,4 +1,4 @@
 interface:
   display_name: "Verify Contract Maintainer"
-  short_description: "Bootstrap and normalize ci_scripts verify contracts safely"
-  default_prompt: "Use $verify-contract-maintainer to bootstrap or normalize verify contracts in repositories with ci_scripts."
+  short_description: "Maintain existing ci_scripts verify contracts safely"
+  default_prompt: "Use $verify-contract-maintainer to audit, minimally bootstrap, or normalize verify contracts only in repositories that already have or have explicitly decided to adopt ci_scripts; use $apple-repo-verify-bootstrapper instead for first-pass Apple build/test scaffolding."
