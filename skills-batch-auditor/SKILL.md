@@ -8,7 +8,8 @@ description: Audit and refresh custom Codex Skills in one batch by comparing rep
 ## Overview
 
 Use this skill to audit custom skills against repository contracts and current skill quality standards.
-Prioritize consistency with `AGENTS.md`, UI metadata quality, operational safety, and portfolio-level maintenance order across multiple skills.
+Treat bundled script output as a baseline, then add a manual fit check against the current Codex tool/plugin surface, UI directives, and the user's stored cross-repository principles.
+Prioritize consistency with `AGENTS.md`, UI metadata quality, operational safety, current runtime compatibility, and portfolio-level maintenance order across multiple skills.
 Default explanation language is concise, polite Japanese.
 
 ## Trigger Conditions
@@ -29,6 +30,8 @@ Use this skill when the user asks to:
 - Fallback to existing `ci_scripts/**/*.sh` paths when AGENTS guidance is absent.
 - Read `.pre-commit-config.yaml` when present.
 - Read a current overview doc such as `docs/current-overview.md` only when doc-related checks require it.
+- When skill quality depends on user-specific development philosophy, consult a local principle archive skill such as `$track-developer-principles`.
+- When skill quality depends on current tool availability, use the active tool/plugin/skill context first and `tool_search` only for deferred tools that are relevant to the audited skill.
 
 2. Discover audit targets.
 - Audit custom skills under local skills root.
@@ -53,6 +56,12 @@ Use `--implementation-mode low-risk` only for weekly maintenance runs or when th
   - `short_description` length (25-64)
   - `default_prompt` includes `$<skill-name>`
 - Treat skills with `metadata.visibility: internal` as intentionally UI-hidden and allow them to omit `agents/openai.yaml`.
+- Check current Codex environment fit:
+  - tool and namespace names still match the active environment
+  - plugin-provided skills have not replaced or narrowed the custom skill's role
+  - UI directives and structured tool fields are current
+  - MCP or simulator workflow assumptions name available capabilities accurately
+  - local sibling-repository assumptions still match the user's current platform principles
 - Distinguish true merge candidates from intentionally split neighboring skills.
 - Do not recommend `merge with another skill` when the overlap is mostly broad repository-workflow vocabulary such as `ci_scripts`, `AGENTS.md`, `verify`, `hook`, or `entrypoint`.
 - Score every skill explicitly on these four dimensions:
@@ -79,6 +88,7 @@ Use `--implementation-mode low-risk` only for weekly maintenance runs or when th
   - `merge with another skill`
   - `retire`
 - Use the four scores plus detected drift/risk to make the maintenance priority ordering stronger than a simple issue-count sort.
+- Do not rely on the script's `aligned` result alone when manual environment fit shows stale tool names, outdated directives, or superseded local-reference assumptions.
 
 6. Apply low-risk updates only in allowed modes.
 - Default mode is `report-only`.
@@ -115,6 +125,7 @@ Treat these as manual review by default:
 - Keep analysis read-only unless the mode is weekly maintenance or the user explicitly requests low-risk implementation.
 - Keep `report-only` as the default mode unless the user explicitly requests low-risk implementation or a weekly automation is doing scheduled maintenance.
 - Never invent repository architecture or product features.
+- Never claim a skill is fully current solely because the bundled audit script passed.
 - Never recursively scan generated directories except explicitly scoped newest run artifacts.
 - Keep skill names, folder names, CLI flags, and default scope unchanged unless safety requires change.
 - In `low-risk` mode, never apply manual-review items automatically.
