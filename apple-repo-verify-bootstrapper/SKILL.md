@@ -1,6 +1,6 @@
 ---
 name: apple-repo-verify-bootstrapper
-description: Bootstrap first-pass Apple-platform repository verification scaffolding by shaping repo-specific `ci_scripts`, `AGENTS.md` entrypoints, and optional push-hook wiring from actual Xcode or Swift package surfaces while using a locally available sibling reference repository only as a read-only reference.
+description: Bootstrap first-pass Apple-platform repository verification scaffolding by shaping repo-specific `ci_scripts`, `AGENTS.md` entrypoints, and optional repository-local push-hook guidance from actual Xcode or Swift package surfaces while using a locally available sibling reference repository only as a read-only reference.
 ---
 
 # Apple Repo Verify Bootstrapper
@@ -51,6 +51,7 @@ Use this skill when the user asks for things such as:
 - Ensure `AGENTS.md` documents the standard verification entrypoint and any important run-artifact conventions.
 - If hook config exists, prefer push-time wrappers for heavy verification and keep commit-time hooks lightweight or absent.
 - If `.pre-commit-config.yaml` already carries heavy verification, migrate that responsibility to direct shell execution or an optional push-time wrapper instead of duplicating logic there.
+- Do not install user-level hooks or mutate global Git configuration. Keep any hook guidance repository-local and optional unless the user explicitly asks for active hook setup.
 - Prefer `.build/ci/runs/<RUN_ID>` when the repository needs inspectable run artifacts.
 - When run artifacts exist, read only the newest `.build/ci/runs/<RUN_ID>` for diagnosis.
 - Do not scan older runs under `.build/ci/runs/`.
@@ -68,6 +69,7 @@ Use this skill when the user asks for things such as:
 - Never invent a large CI matrix when one stable repo-standard shell is sufficient.
 - Never let archived principles override hard repository constraints or direct user instructions.
 - Never make commit-time hooks the primary enforcement path for heavy verification; the repository must remain verifiable by directly running its standard shell scripts.
+- Never present pre-commit wiring as the default setup for newly bootstrapped Apple verification; heavy checks should live behind explicit shell entrypoints and optional push-time routing.
 - Never hard-code a tool such as `SwiftLint` when the target repository's actual workflow does not require it.
 - Do not use this skill for repositories that already have a coherent verify scaffold and only need contract-level maintenance or naming cleanup.
 - Ask the user only when the repository surfaces are ambiguous enough that you cannot decide what should be verified.
