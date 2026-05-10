@@ -32,7 +32,7 @@ Example tone (Japanese):
 
 - Keep semantic meaning equivalent across locales.
 - Use natural wording for each locale (not literal word-for-word translation).
-- Preserve product names and proper nouns.
+- Preserve product names, proper nouns, established app feature names, and official platform feature names unless an official localized name is known.
 - Keep bullet count roughly aligned across locales.
 
 ## Commit Filtering Guidance
