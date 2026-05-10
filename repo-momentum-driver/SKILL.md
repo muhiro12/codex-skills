@@ -1,6 +1,6 @@
 ---
 name: repo-momentum-driver
-description: Drive bounded autonomous continuation of development from vague "keep going" requests by inspecting recent repository activity, current worktree state, TODO/FIXME markers, latest verification or `.build/ci/runs` failures, nearby test gaps, and directly related docs, then selecting and implementing exactly one safe next task in the current repository. For Apple-platform repositories, prefer current-repo evidence first, Apple official guidance second, and a locally available sibling reference repository only as a read-only fallback. Use when prompts include phrases like "直近の対応や、リポジトリ内の各種情報を見て、続きのどんどん対応を進めて欲しい", "続き対応して", "どんどん進めて", "直近の対応を見て進めて", "look at recent changes and keep developing", or any request to self-direct next steps in an existing repository.
+description: Drive bounded autonomous continuation of development from vague "keep going" requests by inspecting recent repository activity, current worktree state, TODO/FIXME markers, latest verification or `.build/ci/runs` failures, nearby test gaps, and directly related docs, then selecting and implementing exactly one safe next task in the current repository. For Apple-platform repositories, prefer current-repo evidence first, stored platform principles when relevant, Apple official guidance next, and a locally available sibling reference repository only as a read-only fallback. Use when prompts include phrases like "直近の対応や、リポジトリ内の各種情報を見て、続きのどんどん対応を進めて欲しい", "続き対応して", "どんどん進めて", "直近の対応を見て進めて", "look at recent changes and keep developing", or any request to self-direct next steps in an existing repository.
 ---
 
 # Repo Momentum Driver
@@ -10,7 +10,7 @@ description: Drive bounded autonomous continuation of development from vague "ke
 Use this skill to convert ambiguous continuation requests into exactly one concrete, low-risk, high-signal implementation task per turn.
 Keep the task-selection and implementation rules in this file portable across agent runtimes where practical; platform-specific metadata can live beside the skill.
 Default explanation language is concise, practical Japanese.
-For Apple-platform repositories, keep the default decision order as current repository evidence first, Apple official guidance second, and a locally available sibling reference repository only as a read-only fallback when implementation shape is still unclear.
+For Apple-platform repositories, keep the default decision order as current repository evidence first, stored cross-repository platform principles when relevant, Apple official guidance next, and a locally available sibling reference repository only as a read-only fallback when implementation shape is still unclear.
 When choosing the next task depends on durable cross-repository judgment, consult a local principle archive skill when available (for example `$track-developer-principles`) and let it inform both task selection and implementation shape.
 
 ## Trigger Conditions
@@ -27,7 +27,7 @@ Use this skill when requests indicate autonomous continuation, such as:
 1. Set boundaries before exploring.
 - Stay inside the current repository by default.
 - If multiple repositories are visible, ignore siblings or children unless the user explicitly names another repository.
-- For Apple-platform repositories, inspect a locally available sibling reference repository only as a read-only fallback after local evidence plus Apple official guidance still leave the implementation shape unresolved.
+- For Apple-platform repositories, inspect a locally available sibling reference repository only as a read-only fallback after local evidence, relevant stored platform principles, and Apple official guidance still leave the implementation shape unresolved.
 - Select and execute exactly one next task per invocation.
 - Do not broaden into a roadmap, batch cleanup, or multi-commit plan.
 - Do not start large refactors, architecture rewrites, broad renames, or cross-cutting cleanup unless the user explicitly asks.
@@ -36,6 +36,7 @@ Use this skill when requests indicate autonomous continuation, such as:
 - Run `scripts/collect_repo_signals.sh /path/to/current-repo`.
 - If unavailable, gather equivalent evidence manually inside the current repository only.
 - Consult a local principle archive skill when available when task choice or implementation direction depends on recurring tradeoffs such as maintainability, product priority, workflow philosophy, architecture direction, or quality thresholds.
+- If stored principles point to a maintained platform foundation such as `../MHPlatform` for shared stack, reusable plumbing, or cross-app implementation direction, use that as decision context before looking at a generic sibling reference repository.
 - For Apple-platform repositories, if the implementation shape is still ambiguous after local inspection, consult Apple official documentation, sample code, or Swift guidelines before looking at a sibling reference repository.
 - Resolve CI commands from `AGENTS.md` first and use its standard Build/Test entrypoint when defined.
 - If `AGENTS.md` does not define one, fall back to detected `ci_scripts/**/*.sh` paths and prefer `bash ci_scripts/tasks/verify_task_completion.sh`, then `bash ci_scripts/tasks/verify.sh`, then `bash ci_scripts/tasks/verify_repository_state.sh` when CI verification is required.
@@ -57,6 +58,7 @@ Use this skill when requests indicate autonomous continuation, such as:
 - Cite concrete evidence such as files, commits, diagnostics, or CI artifacts.
 - If a local principle archive skill materially influenced task choice or priority, cite that explicitly after current-repo evidence.
 - If Apple official guidance or a sibling reference repository materially influenced the task choice or implementation shape, cite that explicitly after the current-repo evidence.
+- If a platform-foundation principle materially influenced the task choice, distinguish it from ordinary sibling-reference evidence.
 - If the chosen task comes from a lower bucket, briefly state why higher buckets were not safer or actionable.
 
 5. Execute with minimal scope.
@@ -86,6 +88,7 @@ Use this skill when requests indicate autonomous continuation, such as:
 - Stay within the current repository unless the user explicitly broadens scope.
 - Never let archived principles broaden the task beyond the single best next step.
 - Never use a sibling reference repository as a first source or as a writable target.
+- Never let platform-foundation context broaden an ambiguous continuation request into platform migration or cross-repository cleanup unless the user explicitly asks.
 - Forbid large refactors, architecture rewrites, sweeping renames, or broad cleanup unless explicitly requested.
 - Raise review rigor for persistence, migrations, settings keys, permissions, auth, billing, security-sensitive paths, and destructive behavior.
 - Never report success while current-change or clearly introduced build/test/lint failures or warnings remain unresolved.
