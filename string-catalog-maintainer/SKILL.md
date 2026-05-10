@@ -11,6 +11,7 @@ Use this skill to keep `.xcstrings` catalogs aligned with the current source tre
 Keep the core instructions in this file portable across agent runtimes where practical; platform-specific metadata can live beside the skill.
 Default operating mode is catalog-only maintenance: audit catalogs, extract translation tasks, apply safe reviewed `.xcstrings` fixes during the skill run, and leave source-code fixes for a separate follow-up unless the user explicitly expands scope.
 Default explanation language is concise, polite Japanese.
+When translating user-facing strings, consult a local principle archive skill when available for durable localization rules such as preserving proper nouns or official platform feature names.
 
 ## Trigger Conditions
 
@@ -56,6 +57,7 @@ Use this skill when the user asks to:
 6. Repair missing or untranslated locales.
 - Do not stop after `--seed-missing-locales`; seeding only copies source-locale structure and marks entries as `new`.
 - Use `translation_tasks` as the required worklist for missing locales, `state != translated`, empty values, and source-copy translated values.
+- Before generating translation patches, consult stored localization principles when available, especially rules for proper nouns, product names, and official platform feature names.
 - Treat source-copy tasks for intentional proper nouns, product names, symbols, and acronyms as review-only and report them as intentionally unchanged when appropriate.
 - Create a translation patch JSON with a top-level `translations` list. Each entry must include `catalog`, `key`, `locale`, `path`, and either `value` for `stringUnit` or `values` for `stringSet`.
 - Validate first with `--translation-patch <patch.json>` and no `--apply-translations`.
@@ -71,6 +73,7 @@ Use this skill when the user asks to:
 - Keep diffs minimal; do not rewrite unrelated tables.
 - Preserve existing JSON whitespace conventions when rewriting catalogs, including indentation style, line ending style, and whether the file ends with a trailing newline.
 - Preserve placeholders, plural structure, punctuation, and `shouldTranslate: false` semantics.
+- Preserve proper nouns and established feature names unless an official localized name is known or the user explicitly asks for a translation.
 - Never auto-prune keys known to depend on generated/runtime composition without source verification.
 - Keep source-code fixes out of scope for this skill unless the user explicitly asks to expand beyond catalog maintenance.
 - When a `stale` key still has references, report it for later code-side repair instead of changing source files here.
