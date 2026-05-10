@@ -1,6 +1,6 @@
 ---
 name: respect-incomes-architecture
-description: Develop, review, refactor, or add repository/tooling structure in the current repository while using `../Incomes` as a read-only architectural reference. Use when requests mention aligning with Incomes for repository structure, package and app boundaries, shared-library-first design, adapter boundaries, `ci_scripts`, `verify.sh`, hook strategy or build/test entrypoints, `.build` run artifacts, `AGENTS.md`, overview or ADR documentation, or maintainability-oriented outer architecture review.
+description: Develop, review, refactor, or add repository/tooling structure in the current repository while using `../Incomes` as a read-only architectural reference and checking stored cross-repository platform principles before copying patterns. Use when requests mention aligning with Incomes for repository structure, package and app boundaries, shared-library-first design, adapter boundaries, `ci_scripts`, `verify.sh`, hook strategy or build/test entrypoints, `.build` run artifacts, `AGENTS.md`, overview or ADR documentation, or maintainability-oriented outer architecture review.
 ---
 
 # Respect Incomes Architecture
@@ -10,6 +10,7 @@ description: Develop, review, refactor, or add repository/tooling structure in t
 Use this skill to improve the current repository's outer architecture and development workflow by learning from `../Incomes` without copying its product behavior.
 Treat the current repository as the only writable target and treat `../Incomes` as a read-only reference for reusable architectural intent.
 When the user has durable cross-repository architectural or workflow principles, consult `$track-developer-principles` before deciding how much Incomes alignment is actually desirable.
+If stored principles identify a maintained platform foundation such as `../MHPlatform` as the portfolio source of truth for shared stack, reusable plumbing, or cross-app implementation direction, treat that principle as a higher-level constraint than superficial Incomes similarity.
 
 ## Scope
 
@@ -46,35 +47,41 @@ Do not copy blindly:
 - Use it to recover the user's stored cross-repository preferences about boundaries, maintainability, workflow philosophy, naming, reviewability, or abstraction strategy.
 - Treat explicit task instructions and clear repository constraints as higher priority than older archived principles when they conflict.
 
-3. Inspect `../Incomes` third as a read-only reference.
+3. Inspect platform-foundation context when relevant.
+- If stored principles or the current request point to a maintained platform foundation such as `../MHPlatform`, inspect only the relevant files there as a read-only reference before comparing Incomes.
+- Use this to understand current cross-app source-of-truth decisions, not to copy platform implementation into the target repository.
+- Skip this step when the request is specifically about an Incomes-only pattern and no platform-foundation principle applies.
+
+4. Inspect `../Incomes` as a read-only reference.
 - Compare only the parts relevant to the user request.
 - Prefer concrete files and directories such as `../Incomes/AGENTS.md`, `../Incomes/ci_scripts`, `../Incomes/.build`, docs folders, package boundaries, and app/library split points.
 - Never modify files under `../Incomes`.
 
-4. Extract intent, not surface similarity.
+5. Extract intent, not surface similarity.
 - Ask what architectural problem the Incomes pattern is solving.
 - Separate reusable philosophy from app-specific implementation details.
 - Call out explicitly when a pattern should be adapted rather than copied.
 
-5. Compare from an outer-architecture perspective.
+6. Compare from an outer-architecture perspective.
 - Identify where the current repository diverges from good reusable parts of Incomes.
 - Distinguish acceptable divergence from harmful inconsistency.
 - Highlight where alignment would improve maintainability, reviewability, or workflow consistency.
 - Preserve the current repository's better solution when it is clearly more appropriate.
 
-6. Decide using this rule.
+7. Decide using this rule.
 - First satisfy clear current-repository evidence and any relevant principle from `$track-developer-principles`.
+- Preserve the maintained platform foundation's direction when a relevant stored principle makes it the current cross-app source of truth.
 - If Incomes shows a clearly reusable outer-architecture pattern, prefer alignment.
 - If the pattern is domain-specific or app-specific, do not copy it.
 - If the current repository already has a better structure, keep it.
 - When uncertain, explain both options and recommend the more maintainable one.
 
-7. Implement or propose changes only in the current repository.
+8. Implement or propose changes only in the current repository.
 - Modify only files in the current repository.
 - Keep changes scoped to the user's request.
 - Prefer consistency with Incomes when it helps, but do not create fake symmetry.
 
-8. Verify with the target repository's own workflow.
+9. Verify with the target repository's own workflow.
 - Use the current repository's standard verification entrypoints, not Incomes commands, unless the user asked only for review.
 - If adding or revising CI structure, ensure the resulting entrypoints are coherent for the current repository's actual build and test surfaces.
 
@@ -100,7 +107,9 @@ Treat these as warning areas where copying is usually wrong unless the user expl
 
 - Never modify `../Incomes`.
 - Never use `../Incomes` as a writable dependency or patch target.
+- Never modify `../MHPlatform` or any other platform-foundation repository while using this skill unless that repository is the current writable target.
 - Never recommend Incomes alignment that conflicts with an explicitly relevant principle from `$track-developer-principles` without saying so clearly.
+- Never treat Incomes as the portfolio-wide source of truth when a stored principle points to a maintained platform foundation for the same concern.
 - Never force domain similarity, UI similarity, or feature similarity.
 - Never claim alignment is beneficial without pointing to concrete paths and reasoning.
 - Say explicitly when an Incomes pattern looks weak, stale, or too app-specific to reuse.
@@ -115,7 +124,7 @@ Mention concrete file paths whenever they support a claim.
 When reviewing or proposing changes, structure the response as:
 
 1. `結論`
-2. `Incomes 参照箇所`
+2. `参照箇所`
 3. `差分評価`
 4. `対応方針`
 5. `変更内容` or `提案内容`
@@ -140,6 +149,8 @@ For `差分評価`, classify each major divergence as:
 ## Completion Checklist
 
 - Inspect the current repository before `../Incomes`.
+- Check relevant stored principles before treating Incomes as a pattern to copy.
+- Inspect `../MHPlatform` or another maintained platform foundation only when current principles or the task make it relevant.
 - Treat `../Incomes` as read-only reference material only.
 - Justify each alignment suggestion with intent, not imitation.
 - Keep all modifications inside the current repository.
