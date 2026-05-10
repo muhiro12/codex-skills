@@ -1,11 +1,11 @@
 ---
 name: xcode-preview-auditor
-description: Audit SwiftUI `#Preview` screens in Apple app repositories by discovering previews, grouping them by screen and source file, capturing with Xcode MCP first, explicitly reporting MCP/fallback failures and blocker ownership, and returning a concise Japanese audit report without auto-fixing by default. Use for audit-first requests such as `#Previewをキャプチャして`, `Preview を見て UI 崩れを監査して`, `画面プレビューを一覧で確認したい`, and `コンポーネントではなく 1 画面単位で見てほしい`. Prefer this skill when the user wants capture coverage, issue classification, or missing-preview reasoning, not default implementation work.
+description: Audit SwiftUI `#Preview` screens in Apple app repositories by discovering previews, grouping them by screen and source file, attempting XcodeBuildMCP-backed capture when available, explicitly reporting MCP/fallback failures and blocker ownership, and returning a concise Japanese audit report without auto-fixing by default. Use for audit-first requests such as `#Previewをキャプチャして`, `Preview を見て UI 崩れを監査して`, `画面プレビューを一覧で確認したい`, and `コンポーネントではなく 1 画面単位で見てほしい`. Prefer this skill when the user wants capture coverage, issue classification, or missing-preview reasoning, not default implementation work.
 ---
 
 # Xcode Preview Auditor
 
-Audit SwiftUI `#Preview` in Apple app repositories. Discover previews, prefer screen-level captures, keep Xcode MCP as the canonical capture path, make capture coverage explicit by file and screen, show captured previews back to the user, and return a concise Japanese audit report instead of defaulting to fixes.
+Audit SwiftUI `#Preview` in Apple app repositories. Discover previews, prefer screen-level captures, use XcodeBuildMCP as the first capture surface when it exposes a suitable direct Preview workflow, make capture coverage explicit by file and screen, show captured images back to the user, and return a concise Japanese audit report instead of defaulting to fixes.
 
 ## Workflow
 
@@ -19,22 +19,27 @@ Audit SwiftUI `#Preview` in Apple app repositories. Discover previews, prefer sc
    - missing environment objects, model containers, dependencies, or sample data
    - preview-only crashes or compile errors
    - unsupported services or platform/tooling blockers
-5. Capture with Xcode MCP first. Treat the first visible viewport as the default audit scope.
-6. If MCP capture fails, record an explicit failure entry before any fallback:
+5. Check available XcodeBuildMCP capture capabilities before attempting capture.
+   - Use a dedicated Preview capture path if the current XcodeBuildMCP session exposes one.
+   - If only simulator workflow tools are available, record that direct Preview capture is unavailable before considering fallback.
+   - Before any XcodeBuildMCP build, run, or test call, call `session_show_defaults` and follow the active project/workspace, scheme, and simulator defaults.
+6. Capture with XcodeBuildMCP first when a faithful Preview or screen capture path exists. Treat the first visible viewport as the default audit scope.
+7. If MCP capture fails or direct Preview capture is unavailable, record an explicit failure entry before any fallback:
    - what was attempted
    - why it failed
    - whether the blocker is `app-side`, `preview-side`, or `tool-side`
    - whether a faithful fallback exists
-7. Use Simulator fallback only when the exact same screen state can be reproduced through existing app flows such as deep links, seeded routes, or normal navigation already present in the repository.
-8. If fallback succeeds after MCP failure, keep the preview as `captured`, but note `MCP failed -> Simulator fallback` and preserve the original failure summary for blocker reporting.
-9. Show each obtained capture to the user, not just an inventory line. When local image rendering is supported, embed the image inline with a short caption.
-10. Review captures at screen level and classify each problem as:
+8. Use Simulator fallback only when the exact same screen state can be reproduced through existing app flows such as deep links, seeded routes, or normal navigation already present in the repository.
+9. For simulator fallback through XcodeBuildMCP, prefer the standard flow: `session_show_defaults`, then `build_run_sim` when defaults are complete, then `screenshot`. Do not use `boot_sim` or `open_sim` as prerequisites for `build_run_sim`.
+10. If fallback succeeds after MCP failure or direct Preview capture is unavailable, keep the preview as `captured`, but note `MCP failed/unavailable -> Simulator fallback` and preserve the original failure summary for blocker reporting.
+11. Show each obtained capture to the user, not just an inventory line. When local image rendering is supported, embed the image inline with a short caption.
+12. Review captures at screen level and classify each problem as:
    - app-side UI issue
    - design-system / shared UI foundation issue
    - data/setup issue
    - tooling blocker
-11. Report findings in concise, polite Japanese.
-12. Do not implement fixes unless the user explicitly asks.
+13. Report findings in concise, polite Japanese.
+14. Do not implement fixes unless the user explicitly asks.
 
 ## Coverage Ledger
 
@@ -73,13 +78,15 @@ Likely component previews:
 
 When ambiguous, include the preview only if it reasonably represents one screen the user could recognize as a product surface.
 
-## MCP-First Capture Policy
+## XcodeBuildMCP-First Capture Policy
 
 `#Preview` is the canonical source of truth.
 
-Keep Xcode MCP as the first-choice mechanism for every eligible preview.
+Keep XcodeBuildMCP as the first-choice mechanism for every eligible preview when the available tool surface can render or reproduce that preview faithfully.
 
-Use Simulator fallback only after an MCP attempt is recorded as failed, and only when the exact same screen state can be reproduced through existing app flows such as deep links, seeded routes, or normal navigation already present in the repository.
+Do not pretend a dedicated Preview renderer exists when the current XcodeBuildMCP tools expose only simulator build/run/screenshot workflows. In that case, mark direct Preview capture as a `tool-side` blocker and continue only with an explicitly faithful simulator fallback.
+
+Use Simulator fallback only after an MCP attempt fails or direct Preview capture is recorded as unavailable, and only when the exact same screen state can be reproduced through existing app flows such as deep links, seeded routes, or normal navigation already present in the repository.
 
 Do not claim equivalence for preview-only states that cannot be reproduced faithfully. Keep them in the `failed` or `not attempted` part of `プレビューカバレッジ要約` with a concrete reason.
 
@@ -109,7 +116,7 @@ Use this ownership only for capture failures and blockers.
 `tool-side`
 
 - the failure is attributable to Xcode, MCP transport, preview renderer instability, or capture tooling rather than product code
-- examples: MCP timeout, renderer session crash without app-side evidence, tool cannot resolve a preview that otherwise looks correctly defined
+- examples: MCP timeout, renderer session crash without app-side evidence, tool cannot resolve a preview that otherwise looks correctly defined, or the current MCP tool surface lacks direct Preview capture support
 
 ## Triage Rules
 
