@@ -179,3 +179,8 @@ Classify blockers by ownership when coverage fails:
 For each failure, report what was attempted, the observed symptom, the likely owner, and the next safe action.
 Do not mask tool failures by substituting unrelated screenshots or Preview captures.
 Treat a timeout as ambiguous until live state checks prove the app is unusable or unavailable.
+
+## Workflow Alignment (skills-batch-auditor)
+
+- Return output in concise, polite Japanese.
+- Do not invent architecture or product features.
