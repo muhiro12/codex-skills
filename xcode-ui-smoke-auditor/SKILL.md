@@ -39,8 +39,10 @@ Select representative simulator coverage from the app's discovered supported tar
 
 - Prefer the currently configured simulator when it matches the app target.
 - When defaults are incomplete, choose a safe representative simulator for each supported platform/device family that XcodeBuildMCP can actually build/run and inspect.
-- For iPadOS-capable apps, prefer landscape orientation as the representative iPad smoke case because split views, sidebars, and wide layouts are common shipping surfaces.
-- Use an available XcodeBuildMCP orientation or device-control tool when one is exposed. If orientation cannot be changed or verified through the available tool surface, record `iPad landscape not confirmed` as a coverage gap instead of silently accepting portrait-only coverage.
+- For iPadOS-capable apps, treat landscape as the preferred representative iPad smoke case because split views, sidebars, and wide layouts are common shipping surfaces.
+- Attempt iPad landscape only when a supported XcodeBuildMCP orientation/device-control tool or safe user/environment state makes it possible. Do not imply landscape is guaranteed until it is verified.
+- If orientation cannot be changed or verified because the tool is missing, MCP/macOS accessibility blocks it, or the user has not manually rotated the Simulator, continue with the available iPad orientation and record `iPad landscape not confirmed` as a coverage gap with the concrete reason.
+- If the user manually rotates the Simulator, re-check orientation from screenshot dimensions, UI hierarchy, or other visible evidence, then continue the landscape audit only after verification.
 - Probe the available XcodeBuildMCP tool surface before promising coverage. If only iOS Simulator tools are available, audit the supported iOS/iPadOS surface and report non-iOS targets as coverage gaps instead of pretending they were checked.
 - If a target is unsupported, unavailable, not configured, or unsafe to run, record the reason in the report.
 
@@ -75,6 +77,8 @@ For each selected target, maintain a small coverage ledger of screens attempted,
 - For Tip popovers, onboarding prompts, permission dialogs, and other transient overlays, capture the covered state first. If a clearly safe Close, Cancel, Dismiss, or Not Now action is available, dismiss it and capture the underlying screen too.
 - Use safe gestures such as scrolls or back swipes only when they match visible navigation.
 - Capture a screenshot after launch and after each meaningful transition. Expose screenshot paths in the final report, and show images inline when the environment supports local image rendering.
+- Prefer screenshots that are visually usable as evidence for a human reviewer. If a screenshot is sideways, cropped, blank, on the wrong surface, obscured, or otherwise hard to review, mention that and attempt a safer alternate capture method when one is available.
+- Do not claim visual coverage from screenshots that the user cannot inspect or that are not reviewable enough to support the finding.
 - Stop when coverage is enough for a smoke audit or when further navigation would require destructive setup, credentials, production actions, or product decisions.
 
 Flag user-visible problems conservatively:
@@ -98,7 +102,7 @@ Include:
 
 - exact device, runtime, platform, orientation when relevant, scheme, configuration, and launch arguments used
 - XcodeBuildMCP tools and notable commands/actions used
-- screenshots captured, with absolute paths and inline images when possible
+- screenshots captured, grouped by device, orientation, and screen, with absolute paths and inline images when possible
 - observed Simulator/app data state for each target, especially when results depend on existing local state
 - screens and transitions covered
 - failed or skipped screens with concrete reasons
@@ -123,7 +127,9 @@ Use this final report order unless the user asks for another format:
 5. `screenshots`
 6. `session defaults`
 
-Keep each section short. For empty finding sections, say `none observed in audited coverage` rather than omitting the section. In `coverage gaps`, include skipped targets, discovered companion targets that were not audited, iPad landscape not confirmed, unreachable screens, state-dependent coverage, tool-side limitations, and transient overlays that could not be dismissed safely. In `screenshots`, list captured paths grouped by target/screen and embed images inline when supported. In `session defaults`, include original defaults, changes made during the audit, whether they were restored, and final defaults if they were not restored.
+Keep each section short. For empty finding sections, say `none observed in audited coverage` rather than omitting the section. In `coverage gaps`, include skipped targets, discovered companion targets that were not audited, orientation gaps such as `iPad landscape not confirmed`, unreachable screens, state-dependent coverage, tool-side limitations, and transient overlays that could not be dismissed safely. In `screenshots`, provide a concise gallery or grouped index by device, orientation, and screen; include absolute paths; embed each reviewable image with Markdown image syntax when local image rendering is supported; if inline rendering is unavailable, say so explicitly and provide the compact index. In `session defaults`, include original defaults, changes made during the audit, whether they were restored, and final defaults if they were not restored.
+
+Use screenshots to support both automated smoke judgment and human release review. If screenshot evidence is incomplete or hard to review, say so in `warnings` or `coverage gaps` and avoid claiming complete visual coverage for that screen.
 
 Never silently pass or fail the app. Always state what was actually observed and what was not covered.
 When no issues are found, say that no blocking issues were observed in the audited coverage and still list remaining gaps.
