@@ -1,6 +1,6 @@
 ---
 name: xcode-ui-smoke-auditor
-description: Run a safe, audit-only live Simulator UI smoke review for Apple-platform app repositories using XcodeBuildMCP. Use when the user asks for release UI smoke, Simulator screenshot audit, visual check, Apple-platform visual review, iPad landscape UI check, Apple Watch/companion target coverage, Xcode MCPでUI確認, 実アプリを起動して画面崩れを確認, or similar requests to build/run the current app, inspect live UI, capture screenshots, navigate key screens, and report audit findings. This is for live Simulator app auditing with current repo/session settings, not SwiftUI #Preview inspection, unit tests, UI tests, snapshot tests, code fixes, destructive simulator setup, release-environment manipulation, or forcing Release configuration.
+description: Run a safe, audit-only live Simulator UI smoke review for Apple-platform app repositories using XcodeBuildMCP. Use when the user asks for release UI smoke, release screenshot gallery, Simulator screenshot audit, visual check, Apple-platform visual review, iPad landscape UI check, Apple Watch/companion target coverage, Xcode MCPでUI確認, 実アプリを起動して画面崩れを確認, or similar requests to build/run the current app, inspect live UI, capture screenshots, navigate key screens, and report audit findings. This is for live Simulator app auditing with current repo/session settings, not SwiftUI #Preview inspection, unit tests, UI tests, snapshot tests, code fixes, destructive simulator setup, release-environment manipulation, or forcing Release configuration.
 ---
 
 # Xcode UI Smoke Auditor
@@ -17,12 +17,24 @@ Treat this as a lightweight manual smoke audit with tool support, not as release
 
 Do not use this skill for SwiftUI Preview capture or preview coverage audits; use a Preview-specific workflow for that.
 
+## Audit Depth
+
+Choose the audit depth from the user's wording and repository evidence, and state the chosen depth in the report.
+
+- `light smoke`: cover launch, primary navigation roots, and a few high-risk reachable screens. Use this only when the user asks for a quick or narrow check, and make clear that it is not all-screen coverage.
+- `release screenshot gallery`: use when the user asks for release visual review, release screenshots, screenshot gallery, or human review before release. Build a broader screen-candidate ledger and capture representative screenshots for as many safe, reachable candidate screens as practical.
+
+For either depth, do not imply full app coverage unless the screen-candidate ledger supports it.
+If only a few screens were captured, explicitly call the result a limited smoke audit and list the unverified screen areas.
+
 ## Non-Mutating First Pass
 
 Before asking questions or running the app, discover the repository's own instructions and available surfaces:
 
 - Read relevant `AGENTS.md`, README, docs, and `ci_scripts` guidance.
 - Identify Xcode projects/workspaces, schemes, test plans, launch arguments, debug/sample-data entrypoints, deep links, route names, and supported platforms or device families.
+- Inventory screen candidates from available repo truth: tabs, sidebars, navigation routes, deep links, app intents, visible screen/view names, settings/detail/editor flows, onboarding, and documented release smoke guidance.
+- If the repo provides a screen catalog, debug-only routes, stable seeded data, or screenshot tooling, prefer those safe entrypoints for gallery coverage.
 - Use repository files, build settings, scheme names, test plans, and app metadata to infer supported targets before choosing simulators.
 - Treat discovered companion app targets such as watchOS apps/extensions as coverage candidates. Every discovered supported platform/device family must end as `audited`, `skipped`, or `coverage gap` with a reason.
 - Prefer repo-provided sample data or debug seed flows when they are clearly safe and non-destructive.
@@ -64,6 +76,7 @@ Use XcodeBuildMCP tools over shell commands for project discovery, session defau
 ## UI Audit Workflow
 
 For each selected target, maintain a small coverage ledger of screens attempted, captured, failed, and skipped.
+For release screenshot gallery depth, maintain a screen-candidate ledger with `captured`, `failed`, `skipped`, and `not discovered` statuses, and keep unknown or unreachable areas visible in coverage gaps.
 
 - Start with the initial screen, then navigate only through safe, user-reachable paths discovered from repository evidence or visible UI.
 - Record the current Simulator/app data state before interpreting content: existing data, empty state, repo-provided sample data, or unknown.
@@ -78,6 +91,8 @@ For each selected target, maintain a small coverage ledger of screens attempted,
 - Use safe gestures such as scrolls or back swipes only when they match visible navigation.
 - Capture a screenshot after launch and after each meaningful transition. Expose screenshot paths in the final report, and show images inline when the environment supports local image rendering.
 - Prefer screenshots that are visually usable as evidence for a human reviewer. If a screenshot is sideways, cropped, blank, on the wrong surface, obscured, or otherwise hard to review, mention that and attempt a safer alternate capture method when one is available.
+- Verify the exact image that will appear in the final Markdown report, not only the raw capture path. If the embedded image is upside down, sideways, cropped, or mismatched with UI hierarchy orientation, treat it as not reviewable until corrected or recaptured.
+- Corrected derivative screenshots may be created as non-repo audit artifacts when the correction is mechanical and obvious. Preserve the original path, expose the corrected path, and state that the image was normalized for review.
 - Do not claim visual coverage from screenshots that the user cannot inspect or that are not reviewable enough to support the finding.
 - Stop when coverage is enough for a smoke audit or when further navigation would require destructive setup, credentials, production actions, or product decisions.
 
@@ -105,6 +120,7 @@ Include:
 - screenshots captured, grouped by device, orientation, and screen, with absolute paths and inline images when possible
 - observed Simulator/app data state for each target, especially when results depend on existing local state
 - screens and transitions covered
+- screen-candidate ledger summary for release screenshot gallery depth, including captured, failed, skipped, and not discovered counts
 - failed or skipped screens with concrete reasons
 - whether findings came from screenshot inspection, UI hierarchy inspection, runtime logs, or a combination
 - remaining coverage gaps, including supported targets that could not be audited
@@ -127,7 +143,7 @@ Use this final report order unless the user asks for another format:
 5. `screenshots`
 6. `session defaults`
 
-Keep each section short. For empty finding sections, say `none observed in audited coverage` rather than omitting the section. In `coverage gaps`, include skipped targets, discovered companion targets that were not audited, orientation gaps such as `iPad landscape not confirmed`, unreachable screens, state-dependent coverage, tool-side limitations, and transient overlays that could not be dismissed safely. In `screenshots`, provide a concise gallery or grouped index by device, orientation, and screen; include absolute paths; embed each reviewable image with Markdown image syntax when local image rendering is supported; if inline rendering is unavailable, say so explicitly and provide the compact index. In `session defaults`, include original defaults, changes made during the audit, whether they were restored, and final defaults if they were not restored.
+Keep each section short. For empty finding sections, say `none observed in audited coverage` rather than omitting the section. In `coverage gaps`, include skipped targets, discovered companion targets that were not audited, orientation gaps such as `iPad landscape not confirmed`, unreviewable screenshots, uncaptured screen candidates, unreachable screens, state-dependent coverage, tool-side limitations, and transient overlays that could not be dismissed safely. In `screenshots`, provide a concise gallery or grouped index by device, orientation, and screen; include absolute paths; embed each reviewable image with Markdown image syntax when local image rendering is supported; if inline rendering is unavailable, say so explicitly and provide the compact index. In `session defaults`, include original defaults, changes made during the audit, whether they were restored, and final defaults if they were not restored.
 
 Use screenshots to support both automated smoke judgment and human release review. If screenshot evidence is incomplete or hard to review, say so in `warnings` or `coverage gaps` and avoid claiming complete visual coverage for that screen.
 
