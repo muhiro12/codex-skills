@@ -1,6 +1,6 @@
 ---
 name: xcode-ui-smoke-auditor
-description: Run a safe, audit-only live Simulator UI smoke review for Apple-platform app repositories using XcodeBuildMCP. Use when the user asks for release UI smoke, release screenshot gallery, Simulator screenshot audit, visual check, Apple-platform visual review, iPad landscape UI check, Apple Watch/companion target coverage, Xcode MCPでUI確認, 実アプリを起動して画面崩れを確認, or similar requests to build/run the current app, inspect live UI, capture screenshots, navigate key screens, and report audit findings. This is for live Simulator app auditing with current repo/session settings, not SwiftUI #Preview inspection, unit tests, UI tests, snapshot tests, code fixes, destructive simulator setup, release-environment manipulation, or forcing Release configuration.
+description: Run a safe, audit-only live Simulator UI smoke review for Apple-platform app repositories using XcodeBuildMCP. Use when the user asks for release UI smoke, diff-focused release smoke, full gallery audit, targeted screen audit, release screenshot gallery, Simulator screenshot audit, visual check, iPad landscape UI check, Apple Watch/companion target coverage, Xcode MCPでUI確認, 実アプリを起動して画面崩れを確認, or similar requests to build/run the current app, inspect live UI, capture screenshots, and report audit findings. This is live Simulator app auditing with current repo/session settings, not SwiftUI #Preview inspection, tests, code fixes, destructive setup, release-environment manipulation, or forcing Release configuration.
 ---
 
 # Xcode UI Smoke Auditor
@@ -17,14 +17,15 @@ Treat this as a lightweight manual smoke audit with tool support, not as release
 
 Do not use this skill for SwiftUI Preview capture or preview coverage audits; use a Preview-specific workflow for that.
 
-## Audit Depth
+## Audit Modes
 
-Choose the audit depth from the user's wording and repository evidence, and state the chosen depth in the report.
+Choose the audit mode from the user's wording and repository evidence, and state the chosen mode in the report.
 
-- `light smoke`: cover launch, primary navigation roots, and a few high-risk reachable screens. Use this only when the user asks for a quick or narrow check, and make clear that it is not all-screen coverage.
-- `release screenshot gallery`: use when the user asks for release visual review, release screenshots, screenshot gallery, or human review before release. Build a broader screen-candidate ledger and capture representative screenshots for as many safe, reachable candidate screens as practical.
+- `diff-focused release smoke`: default for normal pre-release use. Compare against the user-specified base or the latest reasonable release tag, infer affected screens/routes/targets from the diff, and include directly changed screens plus parent screens, destinations, adjacent flows, and impacted companion targets.
+- `full gallery audit`: use for periodic maintenance, major navigation/layout foundation changes, or explicit broad gallery requests. Inventory safe screen candidates widely and capture as many reachable representatives as practical, but describe the result as discovered-and-reachable coverage rather than proof of all screens.
+- `targeted screen audit`: use when the user names specific screens, routes, flows, device classes, or a fix to re-check. Keep scope tight and report unrelated surfaces as not covered.
 
-For either depth, do not imply full app coverage unless the screen-candidate ledger supports it.
+For any mode, do not imply full app coverage unless the screen-candidate ledger supports it.
 If only a few screens were captured, explicitly call the result a limited smoke audit and list the unverified screen areas.
 
 ## Non-Mutating First Pass
@@ -33,6 +34,7 @@ Before asking questions or running the app, discover the repository's own instru
 
 - Read relevant `AGENTS.md`, README, docs, and `ci_scripts` guidance.
 - Identify Xcode projects/workspaces, schemes, test plans, launch arguments, debug/sample-data entrypoints, deep links, route names, and supported platforms or device families.
+- For `diff-focused release smoke`, inspect non-mutating git history and diffs first: user-specified base, latest reachable release tag, changed files, changed SwiftUI views, route/navigation definitions, asset/localization changes, target membership, and build setting changes. If no reliable base is discoverable, ask for a base or fall back to current changed files and clearly report that limitation.
 - Inventory screen candidates from available repo truth: tabs, sidebars, navigation routes, deep links, app intents, visible screen/view names, settings/detail/editor flows, onboarding, and documented release smoke guidance.
 - If the repo provides a screen catalog, debug-only routes, stable seeded data, or screenshot tooling, prefer those safe entrypoints for gallery coverage.
 - Use repository files, build settings, scheme names, test plans, and app metadata to infer supported targets before choosing simulators.
@@ -51,12 +53,14 @@ Select representative simulator coverage from the app's discovered supported tar
 
 - Prefer the currently configured simulator when it matches the app target.
 - When defaults are incomplete, choose a safe representative simulator for each supported platform/device family that XcodeBuildMCP can actually build/run and inspect.
+- For iPhone-capable apps, include a representative iPhone simulator as the compact UI smoke target unless the user narrows scope away from iPhone.
 - For iPadOS-capable apps, treat landscape as the preferred representative iPad smoke case because split views, sidebars, and wide layouts are common shipping surfaces.
 - Attempt iPad landscape only when a supported XcodeBuildMCP orientation/device-control tool or safe user/environment state makes it possible. Do not imply landscape is guaranteed until it is verified.
 - If orientation cannot be changed or verified because the tool is missing, MCP/macOS accessibility blocks it, or the user has not manually rotated the Simulator, continue with the available iPad orientation and record `iPad landscape not confirmed` as a coverage gap with the concrete reason.
 - If the user manually rotates the Simulator, re-check orientation from screenshot dimensions, UI hierarchy, or other visible evidence, then continue the landscape audit only after verification.
 - Probe the available XcodeBuildMCP tool surface before promising coverage. If only iOS Simulator tools are available, audit the supported iOS/iPadOS surface and report non-iOS targets as coverage gaps instead of pretending they were checked.
 - If a target is unsupported, unavailable, not configured, or unsafe to run, record the reason in the report.
+- Treat WidgetKit, Siri/Shortcuts, purchases, destructive deletes, sensitive permission grants, and externally visible flows as outside the default live app smoke scope. Add them to the ledger as `skipped` unless the user explicitly requests a separate safe audit path.
 
 ## Build And Launch Workflow
 
@@ -76,12 +80,13 @@ Use XcodeBuildMCP tools over shell commands for project discovery, session defau
 ## UI Audit Workflow
 
 For each selected target, maintain a small coverage ledger of screens attempted, captured, failed, and skipped.
-For release screenshot gallery depth, maintain a screen-candidate ledger with `captured`, `failed`, `skipped`, and `not discovered` statuses, and keep unknown or unreachable areas visible in coverage gaps.
+For every mode, maintain a screen-candidate ledger with `captured`, `failed`, `skipped`, and `not discovered / not reachable` statuses, and keep unknown or unreachable areas visible in coverage gaps.
 
 - Start with the initial screen, then navigate only through safe, user-reachable paths discovered from repository evidence or visible UI.
 - Record the current Simulator/app data state before interpreting content: existing data, empty state, repo-provided sample data, or unknown.
 - If no sample data was inserted and no data was cleared, state that observations are dependent on the current Simulator state.
 - For iPad targets, verify whether the captured UI is landscape or portrait. If landscape was intended but not achieved, do not treat the iPad pass as fully covered.
+- For watchOS or other companion targets, attempt safe live inspection when the XcodeBuildMCP tool surface supports it. If accessibility hierarchy is empty or unavailable, use screenshot plus cautious coordinate-based operation only when safe, and label that evidence as screenshot/coordinate based.
 - Prioritize primary tabs, sidebars, navigation roots, settings, detail screens, editor/create flows, sheets, popovers, and platform-specific layouts that can be reached without destructive actions.
 - Inspect the live UI hierarchy with the available tool, especially `snapshot_ui` when present, before tapping or gesturing.
 - Use screenshots as the visual evidence source; use UI hierarchy to guide navigation and support findings, not as a substitute for visual inspection.
@@ -120,11 +125,12 @@ Include:
 - screenshots captured, grouped by device, orientation, and screen, with absolute paths and inline images when possible
 - observed Simulator/app data state for each target, especially when results depend on existing local state
 - screens and transitions covered
-- screen-candidate ledger summary for release screenshot gallery depth, including captured, failed, skipped, and not discovered counts
+- screen-candidate ledger with captured, failed, skipped, and not discovered / not reachable counts
 - failed or skipped screens with concrete reasons
 - whether findings came from screenshot inspection, UI hierarchy inspection, runtime logs, or a combination
 - remaining coverage gaps, including supported targets that could not be audited
 - runtime crash/error summary when available
+- tool and fallback actions used, including any approved shell fallback such as `xcrun simctl openurl`
 - any `build_run_sim` timeout recovery attempts, including whether `snapshot_ui`, `screenshot`, or `launch_app_sim` showed the app was usable
 - any session defaults changed during the audit, whether the original defaults were restored, and the final active defaults if not restored
 
@@ -140,10 +146,12 @@ Use this final report order unless the user asks for another format:
 2. `warnings`
 3. `notes`
 4. `coverage gaps`
-5. `screenshots`
-6. `session defaults`
+5. `screen-candidate ledger`
+6. `screenshots`
+7. `session defaults`
+8. `tool / fallback actions`
 
-Keep each section short. For empty finding sections, say `none observed in audited coverage` rather than omitting the section. In `coverage gaps`, include skipped targets, discovered companion targets that were not audited, orientation gaps such as `iPad landscape not confirmed`, unreviewable screenshots, uncaptured screen candidates, unreachable screens, state-dependent coverage, tool-side limitations, and transient overlays that could not be dismissed safely. In `screenshots`, provide a concise gallery or grouped index by device, orientation, and screen; include absolute paths; embed each reviewable image with Markdown image syntax when local image rendering is supported; if inline rendering is unavailable, say so explicitly and provide the compact index. In `session defaults`, include original defaults, changes made during the audit, whether they were restored, and final defaults if they were not restored.
+Keep each section short. For empty finding sections, say `none observed in audited coverage` rather than omitting the section. In `coverage gaps`, include skipped targets, discovered companion targets that were not audited, orientation gaps such as `iPad landscape not confirmed`, unreviewable screenshots, uncaptured screen candidates, unreachable screens, state-dependent coverage, tool-side limitations, and transient overlays that could not be dismissed safely. In `screen-candidate ledger`, group candidates by target/device or route and mark each as `captured`, `failed`, `skipped`, or `not discovered / not reachable`. In `screenshots`, provide a concise gallery or grouped index by device, orientation, and screen; include absolute paths; embed each reviewable image with Markdown image syntax when local image rendering is supported; record raw path and corrected review path separately when screenshots are normalized for orientation. In `session defaults`, include original defaults, changes made during the audit, whether they were restored, and final defaults if they were not restored. In `tool / fallback actions`, list XcodeBuildMCP tools, approved shell fallbacks, manual/user actions, and limitations.
 
 Use screenshots to support both automated smoke judgment and human release review. If screenshot evidence is incomplete or hard to review, say so in `warnings` or `coverage gaps` and avoid claiming complete visual coverage for that screen.
 
@@ -163,6 +171,7 @@ Do not:
 - persist XcodeBuildMCP defaults or write repository config solely for the audit
 - perform production, purchase, send, delete, account, or externally visible actions
 - grant sensitive permissions, complete onboarding, create accounts, or sign in unless the user explicitly asks and the environment is known safe
+- treat WidgetKit, Siri/Shortcuts, purchases, destructive deletes, permission granting, or externally visible flows as covered by default live app smoke
 - use shell `xcodebuild`, `simctl`, or app-specific scripts as a replacement for XcodeBuildMCP UI auditing unless the user approves a fallback after a clear tool-side blocker
 
 If the user asks for fixes after the audit, treat the report as the handoff and switch to an implementation workflow.
@@ -179,8 +188,3 @@ Classify blockers by ownership when coverage fails:
 For each failure, report what was attempted, the observed symptom, the likely owner, and the next safe action.
 Do not mask tool failures by substituting unrelated screenshots or Preview captures.
 Treat a timeout as ambiguous until live state checks prove the app is unusable or unavailable.
-
-## Workflow Alignment (skills-batch-auditor)
-
-- Return output in concise, polite Japanese.
-- Do not invent architecture or product features.
