@@ -1,4 +1,4 @@
 interface:
   display_name: "Xcode UI Smoke Auditor"
   short_description: "Audit live Simulator UI safely"
-  default_prompt: "Use $xcode-ui-smoke-auditor to audit the current Apple app in Simulator with XcodeBuildMCP using current repo/session settings, inspect supported live UI surfaces, capture screenshots, and report findings without changing code or release configuration."
+  default_prompt: "Use $xcode-ui-smoke-auditor to audit the current Apple app in Simulator with XcodeBuildMCP using current repo/session settings, inspect supported live UI surfaces including representative iPad landscape when applicable, capture screenshots, and report findings and coverage gaps without changing code or release configuration."

@@ -1,6 +1,6 @@
 ---
 name: xcode-ui-smoke-auditor
-description: Run a safe, audit-only live Simulator UI smoke review for Apple-platform app repositories using XcodeBuildMCP. Use when the user asks for release UI smoke, Simulator screenshot audit, visual check, Apple-platform visual review, Xcode MCPでUI確認, 実アプリを起動して画面崩れを確認, or similar requests to build/run the current app, inspect the live UI hierarchy, capture screenshots, navigate key screens, and report audit findings. This is for live Simulator app auditing with current repo/session settings, not SwiftUI #Preview inspection, unit tests, UI tests, snapshot tests, code fixes, destructive simulator setup, release-environment manipulation, or forcing Release configuration.
+description: Run a safe, audit-only live Simulator UI smoke review for Apple-platform app repositories using XcodeBuildMCP. Use when the user asks for release UI smoke, Simulator screenshot audit, visual check, Apple-platform visual review, iPad landscape UI check, Apple Watch/companion target coverage, Xcode MCPでUI確認, 実アプリを起動して画面崩れを確認, or similar requests to build/run the current app, inspect live UI, capture screenshots, navigate key screens, and report audit findings. This is for live Simulator app auditing with current repo/session settings, not SwiftUI #Preview inspection, unit tests, UI tests, snapshot tests, code fixes, destructive simulator setup, release-environment manipulation, or forcing Release configuration.
 ---
 
 # Xcode UI Smoke Auditor
@@ -24,6 +24,7 @@ Before asking questions or running the app, discover the repository's own instru
 - Read relevant `AGENTS.md`, README, docs, and `ci_scripts` guidance.
 - Identify Xcode projects/workspaces, schemes, test plans, launch arguments, debug/sample-data entrypoints, deep links, route names, and supported platforms or device families.
 - Use repository files, build settings, scheme names, test plans, and app metadata to infer supported targets before choosing simulators.
+- Treat discovered companion app targets such as watchOS apps/extensions as coverage candidates. Every discovered supported platform/device family must end as `audited`, `skipped`, or `coverage gap` with a reason.
 - Prefer repo-provided sample data or debug seed flows when they are clearly safe and non-destructive.
 - If setup would erase data, write persistent state, hit production services, alter release settings, or otherwise be destructive, ask before doing it.
 - If authentication, network services, purchases, permissions, or account state are required, use only clearly safe local/test flows; otherwise report the coverage limit or ask for explicit direction.
@@ -38,6 +39,8 @@ Select representative simulator coverage from the app's discovered supported tar
 
 - Prefer the currently configured simulator when it matches the app target.
 - When defaults are incomplete, choose a safe representative simulator for each supported platform/device family that XcodeBuildMCP can actually build/run and inspect.
+- For iPadOS-capable apps, prefer landscape orientation as the representative iPad smoke case because split views, sidebars, and wide layouts are common shipping surfaces.
+- Use an available XcodeBuildMCP orientation or device-control tool when one is exposed. If orientation cannot be changed or verified through the available tool surface, record `iPad landscape not confirmed` as a coverage gap instead of silently accepting portrait-only coverage.
 - Probe the available XcodeBuildMCP tool surface before promising coverage. If only iOS Simulator tools are available, audit the supported iOS/iPadOS surface and report non-iOS targets as coverage gaps instead of pretending they were checked.
 - If a target is unsupported, unavailable, not configured, or unsafe to run, record the reason in the report.
 
@@ -63,6 +66,7 @@ For each selected target, maintain a small coverage ledger of screens attempted,
 - Start with the initial screen, then navigate only through safe, user-reachable paths discovered from repository evidence or visible UI.
 - Record the current Simulator/app data state before interpreting content: existing data, empty state, repo-provided sample data, or unknown.
 - If no sample data was inserted and no data was cleared, state that observations are dependent on the current Simulator state.
+- For iPad targets, verify whether the captured UI is landscape or portrait. If landscape was intended but not achieved, do not treat the iPad pass as fully covered.
 - Prioritize primary tabs, sidebars, navigation roots, settings, detail screens, editor/create flows, sheets, popovers, and platform-specific layouts that can be reached without destructive actions.
 - Inspect the live UI hierarchy with the available tool, especially `snapshot_ui` when present, before tapping or gesturing.
 - Use screenshots as the visual evidence source; use UI hierarchy to guide navigation and support findings, not as a substitute for visual inspection.
@@ -92,7 +96,7 @@ Separate current findings from coverage gaps and tool limitations.
 
 Include:
 
-- exact device, runtime, platform, scheme, configuration, and launch arguments used
+- exact device, runtime, platform, orientation when relevant, scheme, configuration, and launch arguments used
 - XcodeBuildMCP tools and notable commands/actions used
 - screenshots captured, with absolute paths and inline images when possible
 - observed Simulator/app data state for each target, especially when results depend on existing local state
@@ -119,7 +123,7 @@ Use this final report order unless the user asks for another format:
 5. `screenshots`
 6. `session defaults`
 
-Keep each section short. For empty finding sections, say `none observed in audited coverage` rather than omitting the section. In `coverage gaps`, include skipped targets, unreachable screens, state-dependent coverage, tool-side limitations, and transient overlays that could not be dismissed safely. In `screenshots`, list captured paths grouped by target/screen and embed images inline when supported. In `session defaults`, include original defaults, changes made during the audit, whether they were restored, and final defaults if they were not restored.
+Keep each section short. For empty finding sections, say `none observed in audited coverage` rather than omitting the section. In `coverage gaps`, include skipped targets, discovered companion targets that were not audited, iPad landscape not confirmed, unreachable screens, state-dependent coverage, tool-side limitations, and transient overlays that could not be dismissed safely. In `screenshots`, list captured paths grouped by target/screen and embed images inline when supported. In `session defaults`, include original defaults, changes made during the audit, whether they were restored, and final defaults if they were not restored.
 
 Never silently pass or fail the app. Always state what was actually observed and what was not covered.
 When no issues are found, say that no blocking issues were observed in the audited coverage and still list remaining gaps.
