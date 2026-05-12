@@ -1,0 +1,4 @@
+interface:
+  display_name: "Apple Sample Code Advisor"
+  short_description: "Use cached Apple sample projects as guidance"
+  default_prompt: "Use $apple-sample-code-advisor to find, cache, inspect, and apply Apple sample code guidance to an Apple-platform implementation."
