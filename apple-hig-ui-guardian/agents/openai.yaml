@@ -1,0 +1,4 @@
+interface:
+  display_name: "Apple HIG UI Guardian"
+  short_description: "Build, audit, and fix Apple UI against HIG"
+  default_prompt: "Use $apple-hig-ui-guardian to create, audit, or fix Apple-platform UI so it follows Apple Human Interface Guidelines."
