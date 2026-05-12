@@ -6,6 +6,7 @@ description: Audit SwiftUI `#Preview` screens in Apple app repositories by disco
 # Xcode Preview Auditor
 
 Audit SwiftUI `#Preview` in Apple app repositories. Discover previews, prefer screen-level captures, use XcodeBuildMCP as the first capture surface when it exposes a suitable direct Preview workflow, make capture coverage explicit by file and screen, show captured images back to the user, and return a concise Japanese audit report instead of defaulting to fixes.
+For screen-level Apple UI previews, use `$apple-hig-ui-guardian` after capture so the audit covers HIG alignment, not only render correctness.
 
 ## Workflow
 
@@ -33,13 +34,15 @@ Audit SwiftUI `#Preview` in Apple app repositories. Discover previews, prefer sc
 9. For simulator fallback through XcodeBuildMCP, prefer the standard flow: `session_show_defaults`, then `build_run_sim` when defaults are complete, then `screenshot`. Do not use `boot_sim` or `open_sim` as prerequisites for `build_run_sim`.
 10. If fallback succeeds after MCP failure or direct Preview capture is unavailable, keep the preview as `captured`, but note `MCP failed/unavailable -> Simulator fallback` and preserve the original failure summary for blocker reporting.
 11. Show each obtained capture to the user, not just an inventory line. When local image rendering is supported, embed the image inline with a short caption.
-12. Review captures at screen level and classify each problem as:
+12. Review captures at screen level. For likely screen previews, apply `$apple-hig-ui-guardian` and classify both visible UI breakage and HIG drift.
+13. Classify each problem as:
    - app-side UI issue
    - design-system / shared UI foundation issue
+   - HIG / Apple platform guidance issue
    - data/setup issue
    - tooling blocker
-13. Report findings in concise, polite Japanese.
-14. Do not implement fixes unless the user explicitly asks.
+14. Report findings in concise, polite Japanese.
+15. Do not implement fixes unless the user explicitly asks.
 
 ## Coverage Ledger
 
@@ -126,6 +129,11 @@ Classify findings conservatively.
 
 - layout breakage, clipping, overlap, truncation, unsafe-area mistakes, navigation or title issues, wrong conditional rendering, or state handling specific to that screen
 
+`HIG / Apple platform guidance issue`
+
+- non-native navigation, unclear hierarchy or primary action, custom controls that duplicate standard controls poorly, weak Dynamic Type or accessibility behavior, poor contrast, small hit targets, gesture-only interaction, platform adaptation gaps, or other findings from `$apple-hig-ui-guardian`
+- cite the relevant Apple official URL when the finding depends on a specific HIG rule or platform convention
+
 `design-system / shared UI foundation issue`
 
 - the same spacing, typography, control, token, container, or reusable component problem appears likely to affect multiple screens
@@ -159,6 +167,7 @@ Do not report a capture as obtained unless the user can inspect the artifact fro
 If local images can be rendered, prefer inline display with absolute filesystem paths. If inline display is not available, still expose the capture path and state that the image could not be rendered inline.
 
 In `主要な UI 問題`, rank only the most important user-visible problems seen in trustworthy captures. Keep it concise and tie each item to the affected screen or file.
+Mark HIG-specific findings as `HIG / Apple platform guidance issue` when they come from `$apple-hig-ui-guardian`.
 
 In `主要なブロッカー`, rank the main reasons coverage was limited. Summarize the affected preview or screen, attempted action, failure reason, blocker ownership, and whether fallback was possible.
 
