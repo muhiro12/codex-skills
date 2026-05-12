@@ -9,6 +9,8 @@ description: Run a safe, audit-only live Simulator UI smoke review for Apple-pla
 
 Run a pre-release or change-time UI smoke audit against the real app running in Simulator through XcodeBuildMCP.
 Keep the workflow evidence-backed and non-mutating: inspect repository truth, run the current app with current repo/session settings, capture UI hierarchy and screenshots, navigate core reachable screens, and report what was covered and what remains unknown.
+When the audited surface is user-visible Apple UI, use `$apple-hig-ui-guardian` as the HIG review rubric after captures are available.
+Return user-facing reports in concise, polite Japanese by default unless the user explicitly asks for another language.
 
 ## When To Use
 
@@ -83,6 +85,7 @@ For each selected target, maintain a small coverage ledger of screens attempted,
 For every mode, maintain a screen-candidate ledger with `captured`, `failed`, `skipped`, and `not discovered / not reachable` statuses, and keep unknown or unreachable areas visible in coverage gaps.
 
 - Start with the initial screen, then navigate only through safe, user-reachable paths discovered from repository evidence or visible UI.
+- For each captured user-facing Apple UI surface, review the screen against `$apple-hig-ui-guardian` in addition to basic smoke issues.
 - Record the current Simulator/app data state before interpreting content: existing data, empty state, repo-provided sample data, or unknown.
 - If no sample data was inserted and no data was cleared, state that observations are dependent on the current Simulator state.
 - For iPad targets, verify whether the captured UI is landscape or portrait. If landscape was intended but not achieved, do not treat the iPad pass as fully covered.
@@ -110,6 +113,7 @@ Flag user-visible problems conservatively:
 - clipped, truncated, overlapping, or unreadable text
 - broken sheets, popovers, tab bars, sidebars, or split-view behavior
 - platform-specific layout collapse
+- HIG or platform-convention drift, including non-native navigation, unclear primary actions, custom controls that duplicate system controls poorly, weak Dynamic Type behavior, poor contrast, small hit targets, gesture-only actions, or unsafe-area misuse
 - unlocalized placeholder, debug, or fixture text in shipping-facing surfaces
 - repeated runtime errors that correlate with visible UI problems
 
@@ -137,8 +141,10 @@ Include:
 Use these finding categories:
 
 - `blocking issues`: likely shipping blockers such as launch crash, blank primary screen, unusable navigation, or severe layout collapse
-- `warnings`: visible problems that may be shippable but need review, such as clipping, placeholder text, broken secondary layout, or repeated non-fatal runtime errors
+- `warnings`: visible problems that may be shippable but need review, such as clipping, placeholder text, broken secondary layout, HIG drift, or repeated non-fatal runtime errors
 - `notes`: coverage context, minor observations, tool limitations, and non-blocking gaps
+
+For HIG-specific findings, label the evidence source as `HIG rubric` and cite the relevant Apple official URL when the finding depends on a specific Apple rule or platform convention.
 
 Use this final report order unless the user asks for another format:
 
