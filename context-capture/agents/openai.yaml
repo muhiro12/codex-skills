@@ -1,0 +1,6 @@
+interface:
+  display_name: "Context Capture"
+  short_description: "Capture near-raw evidence into local archives"
+  default_prompt: "Use $context-capture to save this pasted conversation as near-raw local evidence."
+policy:
+  allow_implicit_invocation: false

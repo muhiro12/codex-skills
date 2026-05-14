@@ -9,6 +9,7 @@ It intentionally excludes system-managed skills, runtime/vendor-managed assets, 
 - `apple-ios-dev-flow`: Uses current-repository evidence first, Apple guidance second, and an optional local sibling reference repository as a fallback for Apple-platform implementation work.
 - `apple-repo-verify-bootstrapper`: Establishes a predictable Apple repository verification flow around `ci_scripts`, `AGENTS.md`, and repo-specific build/test/lint entrypoints.
 - `ci-verify-and-summarize`: Runs the repository's standard verify flow, reviews only the newest CI run artifacts, and summarizes push readiness from the current diff.
+- `context-capture`: Saves user-provided conversations, copied threads, transcripts, decisions, or manual notes as near-raw local Markdown evidence.
 - `match-user-language`: Matches Codex user-facing replies to the user's conversation language without translating code or repository artifacts by default.
 - `product-overview-syncer`: Conservatively syncs an existing product or architecture overview Markdown document with the current codebase reality.
 - `release-risk-analyzer`: Assesses whether the range from the latest release tag to `HEAD` contains release-blocking changes on durable-risk surfaces.
