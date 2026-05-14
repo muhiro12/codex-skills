@@ -1,0 +1,6 @@
+interface:
+  display_name: "Context Consult"
+  short_description: "Consult local archives with cited evidence paths"
+  default_prompt: "Use $context-consult to find relevant local evidence for this decision."
+policy:
+  allow_implicit_invocation: false
