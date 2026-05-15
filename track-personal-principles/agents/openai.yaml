@@ -1,0 +1,4 @@
+interface:
+  display_name: "Personal Principles"
+  short_description: "Capture weighted personal operating principles"
+  default_prompt: "Use $track-personal-principles to capture, consult, or revise my personal operating principles."

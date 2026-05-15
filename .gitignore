@@ -6,6 +6,10 @@
 # Private local principle records
 track-developer-principles/references/current-principles.md
 track-developer-principles/references/evolution-log.md
+track-developer-principles/references/principles/
+track-personal-principles/references/current-principles.md
+track-personal-principles/references/evolution-log.md
+track-personal-principles/references/principles/
 
 # Local junk / generated files
 **/.DS_Store
