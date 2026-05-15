@@ -171,3 +171,8 @@ In `references/evolution-log.md`, append entries in reverse chronological order 
 - `references/current-principles.md` remains a compatibility index, not the only source of truth.
 - `references/evolution-log.md` captures historical changes with absolute dates.
 - Future agent work can understand the principle or signal without re-reading the full chat.
+
+## Workflow Alignment
+
+- Return user-facing explanations in concise, polite Japanese by default unless the user explicitly asks for another language.
+- Keep stored principles concise and do not rewrite code, identifiers, file paths, schema fields, or quoted source text for language matching.
