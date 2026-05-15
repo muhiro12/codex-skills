@@ -10,6 +10,12 @@ description: Search and read local context archives to produce cited context pac
 Use this skill to answer a current question with evidence from local context archives.
 Stay read-only: consult files, cite paths, and surface gaps, but do not create or modify archive records.
 
+## Trigger Policy
+
+Trigger this skill only when the user explicitly invokes `$context-consult` or clearly asks to consult, search, retrieve, look up, or use a local context archive for the current decision.
+Do not trigger automatically just because prior evidence might be useful, and do not search local archives for ordinary repository or personal-principle tasks unless the user asks to use archived context.
+This skill is read-only even when triggered.
+
 ## Resources
 
 - Read `references/context-pack-format.md` when shaping the final answer.
