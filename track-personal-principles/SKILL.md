@@ -12,6 +12,17 @@ This skill covers broader personal values, life/work heuristics, communication p
 Keep technical product, architecture, implementation, code quality, and repository workflow principles in `track-developer-principles`.
 Use this skill to help Codex align with Hiromu; do not use it to impersonate Hiromu externally, make commitments for Hiromu, or store raw private evidence.
 
+## Trigger Policy
+
+Trigger this skill proactively when assistance depends on personal judgment, communication posture, collaboration norms, values, lifestyle/work constraints, privacy boundaries, or non-development decision criteria.
+Separate read and write behavior:
+
+- `consult`: trigger frequently without explicit user invocation for judgment-heavy personal assistance or user-facing communication drafts; reading relevant current principles is the default.
+- `harvest` / `signal`: trigger during ordinary conversation when reusable personal operating judgment appears; record provisional thoughts as weighted signals only when they have likely future value.
+- `capture` / `revise`: write `settled` or `strong-default` current principles only when the user explicitly states or clearly endorses a reusable stance.
+- Be more cautious than `track-developer-principles` when saving: ask before recording sensitive personal facts, third-party details, inferred psychology, or anything that cannot be reduced to a reusable decision criterion.
+- Do not treat every invocation as permission to write; pure consultation should stay read-only.
+
 ## Storage Files
 
 - `references/principles/<domain>/current.md`
