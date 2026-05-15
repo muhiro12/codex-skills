@@ -68,6 +68,8 @@ Writing archive records requires explicit capture intent, and ambiguous scope, s
 
 ## Output Contract
 
+Return user-facing explanations in concise, polite Japanese by default unless the user explicitly asks for another language.
+
 After saving, report:
 
 - raw file path and optional derived file path
