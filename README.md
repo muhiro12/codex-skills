@@ -6,8 +6,10 @@ It intentionally excludes system-managed skills, runtime/vendor-managed assets, 
 ## Included Skills
 
 - `app-store-release-notes-writer`: Generates App Store Connect-ready release notes across supported locales from a git range and project localization settings.
+- `apple-hig-ui-guardian`: Audits and repairs Apple-platform UI work against Apple's Human Interface Guidelines.
 - `apple-ios-dev-flow`: Uses current-repository evidence first, Apple guidance second, and an optional local sibling reference repository as a fallback for Apple-platform implementation work.
 - `apple-repo-verify-bootstrapper`: Establishes a predictable Apple repository verification flow around `ci_scripts`, `AGENTS.md`, and repo-specific build/test/lint entrypoints.
+- `apple-sample-code-advisor`: Finds and applies Apple Developer sample code as official implementation guidance for Apple-platform work.
 - `ci-verify-and-summarize`: Runs the repository's standard verify flow, reviews only the newest CI run artifacts, and summarizes push readiness from the current diff.
 - `context-capture`: Saves user-provided conversations, copied threads, transcripts, decisions, or manual notes as near-raw local Markdown evidence.
 - `context-consult`: Searches local context archives and returns cited context packs from raw and derived evidence.
@@ -20,10 +22,13 @@ It intentionally excludes system-managed skills, runtime/vendor-managed assets, 
 - `respect-incomes-architecture`: Uses a sibling `../Incomes` checkout as a read-only architectural reference for repository and tooling alignment.
 - `skills-batch-auditor`: Audits multiple custom skills together, scores drift and maintenance burden, and proposes bounded refresh work.
 - `string-catalog-maintainer`: Audits and repairs Xcode string catalogs such as `Localizable.xcstrings` and related localization assets.
+- `swift-code-guardian`: Audits and repairs Swift code against official Swift guidance, API design conventions, and concurrency safety expectations.
 - `swiftdata-schema-auditor`: Reviews SwiftData schema definitions and explains entities, relationships, persistence, and migration risk.
 - `track-developer-principles`: Maintains a personal cross-repository principle system; the private record files themselves are intentionally not tracked here.
+- `track-personal-principles`: Maintains private weighted personal operating principles while keeping the record files out of git.
 - `verify-contract-maintainer`: Bootstraps and normalizes a minimal `ci_scripts`-based verify contract so repository verification entrypoints stay consistent.
 - `xcode-preview-auditor`: Audits SwiftUI `#Preview` coverage and capture results screen-by-screen, with audit-first reporting.
+- `xcode-ui-smoke-auditor`: Runs safe Simulator UI smoke audits for Apple-platform apps and reports visual or interaction risks without auto-fixing by default.
 
 ## Layout
 
@@ -35,5 +40,6 @@ Each skill lives in its own directory and typically includes:
 
 ## Intentionally Untracked
 
-- `.system/` and `codex-primary-runtime/` are not part of this repository because they are system/runtime-managed rather than my own custom skills.
-- `track-developer-principles/references/current-principles.md` and `track-developer-principles/references/evolution-log.md` are kept out of git because they hold private local principle history.
+- `.system/`, `codex-primary-runtime/`, and `ci_scripts/` are not part of this repository because they are system/runtime/local-workflow managed rather than portable custom skill content.
+- `track-developer-principles/references/current-principles.md`, `track-developer-principles/references/evolution-log.md`, and `track-developer-principles/references/principles/` are kept out of git because they hold private local principle history.
+- `track-personal-principles/references/current-principles.md`, `track-personal-principles/references/evolution-log.md`, and `track-personal-principles/references/principles/` are kept out of git for the same reason.
