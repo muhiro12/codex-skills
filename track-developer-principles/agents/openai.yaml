@@ -2,3 +2,5 @@ interface:
   display_name: "Developer Principles"
   short_description: "Capture weighted cross-repo developer principles"
   default_prompt: "Use $track-developer-principles to capture, consult, or revise my weighted developer principles."
+policy:
+  allow_implicit_invocation: true

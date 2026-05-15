@@ -13,6 +13,17 @@ Do not use it as a general archive for life philosophy, personality modeling, br
 Keep the current stance easy to consult, keep the change history explicit, and avoid polluting product repositories with personal operating notes unless the user asks for a different storage location.
 Treat this skill as a loop between daily repository work and a shared developer-principle archive: harvest reusable thinking from normal work, weight it honestly, then feed the stored judgment back into future repository decisions.
 
+## Trigger Policy
+
+Trigger this skill proactively when development work depends on judgment, tradeoffs, prioritization, maintainability, UX direction, business intent, architecture, code quality, or repository workflow.
+Separate read and write behavior:
+
+- `consult`: trigger frequently without explicit user invocation for judgment-heavy repository work; reading relevant current principles is the default.
+- `harvest` / `signal`: trigger during ordinary repository conversation when reusable developer judgment appears; record provisional thoughts as weighted signals when they have likely future value.
+- `capture` / `revise`: write `settled` or `strong-default` current principles only when the user explicitly states or clearly endorses a reusable stance.
+- Do not treat every invocation as permission to write; pure consultation should stay read-only.
+- Do not trigger for purely mechanical edits, one-off local choices, temporary debugging, or repository facts with no reusable judgment.
+
 ## Storage Files
 
 - `references/principles/<domain>/current.md`
