@@ -10,6 +10,12 @@ description: Save user-provided conversations, copied threads, transcripts, deci
 Use this skill to create local, AI-readable evidence records from material the user provides.
 Treat the original Slack, Backlog, GitHub, ChatGPT, transcript, or manual source as the source of truth; the archive copy is a near-raw local trace.
 
+## Trigger Policy
+
+Trigger this skill only when the user explicitly invokes `$context-capture` or clearly asks to save, capture, archive, preserve, or store provided material as local evidence.
+Do not trigger automatically from ordinary conversation, from a request for a summary, or merely because a discussion contains useful context.
+Writing archive records requires explicit capture intent, and ambiguous scope, sensitivity, destination, or redaction policy requires confirmation before writing.
+
 ## Resources
 
 - Read `references/archive-policy.md` before the first capture in a session or whenever scope, sensitivity, redaction, or storage boundaries are unclear.
