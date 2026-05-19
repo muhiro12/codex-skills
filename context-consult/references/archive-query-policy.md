@@ -5,7 +5,8 @@
 The default archive layout is:
 
 ```text
-~/context-archives/
+context-capture/
+  archives/
   private/
   work/
   shared-safe/
@@ -13,6 +14,8 @@ The default archive layout is:
 
 Search only the authorized physical scope.
 Treat `private`, `work`, and `shared-safe` as separate policy domains even if their metadata schema is the same.
+Resolve the default layout relative to the sibling `context-capture` skill directory. Search legacy `~/context-archives/<scope>` only when the user explicitly authorizes that fallback or a migration check.
+Use `python3 scripts/migrate_skill_data.py --only context-archives` from the skills root for a read-only dry-run migration check; do not apply it during a consult-only task unless the user authorized archive updates.
 
 ## Evidence Priority
 

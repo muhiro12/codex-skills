@@ -25,19 +25,27 @@ Separate read and write behavior:
 
 ## Storage Files
 
-- `references/principles/<domain>/current.md`
+- `records/principles/<domain>/current.md`
   - Treat these domain files as the source of truth for current active personal principles.
   - Keep only the latest active stance for that domain.
   - Use `settled` for confirmed principles and `strong-default` only when the stance is active but not absolute.
-- `references/principles/<domain>/signals.md`
+- `records/principles/<domain>/signals.md`
   - Store plausible, reusable, not-yet-settled thoughts as weighted signals.
   - Use this for ideas that are too useful to lose but too provisional to become doctrine.
-- `references/current-principles.md`
+- `records/current-principles.md`
   - Keep as a compatibility entrypoint and index.
   - It should point to the domain files rather than becoming the only source of truth.
-- `references/evolution-log.md`
+- `records/evolution-log.md`
   - Treat this as the timeline of additions, revisions, deprecations, promotions, and structural changes.
   - Append a dated entry whenever a current stance changes, a new principle is introduced, a signal is promoted, or an important signal is discarded.
+
+Keep `references/` for static skill documentation only. Keep mutable user-specific personal records under `records/`, which is skill-owned local data and should stay ignored by git. If legacy records still exist under `references/`, migrate them to the same relative paths under `records/` before writing new records.
+
+Migration check:
+
+- After this skill is installed or updated from GitHub, run `python3 scripts/migrate_skill_data.py --only principles` from the skills root when `records/` is missing or when legacy ignored files may still exist under `references/`.
+- If the dry-run reports copyable legacy files, run `python3 scripts/migrate_skill_data.py --only principles --apply` before reading or writing personal principle records.
+- The migration copies only missing targets and never overwrites conflicting files. Resolve conflicts manually before treating `records/` as complete.
 
 Initial domains:
 
@@ -77,10 +85,10 @@ Initial domains:
 - If the useful record cannot be written without sensitive specifics, ask before saving.
 
 4. Read before writing.
-- Read the relevant `references/principles/<domain>/current.md` before adding or revising a current principle.
+- Read the relevant `records/principles/<domain>/current.md` before adding or revising a current principle.
 - Read the relevant `signals.md` before adding a new signal, promoting a signal, or deciding whether a similar candidate already exists.
-- Read `references/evolution-log.md` when the user mentions change over time, prior decisions, possible tension with an older stance, or when promoting/deprecating a prior record.
-- Use `references/current-principles.md` only as a compatibility index when the relevant domain is unclear.
+- Read `records/evolution-log.md` when the user mentions change over time, prior decisions, possible tension with an older stance, or when promoting/deprecating a prior record.
+- Use `records/current-principles.md` only as a compatibility index when the relevant domain is unclear.
 
 5. Harvest actively but weight conservatively.
 - Watch for reusable personal judgment: repeated preferences, explicitly stated values, durable collaboration norms, life/work heuristics, privacy boundaries, and personal decision rules.
@@ -97,8 +105,8 @@ Initial domains:
 7. Update the right layer.
 - For active principles, update only the relevant domain `current.md`.
 - For unresolved but useful thoughts, update only the relevant domain `signals.md`.
-- Update `references/current-principles.md` when the domain inventory or compatibility index changes.
-- Append to `references/evolution-log.md` with the absolute date in `YYYY-MM-DD` format whenever a principle is added, revised, narrowed, broadened, deprecated, or a signal is promoted/discarded.
+- Update `records/current-principles.md` when the domain inventory or compatibility index changes.
+- Append to `records/evolution-log.md` with the absolute date in `YYYY-MM-DD` format whenever a principle is added, revised, narrowed, broadened, deprecated, or a signal is promoted/discarded.
 
 8. Reuse the record in later work.
 - Before judgment-heavy personal assistance, drafting user-facing communication, choosing a collaboration posture, or making lifestyle/workflow recommendations, read the relevant domain `current.md`.
@@ -119,7 +127,7 @@ Initial domains:
 
 ## Current Principles Format
 
-In `references/principles/<domain>/current.md`, use this entry shape:
+In `records/principles/<domain>/current.md`, use this entry shape:
 
 ### Short principle title
 - Weight: `settled` or `strong-default`
@@ -132,7 +140,7 @@ Add an `Exceptions:` line only when the boundary is important.
 
 ## Signals Format
 
-In `references/principles/<domain>/signals.md`, use this entry shape:
+In `records/principles/<domain>/signals.md`, use this entry shape:
 
 ### Short signal title
 - Weight: `emerging`, `strong-default`, `deprecated`, or `discarded`
@@ -145,7 +153,7 @@ In `references/principles/<domain>/signals.md`, use this entry shape:
 
 ## Evolution Log Format
 
-In `references/evolution-log.md`, append entries in reverse chronological order using this shape:
+In `records/evolution-log.md`, append entries in reverse chronological order using this shape:
 
 ## YYYY-MM-DD
 - Change: added, revised, clarified, promoted, deprecated, discarded, or restructured principle/signal title
@@ -156,7 +164,7 @@ In `references/evolution-log.md`, append entries in reverse chronological order 
 
 ## Guardrails
 
-- Keep this record outside product repositories unless the user explicitly wants a copy in a repo.
+- Keep this record inside this skill's `records/` directory and outside product repositories unless the user explicitly wants a copy in a repo.
 - Do not fabricate principles that the user did not actually express or clearly imply.
 - Do not store raw conversations, secrets, credentials, or unnecessary third-party personal details.
 - Do not let weighted signals erase the difference between confirmed principles and provisional ideas.
@@ -168,8 +176,8 @@ In `references/evolution-log.md`, append entries in reverse chronological order 
 - The record reflects reusable personal operating judgment, not a one-off local note.
 - Domain `current.md` files contain only the latest active stance for their domain.
 - Domain `signals.md` files contain only weighted candidates or inactive signal history.
-- `references/current-principles.md` remains a compatibility index, not the only source of truth.
-- `references/evolution-log.md` captures historical changes with absolute dates.
+- `records/current-principles.md` remains a compatibility index, not the only source of truth.
+- `records/evolution-log.md` captures historical changes with absolute dates.
 - Future agent work can understand the principle or signal without re-reading the full chat.
 
 ## Workflow Alignment

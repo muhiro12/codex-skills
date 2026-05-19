@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Manage repo-external Apple sample code caches."""
+"""Manage the apple-sample-code-advisor skill's local cache."""
 
 from __future__ import annotations
 
@@ -15,7 +15,8 @@ import zipfile
 from pathlib import Path
 
 
-DEFAULT_ROOT = Path(os.environ.get("APPLE_SAMPLE_CODE_CACHE", Path.home() / ".codex/cache/apple-sample-code"))
+SKILL_ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_ROOT = Path(os.environ.get("APPLE_SAMPLE_CODE_CACHE", SKILL_ROOT / "cache"))
 MANIFEST_NAME = "manifest.json"
 SAMPLE_METADATA_NAME = "metadata.json"
 

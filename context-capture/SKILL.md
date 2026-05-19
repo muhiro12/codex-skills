@@ -33,8 +33,13 @@ Writing archive records requires explicit capture intent, and ambiguous scope, s
 - If no source material is present, ask the user to provide the pasted text, transcript, copied thread, or manual note.
 
 2. Resolve the archive boundary before writing.
-- Default archive roots are `~/context-archives/private`, `~/context-archives/work`, and `~/context-archives/shared-safe`.
+- Default archive roots are this skill's `archives/private`, `archives/work`, and `archives/shared-safe` directories.
+- Resolve those paths relative to the `context-capture` skill directory, not the current repository.
 - Use another archive root only when the user or current repository clearly specifies one.
+- Treat legacy `~/context-archives/<scope>` roots as read-only migration sources unless the user explicitly asks to keep writing there.
+- After this skill is installed or updated from GitHub, run `python3 scripts/migrate_skill_data.py --only context-archives` from the skills root before the first write if `archives/` is missing or empty.
+- If the dry-run reports legacy archive files, run `python3 scripts/migrate_skill_data.py --only context-archives --apply` before writing new captures, unless the volume, scope, or sensitivity requires confirmation.
+- The migration copies only missing targets and never overwrites conflicting files. Resolve conflicts manually before writing into the same scope.
 - Never mix `private` and `work` in the same physical root.
 - If scope, sensitivity, destination path, or masking policy is ambiguous, ask before writing.
 
@@ -57,12 +62,12 @@ Writing archive records requires explicit capture intent, and ambiguous scope, s
 - Ask for confirmation before creating or modifying archive files unless the user has already given explicit save instructions for the exact destination and metadata.
 
 6. Write without overwriting.
-- Place raw records under `raw/YYYY/MM/<id>.md`.
+- Place raw records under `<scope>/raw/YYYY/MM/<id>.md` inside this skill's `archives/` directory.
 - If the path already exists, choose the next sequence number or ask the user.
 - Treat raw files as immutable-ish: later corrections should become a new raw capture or a derived note rather than an in-place rewrite.
 
 7. Add derived notes only when useful.
-- Place derived records under `derived/YYYY/MM/<id>-summary.md`.
+- Place derived records under `<scope>/derived/YYYY/MM/<id>-summary.md` inside this skill's `archives/` directory.
 - Include `source_refs` that point to the raw file paths.
 - Keep derived notes clearly separate from raw evidence; never let a derived note replace the raw record.
 

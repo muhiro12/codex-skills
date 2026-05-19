@@ -3,7 +3,13 @@
 /codex-primary-runtime/
 /ci_scripts/
 
-# Private local principle records
+# Skill-owned local data
+track-developer-principles/records/
+track-personal-principles/records/
+context-capture/archives/
+apple-sample-code-advisor/cache/
+
+# Legacy private local data paths
 track-developer-principles/references/current-principles.md
 track-developer-principles/references/evolution-log.md
 track-developer-principles/references/principles/

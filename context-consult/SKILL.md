@@ -26,7 +26,10 @@ This skill is read-only even when triggered.
 
 1. Resolve the query and allowed archive scope.
 - Identify requested people, projects, topics, timeframe, source, and sensitivity filters.
-- Default roots are `~/context-archives/private`, `~/context-archives/work`, and `~/context-archives/shared-safe`, but search only the scope the user requested or clearly authorized.
+- Default roots are the sibling `context-capture` skill's `archives/private`, `archives/work`, and `archives/shared-safe` directories, but search only the scope the user requested or clearly authorized.
+- Treat legacy `~/context-archives/<scope>` roots as migration or explicitly requested fallback sources only.
+- If the skill-owned archive is missing or appears empty, run `python3 scripts/migrate_skill_data.py --only context-archives` from the skills root as a dry-run check. Because this skill is read-only, do not apply the migration unless the user asked to migrate or the current task already authorizes updating local archive files.
+- When dry-run finds legacy files and no migration is applied, report that legacy evidence exists and either search the authorized legacy scope read-only or ask before crossing the migration boundary.
 - Do not search `private` and `work` together unless the user explicitly asks for both and the boundary is appropriate.
 - Ask a concise clarification when the root or scope cannot be inferred safely.
 

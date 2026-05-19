@@ -10,7 +10,10 @@ This is not a human-first note system and not a replacement for Slack, Backlog, 
 Use the same logical schema across domains, but keep physical roots separate:
 
 ```text
-~/context-archives/
+context-capture/
+  SKILL.md
+  references/
+  archives/
   private/
     raw/
     derived/
@@ -25,6 +28,16 @@ Use the same logical schema across domains, but keep physical roots separate:
 - `private`: personal material that should not be mixed with work evidence.
 - `work`: work evidence that may be searched across work projects when permitted.
 - `shared-safe`: masked or explicitly shareable fragments moved across boundaries on purpose.
+
+Resolve `archives/` relative to the `context-capture` skill directory. The legacy
+`~/context-archives/<scope>` layout may be used as a migration source, but new
+captures should default to the skill-owned archive unless the user explicitly
+chooses another root.
+
+Use `python3 scripts/migrate_skill_data.py --only context-archives` from the
+skills root as the standard dry-run migration check. Apply it only after the
+scope and sensitivity are clear; it copies missing files and does not overwrite
+conflicts.
 
 Do not create a cross-domain root that mixes private and work raw data.
 Ask before moving or copying work material into `shared-safe`.

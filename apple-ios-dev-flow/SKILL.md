@@ -40,7 +40,7 @@ Assume these surfaces are available in this Codex desktop environment when the a
 
 - Hiromu custom skills: `$track-developer-principles`, `$apple-hig-ui-guardian`, `$swift-code-guardian`, `$apple-sample-code-advisor`, `$xcode-preview-auditor`, `$xcode-ui-smoke-auditor`, `$ci-verify-and-summarize`, and repository workflow skills.
 - OpenAI Build iOS Apps skills: `$build-ios-apps:swiftui-ui-patterns`, `$build-ios-apps:swiftui-view-refactor`, `$build-ios-apps:swiftui-liquid-glass`, `$build-ios-apps:swiftui-performance-audit`, `$build-ios-apps:ios-app-intents`, `$build-ios-apps:ios-debugger-agent`, `$build-ios-apps:ios-ettrace-performance`, and `$build-ios-apps:ios-memgraph-leaks`.
-- Local Apple sample cache: `~/.codex/cache/apple-sample-code`, managed through `$apple-sample-code-advisor`.
+- Local Apple sample cache: `~/.codex/skills/apple-sample-code-advisor/cache`, managed through `$apple-sample-code-advisor`.
 - XcodeBuildMCP for simulator build, run, logs, UI inspection, screenshots, and profiling support when available.
 - Repository standard shells, especially `AGENTS.md` and `ci_scripts/tasks/verify.sh` style entrypoints.
 - Local sibling repositories only as read-only fallback evidence after stronger Apple and current-repo sources.
