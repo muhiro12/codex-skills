@@ -105,6 +105,29 @@
           "items": {
             "type": "string"
           }
+        },
+        "observer_perspective": {
+          "type": "string"
+        },
+        "coverage_limitations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "use_policies": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "internal-reference-only",
+              "private-reference-only",
+              "work-internal-only",
+              "do-not-share-externally",
+              "rephrase-before-direct-discussion",
+              "may-share-after-redaction",
+              "unknown"
+            ]
+          }
         }
       },
       "additionalProperties": true
@@ -127,7 +150,10 @@
             "derived-summary",
             "derived-timeline",
             "derived-decision",
-            "derived-note"
+            "derived-note",
+            "derived-context",
+            "derived-stance",
+            "derived-analysis"
           ]
         },
         "source_refs": {
@@ -140,6 +166,52 @@
         "created_at": {
           "type": "string",
           "format": "date-time"
+        },
+        "observer_perspective": {
+          "type": "string"
+        },
+        "coverage_limitations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "use_policies": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "internal-reference-only",
+              "private-reference-only",
+              "work-internal-only",
+              "do-not-share-externally",
+              "rephrase-before-direct-discussion",
+              "may-share-after-redaction",
+              "unknown"
+            ]
+          }
+        },
+        "last_updated": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "review_due": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "supersedes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "revision_note": {
+          "type": "string"
+        },
+        "analysis_kind": {
+          "type": "string"
         }
       },
       "additionalProperties": true

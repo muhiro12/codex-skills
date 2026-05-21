@@ -10,6 +10,11 @@ Use this structure for archive-backed answers:
 - Filters:
 - Boundary note:
 
+**Perspective / Evidence Mode**
+- Evidence mode:
+- Observer perspective:
+- Absence rule:
+
 **High-Confidence Evidence**
 - Finding:
   Evidence: /path/to/raw/file.md
@@ -24,6 +29,11 @@ Use this structure for archive-backed answers:
 - Projects:
 - Topics:
 
+**Use Constraints / Staleness**
+- Use policies:
+- Derived record freshness:
+- Rephrase or sharing constraints:
+
 **Gaps**
 - Missing or ambiguous evidence:
 - Suggested next capture:
@@ -35,4 +45,6 @@ Use this structure for archive-backed answers:
 
 Keep the pack evidence-first.
 Do not bury uncertainty in the narrative.
+Do not treat missing evidence as proof that something did not happen.
+Keep non-archive memory separate from cited archive evidence unless the user explicitly requested memory-aware interpretation.
 When evidence conflicts, show both cited records and describe the conflict without resolving it by guesswork.
