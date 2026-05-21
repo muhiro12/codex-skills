@@ -10,8 +10,31 @@ import sys
 from pathlib import Path
 
 
+GENERATED_DIRECTORIES = {
+    ".build",
+    "build",
+    "DerivedData",
+    ".git",
+    ".swiftpm",
+    "Pods",
+    "Carthage",
+}
+
+
 def local_timestamp() -> str:
     return dt.datetime.now().astimezone().replace(microsecond=0).isoformat()
+
+
+def iter_markdown_files(root: Path) -> list[Path]:
+    results: list[Path] = []
+    for child in sorted(root.iterdir()):
+        if child.is_dir():
+            if child.name in GENERATED_DIRECTORIES:
+                continue
+            results.extend(iter_markdown_files(child))
+        elif child.is_file() and child.suffix == ".md":
+            results.append(child)
+    return results
 
 
 def find_markdown_files(paths: list[Path]) -> list[Path]:
@@ -21,7 +44,7 @@ def find_markdown_files(paths: list[Path]) -> list[Path]:
         if expanded.is_file():
             files.append(expanded)
         elif expanded.is_dir():
-            files.extend(sorted(file_path for file_path in expanded.rglob("*.md") if file_path.is_file()))
+            files.extend(iter_markdown_files(expanded))
         else:
             print(f"missing  {expanded}", file=sys.stderr)
     return sorted(dict.fromkeys(files))
