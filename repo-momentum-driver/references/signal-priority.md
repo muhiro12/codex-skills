@@ -27,7 +27,7 @@ If a blocker applies and no safe small fix is obvious, stop and ask one concise 
 Evaluate buckets in this order and stop at the first safe actionable item:
 
 1. `TODO` or `FIXME` near recent changes
-2. Latest standard verification failure or newest `.build/ci/runs/<RUN_ID>` failure that suggests a narrow fix
+2. Latest standard verification failure or current-contract newest `.build/ci/runs/<RUN_ID>` failure that suggests a narrow fix
 3. Missing or obviously weak tests adjacent to recent changes
 4. Stale docs directly related to recent changes
 

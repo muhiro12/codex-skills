@@ -94,23 +94,40 @@ has_package_script() {
   [ -f package.json ] && grep -Eq "\"$script_name\"[[:space:]]*:" package.json
 }
 
+has_ci_run_artifact_contract() {
+  if [ -f "AGENTS.md" ] && grep -Eq '\.build/ci/runs(/<RUN_ID>)?/?' AGENTS.md; then
+    return 0
+  fi
+
+  if [ -f "ci_scripts/tasks/verify_task_completion.sh" ] \
+    || [ -f "ci_scripts/tasks/verify_repository_state.sh" ]; then
+    return 0
+  fi
+
+  if [ -d "ci_scripts" ] && grep -R -q '\.build/ci/runs' ci_scripts 2>/dev/null; then
+    return 0
+  fi
+
+  return 1
+}
+
 resolve_ci_run_base() {
   local run_base=""
 
+  if ! has_ci_run_artifact_contract; then
+    return 0
+  fi
+
   if [ -f "AGENTS.md" ]; then
     run_base="$(
-      grep -Eo '\.build/ci/runs/<RUN_ID>/' AGENTS.md 2>/dev/null \
+      grep -Eo '\.build/ci/runs(/<RUN_ID>)?/?' AGENTS.md 2>/dev/null \
         | head -n 1 \
-        | sed 's#/<RUN_ID>/$##'
+        | sed 's#/<RUN_ID>/$##; s#/$##'
     )"
   fi
 
   if [ -z "$run_base" ]; then
-    if [ -d ".build/ci/runs" ]; then
-      run_base=".build/ci/runs"
-    else
-      run_base=".build/ci/runs"
-    fi
+    run_base=".build/ci/runs"
   fi
 
   printf '%s\n' "$run_base"
@@ -359,8 +376,13 @@ else
 fi
 
 ci_run_base="$(resolve_ci_run_base)"
-section "Latest CI Run ($ci_run_base)"
-print_latest_ci_run "$ci_run_base"
+if [ -n "$ci_run_base" ]; then
+  section "Latest CI Run ($ci_run_base)"
+  print_latest_ci_run "$ci_run_base"
+else
+  section "Latest CI Run"
+  echo "(not part of the current verification contract)"
+fi
 
 section "Potential Build/Test Entry Points"
 find . \

@@ -1,6 +1,6 @@
 ---
 name: repo-momentum-driver
-description: Drive bounded autonomous continuation of development from vague "keep going" requests by inspecting recent repository activity, current worktree state, TODO/FIXME markers, latest verification or `.build/ci/runs` failures, nearby test gaps, and directly related docs, then selecting and implementing exactly one safe next task in the current repository. For Apple-platform repositories, prefer current-repo evidence first, stored platform principles when relevant, `$apple-ios-dev-flow` as the local orchestrator, active HIG and Swift code gates, Apple and Swift official guidance plus Apple sample-code evidence, OpenAI Build iOS Apps specialist skills for matched execution workflows, and a locally available sibling repository only as a read-only fallback. Use when prompts include phrases like "直近の対応や、リポジトリ内の各種情報を見て、続きのどんどん対応を進めて欲しい", "続き対応して", "どんどん進めて", "直近の対応を見て進めて", "look at recent changes and keep developing", or any request to self-direct next steps in an existing repository.
+description: Drive bounded autonomous continuation of development from vague "keep going" requests by inspecting recent repository activity, current worktree state, TODO/FIXME markers, latest documented verification or current-contract `.build/ci/runs` failures, nearby test gaps, and directly related docs, then selecting and implementing exactly one safe next task in the current repository. For Apple-platform repositories, prefer current-repo evidence first, stored platform principles when relevant, `$apple-ios-dev-flow` as the local orchestrator, active HIG and Swift code gates, Apple and Swift official guidance plus Apple sample-code evidence, OpenAI Build iOS Apps specialist skills for matched execution workflows, and a locally available sibling repository only as a read-only fallback. Use when prompts include phrases like "直近の対応や、リポジトリ内の各種情報を見て、続きのどんどん対応を進めて欲しい", "続き対応して", "どんどん進めて", "直近の対応を見て進めて", "look at recent changes and keep developing", or any request to self-direct next steps in an existing repository.
 ---
 
 # Repo Momentum Driver
@@ -43,7 +43,8 @@ Use this skill when requests indicate autonomous continuation, such as:
 - For Apple-platform repositories, if the implementation shape is still ambiguous after local inspection, consult Apple official documentation, Swift.org documentation, Swift guidelines, and `$apple-sample-code-advisor` for official project-level sample evidence before looking at a sibling reference repository.
 - Resolve CI commands from `AGENTS.md` first and use its standard Build/Test entrypoint when defined.
 - If `AGENTS.md` does not define one, fall back to detected `ci_scripts/**/*.sh` paths and prefer `bash ci_scripts/tasks/verify_task_completion.sh`, then `bash ci_scripts/tasks/check_repository_rules.sh`, then `bash ci_scripts/tasks/verify.sh`, then `bash ci_scripts/tasks/verify_repository_state.sh` when CI verification is required.
-- Read only the newest `.build/ci/runs/<RUN_ID>` when CI artifacts exist.
+- Read only the newest `.build/ci/runs/<RUN_ID>` when CI run artifacts are part of the current documented verification contract.
+- Ignore stale `.build/ci/runs` directories left behind by older workflows when the current repository contract is MCP-first or otherwise no longer writes run artifacts.
 - Never scan older runs under `.build/ci/runs/`.
 - Exclude generated directories from recursive scans (`.build`, `build`, `DerivedData`, `.git`, `.swiftpm`, `Pods`, `Carthage`).
 
@@ -51,7 +52,7 @@ Use this skill when requests indicate autonomous continuation, such as:
 - Apply [references/signal-priority.md](references/signal-priority.md).
 - Check these buckets in order and stop at the first safe, decision-complete task:
   1. `TODO` or `FIXME` near recently changed files
-  2. Small, well-scoped fixes suggested by the latest standard verification failure or newest `.build/ci/runs/<RUN_ID>` failure
+  2. Small, well-scoped fixes suggested by the latest standard verification failure or current-contract newest `.build/ci/runs/<RUN_ID>` failure
   3. Missing or weak tests adjacent to recent changes
   4. Stale docs directly related to recent changes
 - Reject candidates that require broad or risky changes, unclear product decisions, or touching unrelated areas.
