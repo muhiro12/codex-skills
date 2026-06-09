@@ -1,16 +1,16 @@
 ---
 name: verify-contract-maintainer
-description: Define, audit, and maintain a minimal verify contract for repositories that already have or are deliberately adopting `ci_scripts`, so verification entrypoints stay predictable, commit-time hooks stay lightweight, and name drift is reduced without broad rewrites.
+description: Define, audit, and maintain a minimal verification contract for repositories that already have or are deliberately adopting `ci_scripts`, XcodeBuildMCP-first checks, or retained repository-rule scripts, so verification expectations stay predictable, commit-time hooks stay lightweight, and name drift is reduced without broad rewrites.
 ---
 
 # Verify Contract Maintainer
 
 ## Overview
 
-Define and enforce a small, practical verification contract for repositories that already have `ci_scripts` or have already decided to adopt them.
+Define and enforce a small, practical verification contract for repositories that already have `ci_scripts`, XcodeBuildMCP-first checks, or retained repository-rule scripts.
 Keep the contract rules in this file portable across agent runtimes where practical; platform-specific metadata can live beside the skill.
 Keep repository behavior stable by preferring low-risk normalization and explicit reporting over broad rewrites.
-Treat this skill as the owner of contract-level maintenance: `AGENTS.md` alignment, entrypoint normalization, push/manual routing for heavy checks, and compatibility-first upkeep.
+Treat this skill as the owner of contract-level maintenance: `AGENTS.md` alignment, entrypoint or MCP-check normalization, push/manual routing for heavy checks, and compatibility-first upkeep.
 Do not use this skill to design first-pass Apple-platform verification scaffolding from Xcode project layout, `Package.swift`, or sibling reference repositories. Use `$apple-repo-verify-bootstrapper` for that initial bootstrap work.
 
 ## Trigger Conditions
@@ -29,14 +29,17 @@ Use this skill when the user asks for topics such as:
 For repositories in scope, use this contract:
 
 1. Required:
-- `AGENTS.md` documents one standard verification entrypoint command.
-- The documented command resolves to an executable repository-managed shell.
+- `AGENTS.md` documents the repository's verification contract.
+- Any documented repository-managed shell command resolves to an executable script.
+- Any documented XcodeBuildMCP check names concrete project/workspace, scheme, simulator, or equivalent session-default expectations.
 
 2. Recommended:
-- `ci_scripts/tasks/verify_task_completion.sh` as the aggregate final gate.
-- `ci_scripts/tasks/verify_repository_state.sh` as a repo-state check surface.
+- `ci_scripts/tasks/check_repository_rules.sh` for retained static rule checks that are not naturally covered by XcodeBuildMCP.
+- XcodeBuildMCP `build_sim`, `test_sim`, `build_run_sim`, `launch_app_sim`, `snapshot_ui`, or `screenshot` for Apple build/test/runtime/UI evidence when the repository is deliberately MCP-first.
+- `ci_scripts/tasks/verify_task_completion.sh` only when the repository intentionally keeps an aggregate shell gate.
 
 3. Optional:
+- `ci_scripts/tasks/verify_repository_state.sh` as a repo-state check surface when run artifacts or broader repository checks are intentionally retained.
 - `ci_scripts/tasks/verify_pre_push.sh` as a push-compatible wrapper when local push hooks are desired.
 - Hook configs such as `.pre-commit-config.yaml` only when needed for migration away from heavy commit-time checks or for lightweight local checks.
 - `.build/ci/runs/<RUN_ID>` artifact conventions when the repository already uses run artifacts.
@@ -69,7 +72,9 @@ Use one mode per run:
 
 2. Build a contract map.
 - Map current files to contract roles:
-  - aggregate gate
+  - aggregate shell gate
+  - retained repository-rule check
+  - MCP build/test/runtime evidence
   - repo-state check
   - optional push wrapper
 - Mark each role as `present`, `missing`, or `non-standard but acceptable`.
@@ -86,7 +91,7 @@ Use one mode per run:
 - Do not expand scope into Apple-specific build surface discovery or sibling-reference-repo alignment.
 
 5. Verify and summarize.
-- Run repository-standard verification command when available.
+- Run the documented repository verification command or retained rule check when available. For MCP-first contracts, report the required MCP checks and run them only when the active tool surface is available.
 - Report applied updates, remaining low-risk candidates, and manual-review items separately.
 
 ## Low-Risk Rules

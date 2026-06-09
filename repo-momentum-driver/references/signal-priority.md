@@ -57,11 +57,12 @@ In the final answer, explain why the chosen task is the best next step now:
 Resolve the repo-wide final verification command in this order:
 
 1. `ci_scripts/tasks/verify_task_completion.sh`
-2. `ci_scripts/tasks/verify.sh`
-3. `ci_scripts/tasks/verify_repository_state.sh`
-4. A root CI or documentation command explicitly named `verify`
-5. A root build-tool target named `verify`, then `check`, then `test`
-6. A repo-wide package-manager or language entrypoint that CI uses for aggregate verification
+2. `ci_scripts/tasks/check_repository_rules.sh`
+3. `ci_scripts/tasks/verify.sh`
+4. `ci_scripts/tasks/verify_repository_state.sh`
+5. A root CI or documentation command explicitly named `verify`
+6. A root build-tool target named `verify`, then `check`, then `test`
+7. A repo-wide package-manager or language entrypoint that CI uses for aggregate verification
 
 Do not treat a narrow targeted test as the final verification when a repo-wide entrypoint exists.
 

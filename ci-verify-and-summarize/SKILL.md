@@ -1,6 +1,6 @@
 ---
 name: ci-verify-and-summarize
-description: Run the repository's final verification gate by executing its standard verify-oriented CI shell, summarizing only the newest `.build/ci/runs/<RUN_ID>` artifacts, reviewing the current git diff, and separating current-change issues from clearly external or pre-existing ones in concise polite Japanese. Use for requests such as "verifyして", "CIガード通して", "コミット前チェックして", "push前に見て", and explicit `$ci-verify-and-summarize` invocations even when there are no current diffs.
+description: Run the repository's final verification gate by executing its standard verify-oriented shell or retained repository rule check, summarizing the newest `.build/ci/runs/<RUN_ID>` artifacts when they exist, reviewing the current git diff, and separating current-change issues from clearly external or pre-existing ones in concise polite Japanese. Use for requests such as "verifyして", "CIガード通して", "コミット前チェックして", "push前に見て", and explicit `$ci-verify-and-summarize` invocations even when there are no current diffs.
 ---
 
 # CI Verify and Summarize
@@ -9,7 +9,7 @@ description: Run the repository's final verification gate by executing its stand
 
 Use this skill as the repository's final verification gate before treating implementation work as ready.
 Keep the review logic in this file portable across agent runtimes where practical; the helper invocation below is simply the local installation adapter for this machine.
-Run the standard verify-oriented CI entrypoint, inspect the newest CI artifacts, perform a focused diff review, and classify push readiness from build/test/lint/warning signals plus the current git diff.
+Run the standard verify-oriented entrypoint or retained repository rule check, inspect the newest CI artifacts when the repository produces them, perform a focused diff review, and classify push readiness from build/test/lint/warning signals plus the current git diff.
 When the user explicitly invokes this skill, including `$ci-verify-and-summarize` in runtimes that support that syntax, still run the workflow even if staged and unstaged diffs are both empty, and report that the worktree is clean instead of treating the skill as not applicable.
 Keep execution thin and deterministic by delegating CI execution to the bundled helper script.
 
@@ -29,10 +29,10 @@ Typical phrases include:
 
 1. Validate prerequisites.
 - Assume the current working directory is the repository root.
-- Resolve the verify-oriented CI entrypoint from `AGENTS.md` first by reading `bash ci_scripts/...sh` references.
-- If `AGENTS.md` does not define one, fall back to detecting a standard script under `ci_scripts/`, preferring `ci_scripts/tasks/verify_task_completion.sh`, then `ci_scripts/tasks/verify.sh`, then `ci_scripts/verify.sh`, then `ci_scripts/tasks/verify_repository_state.sh`, then `run_required_builds.sh`, then another detected `.sh`.
-- Confirm the resolved workflow writes artifacts to `.build/ci/runs/`.
-- If the repository does not provide this contract, explain that this skill is not applicable and stop.
+- Resolve the verify-oriented or repository-rule entrypoint from `AGENTS.md` first by reading `bash ci_scripts/...sh` references.
+- If `AGENTS.md` does not define one, fall back to detecting a standard script under `ci_scripts/`, preferring `ci_scripts/tasks/verify_task_completion.sh`, then `ci_scripts/tasks/check_repository_rules.sh`, then `ci_scripts/tasks/verify.sh`, then `ci_scripts/verify.sh`, then `ci_scripts/tasks/verify_repository_state.sh`, then `run_required_builds.sh`, then another detected `.sh`.
+- If the resolved workflow writes artifacts to `.build/ci/runs/`, use only the newest run. If it does not write run artifacts but exits successfully, treat the captured command output as the verification evidence instead of failing solely because artifacts are absent.
+- If the repository does not provide any verification or repository-rule entrypoint, explain that this skill is not applicable and stop.
 
 2. Run the helper script.
 
@@ -40,9 +40,10 @@ Typical phrases include:
 bash "${CODEX_HOME:-$HOME/.codex}/skills/ci-verify-and-summarize/scripts/run_verify_and_summarize.sh"
 ```
 
-3. Resolve the newest run.
+3. Resolve the newest run when present.
 - Determine the latest run by lexicographically greatest directory name under `.build/ci/runs/`.
 - Do not inspect older runs.
+- If no run exists and the entrypoint succeeded, report `最新RUN: (なし)` and continue with diff review plus the captured verification output.
 
 4. Read artifacts in strict order.
 - `summary.md`
@@ -70,7 +71,7 @@ bash "${CODEX_HOME:-$HOME/.codex}/skills/ci-verify-and-summarize/scripts/run_ver
 
 - Do not edit repository files.
 - Do not re-implement CI logic in ad-hoc commands.
-- Resolve the CI entrypoint dynamically from `AGENTS.md` or `ci_scripts/` instead of assuming a single hard-coded script.
+- Resolve the verification entrypoint dynamically from `AGENTS.md` or `ci_scripts/` instead of assuming a single hard-coded script.
 - Read only the newest run directory in `.build/ci/runs/`.
 - Never recursively scan generated directories outside the newest run scope.
 - Review only the current git diff and staged diff; do not broaden into full-repository archaeology.
@@ -99,4 +100,4 @@ When there is no current diff, still return the full structure and explicitly no
 - If current-change or clearly introduced warnings remain, ensure the final judgment is non-ready.
 - If warnings look external or pre-existing, ensure the report says so explicitly instead of blaming the current change.
 - If artifacts are incomplete, clearly mark the report as non-push-ready and continue with available evidence.
-- If `.build/ci/runs/` has no run, report artifact-not-found explicitly and keep push risk high.
+- If `.build/ci/runs/` has no run and the entrypoint failed, report artifact-not-found explicitly and keep push risk high.

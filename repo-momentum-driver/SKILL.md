@@ -42,7 +42,7 @@ Use this skill when requests indicate autonomous continuation, such as:
 - For Apple-platform tasks that proceed to implementation, follow `$apple-ios-dev-flow` routing so OpenAI Build iOS Apps specialist skills, XcodeBuildMCP, HIG, Swift, sample-code evidence, and final repo verification are sequenced consistently.
 - For Apple-platform repositories, if the implementation shape is still ambiguous after local inspection, consult Apple official documentation, Swift.org documentation, Swift guidelines, and `$apple-sample-code-advisor` for official project-level sample evidence before looking at a sibling reference repository.
 - Resolve CI commands from `AGENTS.md` first and use its standard Build/Test entrypoint when defined.
-- If `AGENTS.md` does not define one, fall back to detected `ci_scripts/**/*.sh` paths and prefer `bash ci_scripts/tasks/verify_task_completion.sh`, then `bash ci_scripts/tasks/verify.sh`, then `bash ci_scripts/tasks/verify_repository_state.sh` when CI verification is required.
+- If `AGENTS.md` does not define one, fall back to detected `ci_scripts/**/*.sh` paths and prefer `bash ci_scripts/tasks/verify_task_completion.sh`, then `bash ci_scripts/tasks/check_repository_rules.sh`, then `bash ci_scripts/tasks/verify.sh`, then `bash ci_scripts/tasks/verify_repository_state.sh` when CI verification is required.
 - Read only the newest `.build/ci/runs/<RUN_ID>` when CI artifacts exist.
 - Never scan older runs under `.build/ci/runs/`.
 - Exclude generated directories from recursive scans (`.build`, `build`, `DerivedData`, `.git`, `.swiftpm`, `Pods`, `Carthage`).
@@ -77,8 +77,8 @@ Use this skill when requests indicate autonomous continuation, such as:
 - Do not archive tactical one-off choices, temporary workarounds, or principles inferred only from an accidental local implementation.
 
 7. Run final verification before finishing.
-- Run the repository's standard verification entrypoint before the final response.
-- Prefer the repo-wide verify or check entrypoint indicated by `AGENTS.md`, CI scripts, or root build files over ad-hoc targeted commands.
+- Run the repository's documented verification contract before the final response.
+- Prefer the repo-wide verify or check contract indicated by `AGENTS.md`, CI scripts, or root build files over ad-hoc targeted commands.
 - If multiple candidates exist, choose the most standard repo-wide one and state the exact command.
 - Treat current-change or clearly introduced build/test/lint/warning failures as incomplete work.
 - If warnings or errors clearly come from external packages or pre-existing unrelated issues, call them out separately instead of pretending the current change introduced them.
@@ -114,11 +114,11 @@ Use this structure:
 Additionally include checklist status:
 
 - `事前チェック` (evidence collected, single-task scope fixed, current-repo scope respected)
-- `事後チェック` (standard verification entrypoint run, residual risk noted)
+- `事後チェック` (documented verification contract run, residual risk noted)
 
 ## Verification
 
 - Ensure all claims in `今これが最善な理由` map to concrete evidence.
 - Ensure exactly one task was selected and implemented.
-- Ensure the repository's standard verification entrypoint was run before finishing.
+- Ensure the repository's documented verification contract was run before finishing.
 - If final verification cannot run to completion, include the exact failed command and a direct next command.

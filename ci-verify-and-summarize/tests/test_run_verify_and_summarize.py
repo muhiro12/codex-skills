@@ -121,6 +121,110 @@ class RunVerifyAndSummarizeTests(unittest.TestCase):
         self.assertIn("stage済み 0件 / 未stage 0件を確認しました。作業ツリーに差分はありません。", completed.stdout)
         self.assertIn("差分はないため、この verify 結果を基準に次の変更へ進めます。", completed.stdout)
 
+    def test_low_risk_success_without_run_artifacts_for_repository_rules(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            repo_root = Path(temporary_directory)
+            self._init_git_repo(repo_root)
+            self._write_executable(
+                repo_root / "ci_scripts" / "tasks" / "check_repository_rules.sh",
+                """
+                #!/usr/bin/env bash
+                set -euo pipefail
+                echo "Repository rules check passed."
+                """,
+            )
+            self._write_text(repo_root / "README.md", "base\n")
+            self._commit_all(repo_root, "Initial")
+
+            completed = self._run_helper(repo_root)
+
+        self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+        self.assertIn("結果: ✅ success", completed.stdout)
+        self.assertIn("最新RUN: (なし)", completed.stdout)
+        self.assertIn("bash ci_scripts/tasks/check_repository_rules.sh は成功しました。", completed.stdout)
+        self.assertIn("Pushリスク: low", completed.stdout)
+        self.assertIn("差分はないため、この verify 結果を基準に次の変更へ進めます。", completed.stdout)
+
+    def test_ignores_stale_run_when_repository_rules_make_no_new_artifact(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            repo_root = Path(temporary_directory)
+            self._init_git_repo(repo_root)
+            self._write_executable(
+                repo_root / "ci_scripts" / "tasks" / "check_repository_rules.sh",
+                """
+                #!/usr/bin/env bash
+                set -euo pipefail
+                echo "Repository rules check passed."
+                """,
+            )
+            self._write_text(
+                repo_root / ".build" / "ci" / "runs" / "20260310-010203-0000" / "summary.md",
+                """
+                # CI Run Summary
+                - Old build failed
+                """,
+            )
+            self._write_text(
+                repo_root / ".build" / "ci" / "runs" / "20260310-010203-0000" / "meta.json",
+                '{"result":"failure","success":false,"failed_step":"old build"}',
+            )
+            self._write_text(repo_root / "README.md", "base\n")
+            self._commit_all(repo_root, "Initial")
+
+            completed = self._run_helper(repo_root)
+
+        self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+        self.assertIn("結果: ✅ success", completed.stdout)
+        self.assertIn("最新RUN: (なし)", completed.stdout)
+        self.assertIn("bash ci_scripts/tasks/check_repository_rules.sh は成功しました。", completed.stdout)
+        self.assertNotIn("Old build failed", completed.stdout)
+        self.assertNotIn("old build", completed.stdout)
+
+    def test_agents_entrypoint_prefers_repository_rules_over_format_script(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            repo_root = Path(temporary_directory)
+            self._init_git_repo(repo_root)
+            self._write_text(
+                repo_root / "AGENTS.md",
+                """
+                Run formatting when Swift files are edited:
+
+                ```sh
+                bash ci_scripts/tasks/format_swift.sh
+                ```
+
+                Then run retained repository rules:
+
+                ```sh
+                bash ci_scripts/tasks/check_repository_rules.sh
+                ```
+                """,
+            )
+            self._write_executable(
+                repo_root / "ci_scripts" / "tasks" / "format_swift.sh",
+                """
+                #!/usr/bin/env bash
+                set -euo pipefail
+                echo "format should not be the final gate"
+                """,
+            )
+            self._write_executable(
+                repo_root / "ci_scripts" / "tasks" / "check_repository_rules.sh",
+                """
+                #!/usr/bin/env bash
+                set -euo pipefail
+                echo "Repository rules check passed."
+                """,
+            )
+            self._write_text(repo_root / "README.md", "base\n")
+            self._commit_all(repo_root, "Initial")
+
+            completed = self._run_helper(repo_root)
+
+        self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+        self.assertIn("bash ci_scripts/tasks/check_repository_rules.sh は成功しました。", completed.stdout)
+        self.assertNotIn("format should not be the final gate", completed.stdout)
+
     def test_high_risk_when_current_change_warning_is_present(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             repo_root = Path(temporary_directory)

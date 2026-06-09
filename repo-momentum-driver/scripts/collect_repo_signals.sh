@@ -203,12 +203,16 @@ print_verification_candidates() {
     print_candidate "bash ci_scripts/tasks/verify_task_completion.sh"
   fi
 
-  if [ -f "ci_scripts/tasks/verify_repository_state.sh" ]; then
-    print_candidate "bash ci_scripts/tasks/verify_repository_state.sh"
+  if [ -f "ci_scripts/tasks/check_repository_rules.sh" ]; then
+    print_candidate "bash ci_scripts/tasks/check_repository_rules.sh"
   fi
 
   if [ -f "ci_scripts/tasks/verify.sh" ]; then
     print_candidate "bash ci_scripts/tasks/verify.sh"
+  fi
+
+  if [ -f "ci_scripts/tasks/verify_repository_state.sh" ]; then
+    print_candidate "bash ci_scripts/tasks/verify_repository_state.sh"
   fi
 
   if [ -f "ci_scripts/tasks/run_required_builds.sh" ]; then

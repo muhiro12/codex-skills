@@ -1,6 +1,6 @@
 ---
 name: apple-ios-dev-flow
-description: Orchestrate Apple-platform app development in this local Codex/Xcode environment by routing implementation, refactor, UI, Swift, sample-code, simulator, App Intents, performance, leak, preview, smoke, and verification work across Hiromu's custom skills, OpenAI Build iOS Apps skills, XcodeBuildMCP, Apple official guidance, repo-local evidence, and the repository's standard verification shell.
+description: Orchestrate Apple-platform app development in this local Codex/Xcode environment by routing implementation, refactor, UI, Swift, sample-code, simulator, App Intents, performance, leak, preview, smoke, and verification work across Hiromu's custom skills, OpenAI Build iOS Apps skills, XcodeBuildMCP, Apple official guidance, repo-local evidence, and the repository's documented verification contract.
 ---
 
 # Apple iOS Dev Flow
@@ -16,7 +16,7 @@ When implementation depends on recurring cross-repository judgment, consult a lo
 When implementation affects user interface, navigation, controls, visual hierarchy, accessibility, platform adaptation, or Apple design-system behavior, use `$apple-hig-ui-guardian` before settling or preserving the UI shape.
 When implementation affects Swift APIs, naming, type modeling, concurrency, `Sendable`, actor isolation, package/module boundaries, access control, public documentation, or SwiftPM manifests, use `$swift-code-guardian` before settling or preserving the code shape.
 When implementation depends on project-level Apple architecture, framework adoption, app shell shape, target layout, lifecycle wiring, entitlements, or modern sample-backed patterns, use `$apple-sample-code-advisor` before falling back to sibling repositories.
-When available and relevant, use OpenAI Build iOS Apps skills and XcodeBuildMCP for specialized SwiftUI, App Intents, simulator, profiling, and leak workflows, while still treating the repository's standard shell as the final verification gate.
+When available and relevant, use OpenAI Build iOS Apps skills and XcodeBuildMCP for specialized SwiftUI, App Intents, simulator, profiling, and leak workflows, while still treating the repository's documented verification contract as the final readiness gate.
 
 ## Trigger Conditions
 
@@ -42,7 +42,7 @@ Assume these surfaces are available in this Codex desktop environment when the a
 - OpenAI Build iOS Apps skills: `$build-ios-apps:swiftui-ui-patterns`, `$build-ios-apps:swiftui-view-refactor`, `$build-ios-apps:swiftui-liquid-glass`, `$build-ios-apps:swiftui-performance-audit`, `$build-ios-apps:ios-app-intents`, `$build-ios-apps:ios-debugger-agent`, `$build-ios-apps:ios-ettrace-performance`, and `$build-ios-apps:ios-memgraph-leaks`.
 - Local Apple sample cache: `~/.codex/skills/apple-sample-code-advisor/cache`, managed through `$apple-sample-code-advisor`.
 - XcodeBuildMCP for simulator build, run, logs, UI inspection, screenshots, and profiling support when available.
-- Repository standard shells, especially `AGENTS.md` and `ci_scripts/tasks/verify.sh` style entrypoints.
+- Repository verification contracts, especially `AGENTS.md`, XcodeBuildMCP build/test/run expectations, and retained `ci_scripts` rule checks.
 - Local sibling repositories only as read-only fallback evidence after stronger Apple and current-repo sources.
 
 ## Decision Order
@@ -96,15 +96,16 @@ Use this routing before editing when a sidecar skill can narrow the work:
 - Preview-based visual audit: use `$xcode-preview-auditor`, then `$apple-hig-ui-guardian` for HIG classification of any issues.
 - Live release UI smoke or screenshot audit: use `$xcode-ui-smoke-auditor`, then `$apple-hig-ui-guardian` for UI/design-system findings.
 - Project-level architecture, framework adoption, lifecycle, target layout, entitlements, or modern app shell decisions: use `$apple-sample-code-advisor` before sibling repository fallback.
-- Final verification and diff summary: use `$ci-verify-and-summarize` when the user asks for verify/CI/push-readiness summarization; otherwise run the repository's standard verification shell directly.
+- Final verification and diff summary: use `$ci-verify-and-summarize` when the repository provides a shell or retained repository-rule entrypoint and the user asks for verify/CI/push-readiness summarization; otherwise run the documented MCP checks and retained rule checks directly.
 
 ## Workflow
 
 1. Confirm repository workflow prerequisites.
-- Resolve the repository's standard verification entrypoint from `AGENTS.md` first, then `ci_scripts/**/*.sh`, then repo-native aggregate commands.
+- Resolve the repository's documented verification contract from `AGENTS.md` first, then `ci_scripts/**/*.sh`, then repo-native aggregate commands.
+- When `AGENTS.md` specifies XcodeBuildMCP build/test/run expectations, execute those MCP checks directly instead of looking for an equivalent custom shell.
 - If the repository provides an explicit repo-managed autofix step for edited files such as `format_swift.sh`, treat it as part of the main implementation flow before the final verification gate.
-- If the repository does not have a coherent standard shell for build/test/lint verification, switch to `$apple-repo-verify-bootstrapper` or tell the user that the repo needs that scaffolding first.
-- For simulator execution or UI/debug validation, prefer XcodeBuildMCP tools when available; call `session_show_defaults` before the first XcodeBuildMCP build/run/test call in a session, and use the repo-standard shell afterward for final readiness.
+- If the repository does not have a coherent verification contract, switch to `$apple-repo-verify-bootstrapper` or tell the user that the repo needs that scaffolding first.
+- For simulator execution or UI/debug validation, prefer XcodeBuildMCP tools when available; call `session_show_defaults` before the first XcodeBuildMCP build/run/test call in a session, and run retained repository rule checks afterward when they are documented.
 
 2. Implement with local evidence first.
 - Inspect the target files, adjacent tests, and current diagnostics before editing.
@@ -132,7 +133,7 @@ Use this routing before editing when a sidecar skill can narrow the work:
 5. Run the final gate before replying.
 - If the repository provides an explicit autofix command, run it before the final gate so the last verification pass stays non-destructive.
 - Review the actual diff for regressions, missing tests, architecture drift, HIG drift for UI-affecting changes, and Swift API/concurrency/package drift for Swift-affecting changes.
-- Run the repository's standard verification entrypoint.
+- Run the repository's documented verification contract, combining XcodeBuildMCP checks and retained repository scripts when both are part of the contract.
 - Treat current-change or clearly introduced build/test/lint/warning failures as blocking.
 - If warnings or errors are clearly pre-existing or come from external packages, say so explicitly instead of attributing them to the current change.
 

@@ -31,9 +31,19 @@ commands = re.findall(r"bash\s+(ci_scripts/[A-Za-z0-9_./-]+\.sh)", text)
 if not commands:
     raise SystemExit(0)
 
-for command in commands:
-    if command.endswith("verify.sh"):
-        print(command)
+priority = [
+    "ci_scripts/tasks/verify_task_completion.sh",
+    "ci_scripts/tasks/check_repository_rules.sh",
+    "ci_scripts/tasks/verify.sh",
+    "ci_scripts/verify.sh",
+    "ci_scripts/tasks/verify_repository_state.sh",
+    "ci_scripts/tasks/run_required_builds.sh",
+    "ci_scripts/run_required_builds.sh",
+]
+
+for preferred in priority:
+    if preferred in commands:
+        print(preferred)
         raise SystemExit(0)
 
 print(commands[0])
@@ -52,6 +62,7 @@ detect_verify_entrypoint() {
 
   for rel_path in \
     "ci_scripts/tasks/verify_task_completion.sh" \
+    "ci_scripts/tasks/check_repository_rules.sh" \
     "ci_scripts/tasks/verify.sh" \
     "ci_scripts/verify.sh" \
     "ci_scripts/tasks/verify_repository_state.sh" \
@@ -102,9 +113,10 @@ verify_exit=$?
 set -e
 
 post_run="$(latest_run_id "$run_base")"
-latest_run="$post_run"
+latest_run=""
 run_is_new="false"
 if [ -n "$post_run" ] && [ "$pre_run" != "$post_run" ]; then
+  latest_run="$post_run"
   run_is_new="true"
 fi
 
@@ -396,11 +408,18 @@ else:
     diff_overview = f"stage済み {staged_count}件 / 未stage {unstaged_count}件を確認しました。"
 
 if missing_run:
-    summary_lines = [
-        f"{verify_command} を実行しましたが、.build/ci/runs/ にRUNがありません。",
-        f"verify_exit={verify_exit}",
-        f"verifyログ: {verify_output}",
-    ]
+    if verify_exit == 0:
+        summary_lines = [
+            f"{verify_command} は成功しました。",
+            ".build/ci/runs/ のRUNは作られませんでした。",
+            f"verifyログ: {verify_output}",
+        ]
+    else:
+        summary_lines = [
+            f"{verify_command} を実行しましたが、.build/ci/runs/ にRUNがありません。",
+            f"verify_exit={verify_exit}",
+            f"verifyログ: {verify_output}",
+        ]
 else:
     if not summary_lines:
         summary_lines.append("summary.md が見つかりません。")
@@ -444,7 +463,7 @@ combined_patch_lower = str(git_state.get("combined_patch_lower", ""))
 total_files = int(git_state.get("total_files", 0))
 total_lines = int(git_state.get("total_lines", 0))
 
-if missing_run:
+if missing_run and verify_exit != 0:
     add_reason("high", "latest run を確認できず、verify 結果を確定できません。現時点では push 非推奨です。")
     next_steps.append(f"{verify_output} を確認し、RUNが作られる状態にしてから再実行してください。")
 
@@ -561,7 +580,7 @@ if risk_level == "high" and not any("push 非推奨" in reason for reason in ris
     risk_reasons.insert(0, "高リスク差分があるため、現時点では push 非推奨です。")
 
 if not next_steps:
-    if risk_level == "low" and not verify_failed and not missing_run:
+    if risk_level == "low" and not verify_failed:
         if staged_count == 0 and unstaged_count == 0:
             next_steps.append("差分はないため、この verify 結果を基準に次の変更へ進めます。")
         else:
@@ -570,7 +589,7 @@ if not next_steps:
         next_steps.append("リスク理由を解消または確認した後に再度このゲートを通してください。")
 
 result_label = "✅ success"
-if verify_failed or missing_run:
+if verify_failed:
     result_label = "❌ failure"
 
 print(f"結果: {result_label}")
