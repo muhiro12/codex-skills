@@ -15,6 +15,10 @@ Treat this skill as the owner of first-pass scaffolding and Apple-repo-specific 
 If the repository already has or is intentionally adopting `ci_scripts` and only needs contract auditing, naming cleanup, `AGENTS.md` alignment, or lightweight maintenance, use `$verify-contract-maintainer` instead.
 When the verification philosophy depends on the user's durable cross-repository workflow preferences, consult a local principle archive skill when available (for example `$track-developer-principles`) before deciding the target shape.
 
+## Xcode Skill Catalog
+
+When `sync-xcode-skills/state/catalog.md` exists under the active Codex skills root, scan it for task-relevant Xcode-provided `xcode-skill-*` guidance before applying this skill's local Apple verification heuristics. Do not hardcode individual Xcode-provided skill names. If the catalog is missing or no listed skill matches, continue with this skill normally.
+
 ## Trigger Conditions
 
 Use this skill when the user asks for things such as:
