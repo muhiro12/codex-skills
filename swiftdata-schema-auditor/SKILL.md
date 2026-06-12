@@ -11,6 +11,10 @@ Use this skill for read-only inspection and design review of SwiftData model cod
 Keep the core instructions in this file portable across agent runtimes where practical; platform-specific metadata can live beside the skill.
 Default explanation language is concise, practical Japanese. Keep code identifiers, type names, attributes, and file names in English.
 
+## Xcode Skill Catalog
+
+When `sync-xcode-skills/state/catalog.md` exists under the active Codex skills root, scan it for task-relevant Xcode-provided `xcode-skill-*` guidance before applying this skill's local SwiftData schema heuristics. Do not hardcode individual Xcode-provided skill names. If the catalog is missing or no listed skill matches, continue with this skill normally.
+
 ## Trigger Conditions
 
 Use this skill when the user asks to:
