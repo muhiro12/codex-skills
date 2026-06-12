@@ -8,6 +8,10 @@ description: Audit SwiftUI `#Preview` screens in Apple app repositories by disco
 Audit SwiftUI `#Preview` in Apple app repositories. Discover previews, prefer screen-level captures, use XcodeBuildMCP as the first capture surface when it exposes a suitable direct Preview workflow, make capture coverage explicit by file and screen, show captured images back to the user, and return a concise Japanese audit report instead of defaulting to fixes.
 For screen-level Apple UI previews, use `$apple-hig-ui-guardian` after capture so the audit covers HIG alignment, not only render correctness.
 
+## Xcode Skill Catalog
+
+When `sync-xcode-skills/state/catalog.md` exists under the active Codex skills root, scan it for task-relevant Xcode-provided `xcode-skill-*` guidance before applying this skill's local Preview capture or audit heuristics. Do not hardcode individual Xcode-provided skill names. If the catalog is missing or no listed skill matches, continue with this skill normally.
+
 ## Workflow
 
 1. Discover `#Preview` definitions from source and note source file, preview identifier, preview label, and likely target surface.
