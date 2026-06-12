@@ -1,0 +1,4 @@
+interface:
+  display_name: "MH Swift Style"
+  short_description: "Hiromu/MH Swift style preferences"
+  default_prompt: "Use $mh-swift-style to keep Swift code aligned with Hiromu/MH local style preferences."
