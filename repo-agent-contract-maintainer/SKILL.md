@@ -47,8 +47,9 @@ Move information to the narrowest durable layer that can carry it forward:
 - Read the current repository `AGENTS.md` when present.
 - Read nearby `ci_scripts/`, project or package manifests, and durable
   architecture docs that the existing AGENTS file references.
-- Read global `/Users/Hiromu/.codex/AGENTS.md` when changing local environment
-  routing or cross-repository boundaries.
+- Read the global Codex `AGENTS.md` under the active Codex home
+  (`$CODEX_HOME/AGENTS.md`, or `~/.codex/AGENTS.md` when `CODEX_HOME` is unset)
+  when changing local environment routing or cross-repository boundaries.
 - Consult `$track-developer-principles` when the decision depends on durable
   development judgment.
 
