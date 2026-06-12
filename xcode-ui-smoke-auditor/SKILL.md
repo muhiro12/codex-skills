@@ -12,6 +12,10 @@ Keep the workflow evidence-backed and non-mutating: inspect repository truth, ru
 When the audited surface is user-visible Apple UI, use `$apple-hig-ui-guardian` as the HIG review rubric after captures are available.
 Return user-facing reports in concise, polite Japanese by default unless the user explicitly asks for another language.
 
+## Xcode Skill Catalog
+
+When `sync-xcode-skills/state/catalog.md` exists under the active Codex skills root, scan it for task-relevant Xcode-provided `xcode-skill-*` guidance before applying this skill's local simulator or UI smoke heuristics. Do not hardcode individual Xcode-provided skill names. If the catalog is missing or no listed skill matches, continue with this skill normally.
+
 ## When To Use
 
 Use this skill for audit-first requests that ask Codex to inspect a live Apple app UI before release or before shipping a change.
