@@ -11,14 +11,19 @@ Use this skill as an active HIG gate for Apple-platform UI work. Treat Apple's H
 
 Prefer current Apple official material over memory. The HIG changes over time, so verify relevant guidance from Apple before making or judging design decisions that depend on platform behavior, components, accessibility, or visual system direction.
 
+## Xcode Skill Catalog
+
+When `sync-xcode-skills/state/catalog.md` exists under the active Codex skills root, scan it for task-relevant Xcode-provided `xcode-skill-*` guidance before applying this skill's local UI heuristics. Do not hardcode individual Xcode-provided skill names. If the catalog is missing or no listed skill matches, continue with this skill normally.
+
 ## Source Order
 
 Use this decision order:
 
 1. Explicit user intent, product constraints, and current repository evidence.
-2. Current Apple official guidance: HIG, Apple Developer documentation, Apple sample code, WWDC material, and Swift guidance.
-3. Existing repository UI conventions, only when they are compatible with current Apple guidance.
-4. Local sibling repositories or older app patterns, only as read-only examples after Apple guidance is checked.
+2. Matching Xcode-provided Skill guidance from the generated catalog, when available.
+3. Current Apple official guidance: HIG, Apple Developer documentation, Apple sample code, WWDC material, and Swift guidance.
+4. Existing repository UI conventions, only when they are compatible with current Apple guidance.
+5. Local sibling repositories or older app patterns, only as read-only examples after Apple guidance is checked.
 
 If existing app UI conflicts with HIG, identify the conflict and propose a HIG-aligned correction instead of preserving the local pattern by default.
 
