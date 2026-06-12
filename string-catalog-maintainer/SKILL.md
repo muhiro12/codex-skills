@@ -13,6 +13,10 @@ Default operating mode is catalog-only maintenance: audit catalogs, extract tran
 Default explanation language is concise, polite Japanese.
 When translating user-facing strings, consult a local principle archive skill when available for durable localization rules such as preserving proper nouns or official platform feature names.
 
+## Xcode Skill Catalog
+
+When `sync-xcode-skills/state/catalog.md` exists under the active Codex skills root, scan it for task-relevant Xcode-provided `xcode-skill-*` guidance before applying this skill's local string-catalog heuristics. Do not hardcode individual Xcode-provided skill names. If the catalog is missing or no listed skill matches, continue with this skill normally.
+
 ## Trigger Conditions
 
 Use this skill when the user asks to:
