@@ -11,15 +11,20 @@ Use this skill as an active Swift-language quality gate. Treat official Swift do
 
 Prefer current Swift official material over memory. Swift language features, concurrency checking, package tools, and recommended idioms evolve, so verify relevant guidance before making or judging decisions that depend on current Swift behavior.
 
+## Xcode Skill Catalog
+
+When `sync-xcode-skills/state/catalog.md` exists under the active Codex skills root, scan it for task-relevant Xcode-provided `xcode-skill-*` guidance before applying this skill's local Swift heuristics. Do not hardcode individual Xcode-provided skill names. If the catalog is missing or no listed skill matches, continue with this skill normally.
+
 ## Source Order
 
 Use this decision order:
 
 1. Explicit user intent, repository architecture, existing tests, diagnostics, and local style.
-2. Current official Swift sources: Swift.org documentation, The Swift Programming Language, API Design Guidelines, Swift Package Manager docs, standard library docs, Swift Evolution, and official migration guides.
-3. Apple platform documentation when the Swift code depends on Apple frameworks or platform annotations.
-4. Existing repository conventions, only when they remain compatible with current Swift guidance.
-5. Local sibling repositories as read-only examples, only after official Swift guidance and current-repo evidence are not enough.
+2. Matching Xcode-provided Skill guidance from the generated catalog, when available.
+3. Current official Swift sources: Swift.org documentation, The Swift Programming Language, API Design Guidelines, Swift Package Manager docs, standard library docs, Swift Evolution, and official migration guides.
+4. Apple platform documentation when the Swift code depends on Apple frameworks or platform annotations.
+5. Existing repository conventions, only when they remain compatible with current Swift guidance.
+6. Local sibling repositories as read-only examples, only after official Swift guidance and current-repo evidence are not enough.
 
 If local style conflicts with Swift API design, concurrency safety, or language semantics, identify the conflict and propose a Swift-aligned correction instead of preserving the local pattern by default.
 
