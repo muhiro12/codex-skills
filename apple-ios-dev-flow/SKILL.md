@@ -17,6 +17,7 @@ When implementation affects user interface, navigation, controls, visual hierarc
 When implementation affects Swift APIs, naming, type modeling, concurrency, `Sendable`, actor isolation, package/module boundaries, access control, public documentation, or SwiftPM manifests, use `$swift-code-guardian` before settling or preserving the code shape.
 When implementation depends on project-level Apple architecture, framework adoption, app shell shape, target layout, lifecycle wiring, entitlements, or modern sample-backed patterns, use `$apple-sample-code-advisor` before falling back to sibling repositories.
 When available and relevant, use OpenAI Build iOS Apps skills and XcodeBuildMCP for specialized SwiftUI, App Intents, simulator, profiling, and leak workflows, while still treating the repository's documented verification contract as the final readiness gate.
+When `sync-xcode-skills/state/catalog.md` exists under the active Codex skills root, treat it as the local catalog of Xcode-provided Skills. Use it to discover currently installed `xcode-skill-*` guidance instead of hardcoding Xcode-provided skill names.
 
 ## Trigger Conditions
 
@@ -41,6 +42,7 @@ Assume these surfaces are available in this Codex desktop environment when the a
 - Hiromu custom skills: `$track-developer-principles`, `$apple-hig-ui-guardian`, `$swift-code-guardian`, `$apple-sample-code-advisor`, `$xcode-preview-auditor`, `$xcode-ui-smoke-auditor`, `$ci-verify-and-summarize`, and repository workflow skills.
 - OpenAI Build iOS Apps skills: `$build-ios-apps:swiftui-ui-patterns`, `$build-ios-apps:swiftui-view-refactor`, `$build-ios-apps:swiftui-liquid-glass`, `$build-ios-apps:swiftui-performance-audit`, `$build-ios-apps:ios-app-intents`, `$build-ios-apps:ios-debugger-agent`, `$build-ios-apps:ios-ettrace-performance`, and `$build-ios-apps:ios-memgraph-leaks`.
 - Local Apple sample cache: `~/.codex/skills/apple-sample-code-advisor/cache`, managed through `$apple-sample-code-advisor`.
+- Generated Xcode-provided Skill catalog: `sync-xcode-skills/state/catalog.md` under the active Codex skills root, managed through `$sync-xcode-skills`.
 - XcodeBuildMCP for simulator build, run, logs, UI inspection, screenshots, and profiling support when available.
 - Repository verification contracts, especially `AGENTS.md`, XcodeBuildMCP build/test/run expectations, and retained `ci_scripts` rule checks.
 - Local sibling repositories only as read-only fallback evidence after stronger Apple and current-repo sources.
@@ -56,29 +58,35 @@ Assume these surfaces are available in this Codex desktop environment when the a
 - If stored principles point to a maintained platform foundation such as `../MHPlatform` for shared stack, reusable plumbing, or cross-app implementation direction, treat that as part of the current decision context before falling back to a generic sibling reference repository.
 - Treat explicit current-task instructions and hard repository constraints as higher priority than older archived principles when they conflict.
 
-3. Apply the HIG gate for UI-affecting work.
+3. Check Xcode-provided Skill guidance when present.
+- If the generated Xcode Skill catalog exists, scan it before local Apple specialist routing for task-specific Xcode guidance.
+- If a listed `xcode-skill-*` clearly matches the current Apple-platform issue, use that Skill before applying local custom-skill heuristics.
+- Do not hardcode individual Xcode-provided Skill names in this orchestrator; let `$sync-xcode-skills` keep the catalog current.
+- If the catalog is missing or no listed skill matches, continue through the normal local gates.
+
+4. Apply the HIG gate for UI-affecting work.
 - For changes that affect user-visible Apple UI, invoke `$apple-hig-ui-guardian` and read its rubric before editing or approving the UI shape.
 - Treat HIG and current Apple official design guidance as active constraints, not only as fallback references when the implementation is unclear.
 - Preserve local UI conventions only when they remain compatible with HIG; name intentional product-driven departures from HIG.
 
-4. Apply the Swift code gate for Swift-language work.
+5. Apply the Swift code gate for Swift-language work.
 - For changes that affect Swift APIs, package boundaries, concurrency, type modeling, documentation, or public/reusable code, invoke `$swift-code-guardian` and read its rubric before editing or approving the code shape.
 - Treat official Swift documentation, API Design Guidelines, and concurrency guidance as active constraints, not only as fallback references when the implementation is unclear.
 - Preserve local Swift style only when it remains compatible with Swift clarity, safety, and language semantics.
 
-5. Use Apple, Swift, and sample-code official guidance next.
+6. Use Apple, Swift, and sample-code official guidance next.
 - When the implementation shape is still unclear, prefer Apple documentation, Swift.org documentation, Human Interface Guidelines, WWDC material, Swift API Design Guidelines, Swift language guidance, and Apple sample code.
 - Prefer Apple or Swift official guidance over general web advice.
 
-6. Use Apple sample projects before sibling repositories when project-level shape matters.
+7. Use Apple sample projects before sibling repositories when project-level shape matters.
 - For framework adoption, app architecture, lifecycle, target boundaries, or cross-surface implementation patterns, invoke `$apple-sample-code-advisor` and inspect cached or current Apple sample projects before using a sibling repository as evidence.
 - Treat sample code as official implementation evidence, but still subordinate to product constraints, HIG, Swift language guidance, and framework API documentation.
 
-7. Route execution to OpenAI Build iOS Apps specialist skills when they match the task.
+8. Route execution to OpenAI Build iOS Apps specialist skills when they match the task.
 - Use specialist skills for concrete SwiftUI, App Intents, simulator, performance, ETTrace, or leak workflows after the current-repo and official-guidance gates establish the intended direction.
 - Treat specialist workflow guidance as implementation help; do not let it override explicit product constraints, HIG, Swift language guidance, framework documentation, or current Apple sample evidence.
 
-8. Use a locally available sibling reference repository last as a read-only fallback.
+9. Use a locally available sibling reference repository last as a read-only fallback.
 - If a locally available sibling reference repository is available and relevant, inspect it only after current-repo evidence plus Apple, Swift, and sample-code official guidance still do not settle the approach.
 - Borrow reusable workflow or architecture intent, not app-specific UX, domain models, or naming.
 
@@ -117,6 +125,7 @@ Use this routing before editing when a sidecar skill can narrow the work:
 3. Make implementation decisions in this order.
 - current repository evidence
 - a local principle archive skill when available and the decision is judgment-heavy
+- generated Xcode-provided Skill catalog when present and task-relevant
 - `$apple-hig-ui-guardian` for UI-affecting work
 - `$swift-code-guardian` for Swift-language, API, concurrency, or package-boundary work
 - Apple official guidance
