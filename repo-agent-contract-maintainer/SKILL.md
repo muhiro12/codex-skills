@@ -12,14 +12,16 @@ safe to act on from a fresh clone while still fitting Hiromu's local Codex
 environment.
 
 This skill is a routing and judgment workflow, not a universal AGENTS.md
-template. Prefer small, evidence-backed edits over broad rewrites.
+template. Prefer small, evidence-backed edits over broad rewrites, and do not
+copy this skill's meta-rationale into every repository.
 
 ## Core Rule
 
-Keep each GitHub-facing repository's `AGENTS.md` clone-ready. Do not remove a
-repository-local instruction only because it repeats global policy. Repetition
-is acceptable when the rule is needed for safe standalone development on
-another machine or by an agent that only sees the repository.
+Keep each GitHub-facing repository's `AGENTS.md` clone-ready and
+action-focused. Do not remove an actionable repository-local instruction only
+because it repeats global policy, but also do not add repeated explanations
+about why duplication is acceptable. Put that rationale in this skill or the
+developer-principle archive.
 
 Move information to the narrowest durable layer that can carry it forward:
 
@@ -60,7 +62,7 @@ Move information to the narrowest durable layer that can carry it forward:
   repositories unless Hiromu explicitly asks otherwise.
 
 3. Preserve or add clone-ready repository content.
-- Keep repository `AGENTS.md` concise but self-contained.
+- Keep repository `AGENTS.md` concise, self-contained, and practical.
 - Include language and documentation rules when they affect public repository
   quality.
 - Include Swift style rules when they are part of the repository's review or
@@ -71,6 +73,8 @@ Move information to the narrowest durable layer that can carry it forward:
   edits.
 - Point to durable docs such as `Designs/Architecture/` or
   `Designs/Decisions/` when detailed rationale already lives there.
+- Avoid explaining cross-repository maintenance history inside each repository
+  unless the explanation changes how an agent should work in that repository.
 
 4. Route specialist work instead of duplicating it.
 - For Apple implementation flow, route to `$apple-ios-dev-flow`.
@@ -97,6 +101,8 @@ Move information to the narrowest durable layer that can carry it forward:
 - Run `git diff --check` for touched Git repositories.
 - Search for stale framing such as a repository AGENTS file calling itself a
   global contract.
+- Search for repeated meta-rationale that belongs in this skill or developer
+  principles instead of the repository file.
 - For MCP-first Apple repositories, confirm `AGENTS.md` names concrete
   XcodeBuildMCP expectations and retained repository-rule scripts separately.
 - Report any global or skill-owned files that are not Git-managed.
