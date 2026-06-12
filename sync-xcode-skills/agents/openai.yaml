@@ -1,0 +1,4 @@
+interface:
+  display_name: "Sync Xcode Skills"
+  short_description: "Export and install Xcode-provided skills"
+  default_prompt: "Use $sync-xcode-skills to export the latest Xcode-provided skills and install them into the Codex skills root."

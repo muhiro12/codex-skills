@@ -9,6 +9,10 @@ track-personal-principles/records/
 context-capture/archives/
 apple-sample-code-advisor/cache/
 
+# Xcode-provided generated skills synced by sync-xcode-skills
+/xcode-skill-*/
+/sync-xcode-skills/state/
+
 # Legacy private local data paths
 track-developer-principles/references/current-principles.md
 track-developer-principles/references/evolution-log.md

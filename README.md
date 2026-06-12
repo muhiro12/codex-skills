@@ -22,6 +22,7 @@ It intentionally excludes system-managed skills, runtime/vendor-managed assets, 
 - `respect-incomes-architecture`: Uses a sibling `../Incomes` checkout as a read-only architectural reference for repository and tooling alignment.
 - `skills-batch-auditor`: Audits multiple custom skills together, scores drift and maintenance burden, and proposes bounded refresh work.
 - `string-catalog-maintainer`: Audits and repairs Xcode string catalogs such as `Localizable.xcstrings` and related localization assets.
+- `sync-xcode-skills`: Exports Xcode-provided agent Skills and installs Codex-compatible local copies.
 - `swift-code-guardian`: Audits and repairs Swift code against official Swift guidance, API design conventions, and concurrency safety expectations.
 - `swiftdata-schema-auditor`: Reviews SwiftData schema definitions and explains entities, relationships, persistence, and migration risk.
 - `track-developer-principles`: Maintains a personal cross-repository principle system; the private record files themselves are intentionally not tracked here.
