@@ -1,0 +1,19 @@
+{
+  "managed_by": "sync-xcode-skills",
+  "generated_at": "2026-06-12T15:28:25.000000+00:00",
+  "selected_developer_dir": "/Applications/Xcode.app/Contents/Developer",
+  "xcode_version": "Xcode Fixture",
+  "export_dir": "/tmp/xcode-exported-skills",
+  "skills_root": "/tmp/skills",
+  "name_prefix": "xcode-skill-",
+  "skills": [
+    {
+      "original_name": "managed-fixture",
+      "installed_name": "xcode-skill-managed-fixture",
+      "source_path": "/tmp/xcode-exported-skills/managed-fixture",
+      "description": "Managed fixture."
+    }
+  ],
+  "skipped": [],
+  "pruned": []
+}

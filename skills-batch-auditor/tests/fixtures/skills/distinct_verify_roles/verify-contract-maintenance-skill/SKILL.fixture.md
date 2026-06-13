@@ -18,4 +18,4 @@ Use this skill for contract maintenance after `ci_scripts` exists or adoption is
 
 1. Read `AGENTS.md`, `ci_scripts`, and current hook config.
 2. Map the repository's verify contract roles and note drift.
-3. Propose or apply low-risk maintenance without introducing Apple-specific bootstrap design.
+3. Propose or apply safe contract maintenance without introducing Apple-specific bootstrap design.

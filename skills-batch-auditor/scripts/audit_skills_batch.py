@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Audit custom Codex skills and propose consolidated batch updates."""
+"""Audit custom Codex skills for maintenance or refresh workflows."""
 
 from __future__ import annotations
 
@@ -78,9 +78,10 @@ SCOPE_CUES = {
 
 NARROW_SCOPE_CUES = {
     "deprecated",
+    "judgment required",
     "legacy",
-    "manual review only",
     "one-off",
+    "refresh only",
     "temporary",
 }
 
@@ -215,20 +216,24 @@ OPENAI_INTERFACE_FIELDS = (
 )
 DEFAULT_VISIBILITY = "public"
 VALID_VISIBILITIES = {"public", "internal"}
+XCODE_SKILL_PREFIX = "xcode-skill-"
+XCODE_SKILL_MARKER = ".xcode-skill-sync.json"
+XCODE_SYNC_MANAGER = "sync-xcode-skills"
 
-LOW_RISK_AUTO_FIX_CODES = {
-    "missing_japanese_output_rule",
-    "display_name_snake_case",
-    "short_description_length_invalid",
-    "default_prompt_missing_skill_reference",
+INSTRUCTION_MAINTENANCE_FIX_CODES = {
     "ci_entrypoint_not_aligned",
     "ci_policy_not_dynamic",
     "ci_artifact_root_not_aligned",
     "ci_artifacts_latest_rule_missing",
     "ci_artifacts_no_old_scan_rule_missing",
-    "recursive_generated_scan",
-    "generated_directory_guard_missing",
 }
+
+OPENAI_MAINTENANCE_FIX_CODES = {
+    "display_name_snake_case",
+    "default_prompt_missing_skill_reference",
+}
+
+MAINTENANCE_FIX_CODES = INSTRUCTION_MAINTENANCE_FIX_CODES | OPENAI_MAINTENANCE_FIX_CODES
 
 
 @dataclass
@@ -236,6 +241,7 @@ class SkillRecord:
     name: str
     directory: Path
     is_system: bool
+    classification: str
     visibility: str
     description: str
     instructions: str
@@ -262,7 +268,7 @@ class Issue:
 
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Audit local skills and propose a single batch update bundle.",
+        description="Audit local skills for maintenance or refresh workflows.",
     )
     parser.add_argument(
         "--repo-root",
@@ -290,6 +296,12 @@ def parse_arguments() -> argparse.Namespace:
         help="When scope=custom, include skills-batch-auditor itself in the audit targets.",
     )
     parser.add_argument(
+        "--skill",
+        action="append",
+        default=[],
+        help="Limit the run to a named skill. May be passed more than once.",
+    )
+    parser.add_argument(
         "--format",
         choices=("json", "markdown"),
         default="json",
@@ -299,13 +311,13 @@ def parse_arguments() -> argparse.Namespace:
         "--bundle-mode",
         choices=("full", "patch"),
         default="full",
-        help="Batch update output mode. Default is full text.",
+        help="Applied-fix detail output mode. Use patch to include diffs.",
     )
     parser.add_argument(
-        "--implementation-mode",
-        choices=("report-only", "low-risk"),
-        default="report-only",
-        help="Whether to only report or prepare low-risk implementation candidates.",
+        "--mode",
+        choices=("maintenance", "refresh"),
+        default="refresh",
+        help="Workflow mode: maintenance applies deterministic consistency fixes; refresh proposes evolution only.",
     )
     return parser.parse_args()
 
@@ -496,6 +508,66 @@ def parse_openai_interface_fields(openai_text: str) -> dict[str, str]:
     return interface_fields
 
 
+def yaml_double_quoted(value: str) -> str:
+    escaped = (
+        value.replace("\\", "\\\\")
+        .replace('"', '\\"')
+        .replace("\n", "\\n")
+        .replace("\r", "\\r")
+        .replace("\t", "\\t")
+    )
+    return f'"{escaped}"'
+
+
+def title_case_skill_name(skill_name: str) -> str:
+    words = [word for word in re.split(r"[-_]+", skill_name) if word]
+    return " ".join(word[:1].upper() + word[1:] for word in words)
+
+
+def replace_interface_field(openai_text: str, field_name: str, value: str) -> str:
+    lines = openai_text.splitlines()
+    output_newline = "\n" if openai_text.endswith("\n") else ""
+    interface_indent: int | None = None
+    interface_index: int | None = None
+    inside_interface = False
+    replacement = yaml_double_quoted(value)
+
+    for index, line in enumerate(lines):
+        stripped_line = line.strip()
+        indent = len(line) - len(line.lstrip(" "))
+
+        if not inside_interface:
+            if stripped_line == "interface:":
+                inside_interface = True
+                interface_indent = indent
+                interface_index = index
+            continue
+
+        if interface_indent is not None and indent <= interface_indent and stripped_line:
+            break
+
+        field_match = re.match(r"^(\s*)([A-Za-z0-9_]+)\s*:\s*(.*)$", line)
+        if field_match and field_match.group(2) == field_name:
+            lines[index] = f"{field_match.group(1)}{field_name}: {replacement}"
+            return "\n".join(lines) + output_newline
+
+    if interface_index is None:
+        lines.extend(["interface:", f"  {field_name}: {replacement}"])
+    else:
+        lines.insert(interface_index + 1, f"  {field_name}: {replacement}")
+
+    return "\n".join(lines) + "\n"
+
+
+def replace_skill_markdown_body(skill_text: str, updated_instructions: str) -> str:
+    match = re.match(r"^---\n(.*?)\n---\n?(.*)$", skill_text, re.DOTALL)
+    if not match:
+        return updated_instructions.rstrip() + "\n"
+
+    raw_frontmatter = match.group(1)
+    return f"---\n{raw_frontmatter}\n---\n\n{updated_instructions.rstrip()}\n"
+
+
 def iter_skill_directories(
     skills_root: Path,
     scope: str,
@@ -521,6 +593,16 @@ def iter_skill_directories(
     return directories
 
 
+def classify_skill_directory(skill_directory: Path) -> str:
+    if ".system" in skill_directory.parts:
+        return "system"
+    if (skill_directory / XCODE_SKILL_MARKER).exists():
+        return "managed-external"
+    if skill_directory.name.startswith(XCODE_SKILL_PREFIX):
+        return "unmanaged-xcode-prefix"
+    return "custom"
+
+
 def discover_skill_records(
     skills_root: Path,
     scope: str,
@@ -533,7 +615,8 @@ def discover_skill_records(
         if skill_directory.name == "skills-batch-auditor" and not include_self:
             continue
 
-        is_system = ".system" in skill_directory.parts
+        classification = classify_skill_directory(skill_directory)
+        is_system = classification == "system"
 
         skill_file = skill_directory / "SKILL.md"
         skill_text = read_text_if_exists(skill_file)
@@ -561,6 +644,7 @@ def discover_skill_records(
                 name=skill_name,
                 directory=skill_directory,
                 is_system=is_system,
+                classification=classification,
                 visibility=visibility,
                 description=description,
                 instructions=instructions,
@@ -982,7 +1066,7 @@ def infer_mutability_posture(text: str) -> str:
             "apply minimal safe scope",
             "execute with minimal scope",
             "--apply",
-            "apply low-risk updates",
+            "apply maintenance updates",
             "modifying source files",
         ),
     )
@@ -1021,7 +1105,7 @@ def score_skill_dimensions(
     skill: SkillRecord,
     interface_fields: dict[str, str],
     issue_codes: list[str],
-    manual_review_issue_codes: list[str],
+    refresh_issue_codes: list[str],
     status: str,
 ) -> dict[str, int]:
     lower_description = skill.description.lower()
@@ -1082,7 +1166,7 @@ def score_skill_dimensions(
         maintenance_burden += 1
     if len(issue_codes) >= 3:
         maintenance_burden += 1
-    if manual_review_issue_codes:
+    if refresh_issue_codes:
         maintenance_burden += 1
     if len(skill.script_texts) > 1 or len(skill.instructions.splitlines()) > 120:
         maintenance_burden += 1
@@ -1247,7 +1331,7 @@ def choose_recommended_action(item: dict[str, Any]) -> str:
         and item["scores"]["safety"] >= 4
         and not item.get("merge_target")
         and not item["issue_codes"]
-        and not item["manual_review_issue_codes"]
+        and not item["refresh_issue_codes"]
     ):
         return "keep as-is"
 
@@ -1316,6 +1400,9 @@ def enrich_portfolio_prioritization(
 
 
 def analyze_skill(skill: SkillRecord, ground_truth: dict[str, Any]) -> dict[str, Any]:
+    if skill.classification == "unmanaged-xcode-prefix":
+        return analyze_unmanaged_xcode_prefix_skill(skill)
+
     issues: list[Issue] = []
     interface_fields: dict[str, str] = {}
 
@@ -1515,13 +1602,13 @@ def analyze_skill(skill: SkillRecord, ground_truth: dict[str, Any]) -> dict[str,
     unique_issue_summaries = list(dict.fromkeys(issue.summary_ja for issue in issues))
     unique_fixes = list(dict.fromkeys(issue.fix_ja for issue in issues))
     issue_codes = list(dict.fromkeys(issue.code for issue in issues))
-    low_risk_issue_codes = [code for code in issue_codes if code in LOW_RISK_AUTO_FIX_CODES]
-    manual_review_issue_codes = [code for code in issue_codes if code not in LOW_RISK_AUTO_FIX_CODES]
+    maintenance_issue_codes = [code for code in issue_codes if code in MAINTENANCE_FIX_CODES]
+    refresh_issue_codes = [code for code in issue_codes if code not in MAINTENANCE_FIX_CODES]
     scores = score_skill_dimensions(
         skill=skill,
         interface_fields=interface_fields,
         issue_codes=issue_codes,
-        manual_review_issue_codes=manual_review_issue_codes,
+        refresh_issue_codes=refresh_issue_codes,
         status=status,
     )
     portfolio_classification = classify_skill(scores, status)
@@ -1534,13 +1621,249 @@ def analyze_skill(skill: SkillRecord, ground_truth: dict[str, Any]) -> dict[str,
         "issues": unique_issue_summaries,
         "recommended_fix": unique_fixes,
         "issue_codes": issue_codes,
-        "low_risk_issue_codes": low_risk_issue_codes,
-        "manual_review_issue_codes": manual_review_issue_codes,
+        "maintenance_issue_codes": maintenance_issue_codes,
+        "refresh_issue_codes": refresh_issue_codes,
         "scores": scores,
         "portfolio_classification": portfolio_classification,
         "directory": str(skill.directory),
         "is_system": skill.is_system,
+        "classification": skill.classification,
         "visibility": skill.visibility,
+    }
+
+
+def analyze_unmanaged_xcode_prefix_skill(skill: SkillRecord) -> dict[str, Any]:
+    issue_codes = ["unmanaged_xcode_prefix"]
+    scores = {
+        "reuse value": 1,
+        "clarity of invocation": 1,
+        "safety": 1,
+        "maintenance burden": 4,
+    }
+
+    return {
+        "name": skill.name,
+        "intent": first_sentence(skill.description),
+        "status": "risky",
+        "status_label": STATUS_LABELS["risky"],
+        "issues": [
+            "`xcode-skill-*` は Xcode 由来 Skill 用の予約 prefix ですが、同期管理メタデータがありません。"
+        ],
+        "recommended_fix": [
+            "`sync-xcode-skills` 管理下に入れるか、Xcode 由来ではないなら別名へ変更してください。"
+        ],
+        "issue_codes": issue_codes,
+        "maintenance_issue_codes": [],
+        "refresh_issue_codes": issue_codes,
+        "scores": scores,
+        "portfolio_classification": "retire candidate",
+        "directory": str(skill.directory),
+        "is_system": skill.is_system,
+        "classification": skill.classification,
+        "visibility": skill.visibility,
+    }
+
+
+def load_xcode_skill_catalog(skills_root: Path) -> dict[str, Any]:
+    state_dir = skills_root / XCODE_SYNC_MANAGER / "state"
+    catalog_json_path = state_dir / "catalog.json"
+    catalog_md_path = state_dir / "catalog.md"
+
+    if catalog_json_path.exists():
+        try:
+            catalog = json.loads(catalog_json_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as error:
+            return {
+                "status": "risky",
+                "source": str(catalog_json_path),
+                "installed_names": [],
+                "entries": {},
+                "issues": [
+                    {
+                        "code": "xcode_catalog_json_unreadable",
+                        "summary_ja": f"`{catalog_json_path}` を JSON として読めません: {error}",
+                        "fix_ja": "`sync-xcode-skills` を再実行して catalog state を再生成してください。",
+                    }
+                ],
+            }
+
+        entries = {
+            str(entry.get("installed_name", "")): entry
+            for entry in catalog.get("skills", [])
+            if isinstance(entry, dict) and entry.get("installed_name")
+        }
+        return {
+            "status": "aligned",
+            "source": str(catalog_json_path),
+            "installed_names": sorted(entries),
+            "entries": entries,
+            "issues": [],
+        }
+
+    if catalog_md_path.exists():
+        catalog_text = catalog_md_path.read_text(encoding="utf-8", errors="replace")
+        installed_names = sorted(set(re.findall(r"`(xcode-skill-[^`]+)`", catalog_text)))
+        return {
+            "status": "drift",
+            "source": str(catalog_md_path),
+            "installed_names": installed_names,
+            "entries": {name: {"installed_name": name} for name in installed_names},
+            "issues": [
+                {
+                    "code": "xcode_catalog_json_missing",
+                    "summary_ja": "`catalog.json` がないため `catalog.md` から同期状態を推定しています。",
+                    "fix_ja": "`sync-xcode-skills` を再実行して catalog state を再生成してください。",
+                }
+            ],
+        }
+
+    return {
+        "status": "risky",
+        "source": "",
+        "installed_names": [],
+        "entries": {},
+        "issues": [
+            {
+                "code": "xcode_catalog_missing",
+                "summary_ja": "`sync-xcode-skills/state/catalog.json` または `catalog.md` が見つかりません。",
+                "fix_ja": "`sync-xcode-skills` を実行して Xcode Skill catalog を生成してください。",
+            }
+        ],
+    }
+
+
+def analyze_xcode_sync_integrity(
+    skills_root: Path,
+    records: list[SkillRecord],
+    *,
+    check_catalog_missing_directories: bool,
+) -> dict[str, Any]:
+    managed_records = [record for record in records if record.classification == "managed-external"]
+    unmanaged_prefix_records = [
+        record for record in records if record.classification == "unmanaged-xcode-prefix"
+    ]
+    catalog = load_xcode_skill_catalog(skills_root)
+    catalog_entries: dict[str, dict[str, Any]] = catalog["entries"]
+    actual_managed_names = {record.directory.name for record in managed_records}
+    issues: list[dict[str, str]] = list(catalog["issues"])
+    managed_external: list[dict[str, Any]] = []
+
+    for record in managed_records:
+        marker_path = record.directory / XCODE_SKILL_MARKER
+        marker_issues: list[dict[str, str]] = []
+        marker: dict[str, Any] = {}
+
+        try:
+            marker = json.loads(marker_path.read_text(encoding="utf-8"))
+        except OSError as error:
+            marker_issues.append(
+                {
+                    "code": "xcode_marker_unreadable",
+                    "summary_ja": f"`{marker_path}` を読めません: {error}",
+                    "fix_ja": "`sync-xcode-skills` を再実行するか marker の読み取り権限を確認してください。",
+                }
+            )
+        except json.JSONDecodeError as error:
+            marker_issues.append(
+                {
+                    "code": "xcode_marker_invalid_json",
+                    "summary_ja": f"`{marker_path}` を JSON として読めません: {error}",
+                    "fix_ja": "`sync-xcode-skills` を再実行して marker を再生成してください。",
+                }
+            )
+
+        if marker:
+            if marker.get("managed_by") != XCODE_SYNC_MANAGER:
+                marker_issues.append(
+                    {
+                        "code": "xcode_marker_wrong_manager",
+                        "summary_ja": "`managed_by` が `sync-xcode-skills` ではありません。",
+                        "fix_ja": "`sync-xcode-skills` 管理下かどうかを確認してください。",
+                    }
+                )
+            if marker.get("installed_name") != record.directory.name:
+                marker_issues.append(
+                    {
+                        "code": "xcode_marker_installed_name_mismatch",
+                        "summary_ja": "`installed_name` が実ディレクトリ名と一致していません。",
+                        "fix_ja": "`sync-xcode-skills` を再実行して marker とディレクトリを揃えてください。",
+                    }
+                )
+            if not marker.get("original_name"):
+                marker_issues.append(
+                    {
+                        "code": "xcode_marker_missing_original_name",
+                        "summary_ja": "`original_name` が marker にありません。",
+                        "fix_ja": "`sync-xcode-skills` を再実行して marker を再生成してください。",
+                    }
+                )
+
+        catalog_entry = catalog_entries.get(record.directory.name)
+        if catalog_entry is None:
+            marker_issues.append(
+                {
+                    "code": "xcode_managed_skill_missing_from_catalog",
+                    "summary_ja": "managed external Skill が catalog state にありません。",
+                    "fix_ja": "`sync-xcode-skills` を再実行して catalog と実ディレクトリを同期してください。",
+                }
+            )
+        else:
+            catalog_path = catalog_entry.get("path")
+            if catalog_path and Path(str(catalog_path)).resolve() != record.directory.resolve():
+                marker_issues.append(
+                    {
+                        "code": "xcode_catalog_path_mismatch",
+                        "summary_ja": "catalog state の `path` が実ディレクトリと一致していません。",
+                        "fix_ja": "`sync-xcode-skills` を再実行して catalog path を更新してください。",
+                    }
+                )
+            marker_original_name = marker.get("original_name")
+            catalog_original_name = catalog_entry.get("original_name")
+            if marker_original_name and catalog_original_name and marker_original_name != catalog_original_name:
+                marker_issues.append(
+                    {
+                        "code": "xcode_original_name_mismatch",
+                        "summary_ja": "marker と catalog state の `original_name` が一致していません。",
+                        "fix_ja": "`sync-xcode-skills` を再実行して Xcode 由来 Skill を再同期してください。",
+                    }
+                )
+
+        managed_external.append(
+            {
+                "name": record.name,
+                "directory": str(record.directory),
+                "status": "aligned" if not marker_issues else "drift",
+                "marker_path": str(marker_path),
+                "catalog_source": catalog["source"],
+                "issues": marker_issues,
+            }
+        )
+        issues.extend(marker_issues)
+
+    if check_catalog_missing_directories:
+        for catalog_name in sorted(set(catalog_entries) - actual_managed_names):
+            issues.append(
+                {
+                    "code": "xcode_catalog_skill_missing_directory",
+                    "summary_ja": f"catalog state の `{catalog_name}` に対応する実ディレクトリがありません。",
+                    "fix_ja": "`sync-xcode-skills` を再実行して catalog と実ディレクトリを同期してください。",
+                }
+            )
+
+    status = "aligned"
+    if any(issue["code"].endswith("missing") or "unreadable" in issue["code"] for issue in issues):
+        status = "risky"
+    elif issues:
+        status = "drift"
+
+    return {
+        "status": status,
+        "catalog_source": catalog["source"],
+        "managed_external_count": len(managed_records),
+        "unmanaged_xcode_prefix_count": len(unmanaged_prefix_records),
+        "managed_external": managed_external,
+        "catalog_installed_names": catalog["installed_names"],
+        "issues": issues,
     }
 
 
@@ -1563,15 +1886,6 @@ def build_alignment_lines(
 
     if "missing_japanese_output_rule" in issue_codes:
         lines.append("- Return output in concise, polite Japanese.")
-
-    if "display_name_snake_case" in issue_codes:
-        lines.append("- Use a human-readable `display_name` format (for example, Title Case).")
-
-    if "short_description_length_invalid" in issue_codes:
-        lines.append("- Keep `short_description` between 25 and 64 characters.")
-
-    if "default_prompt_missing_skill_reference" in issue_codes:
-        lines.append(f"- Include `${skill_name}` in `default_prompt`.")
 
     if "ci_entrypoint_not_aligned" in issue_codes or "ci_policy_not_dynamic" in issue_codes:
         canonical_entrypoint = ground_truth.get("canonical_entrypoint", "")
@@ -1606,11 +1920,6 @@ def build_alignment_lines(
         else:
             lines.append("- Do not scan older CI runs.")
 
-    if "recursive_generated_scan" in issue_codes or "generated_directory_guard_missing" in issue_codes:
-        lines.append(
-            "- Never recursively scan generated directories: `.build`, `build`, `DerivedData`, `.git`, `.swiftpm`, `Pods`, `Carthage`."
-        )
-
     if not lines:
         return []
 
@@ -1626,6 +1935,13 @@ def apply_minimal_instruction_updates(
     skill_name: str,
 ) -> str:
     updated_instructions = strip_existing_alignment_block(original_instructions)
+    canonical_entrypoint = ground_truth.get("canonical_entrypoint", "")
+    if "ci_entrypoint_not_aligned" in issue_codes and canonical_entrypoint:
+        updated_instructions = re.sub(
+            r"bash\s+ci_scripts/[A-Za-z0-9_./-]+\.sh",
+            canonical_entrypoint,
+            updated_instructions,
+        )
     alignment_lines = build_alignment_lines(issue_codes, ground_truth, skill_name)
 
     if not alignment_lines:
@@ -1646,41 +1962,119 @@ def apply_minimal_instruction_updates(
     return f"{alignment_section}\n"
 
 
-def build_full_bundle_entry(skill: SkillRecord, updated_instructions: str) -> dict[str, str]:
-    return {
-        "name": skill.name,
-        "description": skill.description,
-        "instructions": updated_instructions,
-    }
-
-
-def build_patch_bundle_entry(
-    skill: SkillRecord,
-    updated_instructions: str,
-) -> dict[str, str]:
-    old_definition = (
-        f"Description: {skill.description}\n"
-        f"Instructions:\n{skill.instructions.rstrip()}\n"
-    )
-    new_definition = (
-        f"Description: {skill.description}\n"
-        f"Instructions:\n{updated_instructions.rstrip()}\n"
-    )
-
+def build_file_patch(old_text: str, new_text: str, file_path: Path) -> str:
     diff_lines = list(
         difflib.unified_diff(
-            old_definition.splitlines(),
-            new_definition.splitlines(),
-            fromfile=f"{skill.name}/before",
-            tofile=f"{skill.name}/after",
+            old_text.splitlines(),
+            new_text.splitlines(),
+            fromfile=f"{file_path}/before",
+            tofile=f"{file_path}/after",
             lineterm="",
         )
     )
+    return "\n".join(diff_lines)
 
-    return {
-        "name": skill.name,
-        "patch": "\n".join(diff_lines),
-    }
+
+def apply_openai_maintenance_updates(
+    skill: SkillRecord,
+    issue_codes: list[str],
+) -> tuple[str, list[str]]:
+    updated_openai_text = skill.openai_text
+    applied_codes: list[str] = []
+    interface_fields = parse_openai_interface_fields(skill.openai_text)
+
+    if "display_name_snake_case" in issue_codes and skill.openai_text.strip():
+        updated_openai_text = replace_interface_field(
+            updated_openai_text,
+            "display_name",
+            title_case_skill_name(skill.name),
+        )
+        applied_codes.append("display_name_snake_case")
+
+    if "default_prompt_missing_skill_reference" in issue_codes and skill.openai_text.strip():
+        default_prompt = interface_fields.get("default_prompt", "").strip()
+        required_prompt_token = f"${skill.name}"
+        if default_prompt and required_prompt_token not in default_prompt:
+            updated_openai_text = replace_interface_field(
+                updated_openai_text,
+                "default_prompt",
+                f"Use {required_prompt_token}. {default_prompt}",
+            )
+            applied_codes.append("default_prompt_missing_skill_reference")
+
+    return updated_openai_text, applied_codes
+
+
+def apply_maintenance_updates(
+    report_items: list[dict[str, Any]],
+    skill_records: dict[str, SkillRecord],
+    ground_truth: dict[str, Any],
+    bundle_mode: str,
+) -> list[dict[str, Any]]:
+    applied_fixes: list[dict[str, Any]] = []
+
+    for item in report_items:
+        if item["recommended_action"] != "improve next":
+            continue
+
+        issue_codes = item["maintenance_issue_codes"]
+        if not issue_codes:
+            continue
+
+        skill = skill_records[item["name"]]
+        skill_file = skill.directory / "SKILL.md"
+        openai_file = skill.directory / "agents" / "openai.yaml"
+
+        instruction_issue_codes = [
+            code for code in issue_codes if code in INSTRUCTION_MAINTENANCE_FIX_CODES
+        ]
+        if instruction_issue_codes:
+            updated_instructions = apply_minimal_instruction_updates(
+                original_instructions=skill.instructions,
+                issue_codes=instruction_issue_codes,
+                ground_truth=ground_truth,
+                skill_name=skill.name,
+            )
+            updated_skill_text = replace_skill_markdown_body(skill.skill_text, updated_instructions)
+            if updated_skill_text != skill.skill_text:
+                skill_file.write_text(updated_skill_text, encoding="utf-8")
+                applied_entry: dict[str, Any] = {
+                    "name": skill.name,
+                    "file": str(skill_file),
+                    "issue_codes": instruction_issue_codes,
+                }
+                if bundle_mode == "patch":
+                    applied_entry["patch"] = build_file_patch(
+                        skill.skill_text,
+                        updated_skill_text,
+                        skill_file,
+                    )
+                applied_fixes.append(applied_entry)
+
+        openai_issue_codes = [
+            code for code in issue_codes if code in OPENAI_MAINTENANCE_FIX_CODES
+        ]
+        if openai_issue_codes and skill.openai_text.strip():
+            updated_openai_text, applied_openai_codes = apply_openai_maintenance_updates(
+                skill,
+                openai_issue_codes,
+            )
+            if applied_openai_codes and updated_openai_text != skill.openai_text:
+                openai_file.write_text(updated_openai_text, encoding="utf-8")
+                applied_entry = {
+                    "name": skill.name,
+                    "file": str(openai_file),
+                    "issue_codes": applied_openai_codes,
+                }
+                if bundle_mode == "patch":
+                    applied_entry["patch"] = build_file_patch(
+                        skill.openai_text,
+                        updated_openai_text,
+                        openai_file,
+                    )
+                applied_fixes.append(applied_entry)
+
+    return applied_fixes
 
 
 def prioritize_report(report_items: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -1753,63 +2147,61 @@ def build_recommendations(report_items: list[dict[str, Any]]) -> list[str]:
     return recommendations[:3]
 
 
+def determine_mode_disposition(item: dict[str, Any]) -> str:
+    if item["recommended_action"] in {"merge with another skill", "retire"}:
+        return "refresh"
+    if item["refresh_issue_codes"]:
+        return "refresh"
+    if item["maintenance_issue_codes"]:
+        return "maintenance"
+    return "no action"
+
+
 def build_result(
     report_items: list[dict[str, Any]],
-    skill_records: dict[str, SkillRecord],
     ground_truth: dict[str, Any],
     bundle_mode: str,
-    implementation_mode: str,
+    mode: str,
+    applied_fixes: list[dict[str, Any]] | None = None,
+    xcode_sync_report: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    bundle_entries: list[dict[str, str]] = []
-    eligible_skills: list[str] = []
-    manual_review_skills: list[str] = []
+    applied_maintenance_fixes = applied_fixes or []
+    maintenance_candidates: list[str] = []
+    refresh_candidates: list[str] = []
     batch_decisions = build_batch_decisions(report_items)
 
     for item in report_items:
-        if item["recommended_action"] == "improve next" and item["low_risk_issue_codes"]:
-            eligible_skills.append(item["name"])
+        item["mode_disposition"] = determine_mode_disposition(item)
 
-        if item["recommended_action"] in {"merge with another skill", "retire"}:
-            manual_review_skills.append(item["name"])
-            continue
+        if item["mode_disposition"] == "maintenance":
+            maintenance_candidates.append(item["name"])
 
-        if item["manual_review_issue_codes"]:
-            manual_review_skills.append(item["name"])
-
-        if item["recommended_action"] != "improve next":
-            continue
-
-        skill = skill_records[item["name"]]
-        updated_instructions = apply_minimal_instruction_updates(
-            original_instructions=skill.instructions,
-            issue_codes=item["low_risk_issue_codes"],
-            ground_truth=ground_truth,
-            skill_name=skill.name,
-        )
-
-        if updated_instructions.strip() == skill.instructions.strip():
-            continue
-
-        if bundle_mode == "full":
-            bundle_entries.append(build_full_bundle_entry(skill, updated_instructions))
-        else:
-            bundle_entries.append(build_patch_bundle_entry(skill, updated_instructions))
+        if item["mode_disposition"] == "refresh":
+            refresh_candidates.append(item["name"])
 
     recommendations = build_recommendations(report_items)
 
     return {
         "ground_truth": ground_truth,
         "drift_report": report_items,
-        "batch_decisions": batch_decisions,
-        "implementation": {
-            "mode": implementation_mode,
-            "eligible_skills": eligible_skills,
-            "manual_review_skills": manual_review_skills,
+        "xcode_sync_report": xcode_sync_report
+        or {
+            "status": "aligned",
+            "managed_external_count": 0,
+            "unmanaged_xcode_prefix_count": 0,
+            "managed_external": [],
+            "issues": [],
         },
-        "batch_update_bundle": {
+        "batch_decisions": batch_decisions,
+        "mode_result": {
+            "mode": mode,
+            "maintenance_candidates": maintenance_candidates,
+            "refresh_candidates": refresh_candidates,
+            "applied_fixes": applied_maintenance_fixes,
+        },
+        "maintenance_application": {
             "mode": bundle_mode,
-            "entries": bundle_entries,
-            "separator": "--- SKILL: <name> ---",
+            "applied_fixes": applied_maintenance_fixes,
         },
         "one_time_recommendations": recommendations,
     }
@@ -1817,13 +2209,18 @@ def build_result(
 
 def format_markdown(result: dict[str, Any]) -> str:
     lines: list[str] = []
+    mode = result["mode_result"]["mode"]
 
-    lines.append("1) 監査結果（優先順）")
+    if mode == "maintenance":
+        lines.append("1) maintenance 実施結果")
+    else:
+        lines.append("1) refresh 提案（優先順）")
     lines.append("")
 
     for item in result["drift_report"]:
         lines.append(f"- {item['status_label']} {item['name']}")
         lines.append(f"  - 意図: {item['intent']}")
+        lines.append(f"  - モード振り分け: {item['mode_disposition']}")
         lines.append(f"  - 分類: {item['portfolio_classification']}")
         lines.append(f"  - 推奨アクション: {item['recommended_action']}")
         lines.append(f"  - 保守優先度スコア: {item['maintenance_priority_score']}/100")
@@ -1857,72 +2254,97 @@ def format_markdown(result: dict[str, Any]) -> str:
             lines.append("    - 変更不要です。")
 
     lines.append("")
-    lines.append("2) 更新バンドル（一括提案）")
+    if mode == "maintenance":
+        lines.append("2) 自動適用した整合性修正")
+    else:
+        lines.append("2) 採用判断材料")
     lines.append("")
 
-    bundle = result["batch_update_bundle"]
-    implementation = result["implementation"]
+    maintenance_application = result["maintenance_application"]
+    mode_result = result["mode_result"]
+    xcode_sync_report = result["xcode_sync_report"]
     decisions = result["batch_decisions"]
-    lines.append(f"- 実装モード: {implementation['mode']}")
-    lines.append(f"- 出力形式: {bundle['mode']}")
-
-    keep_names = [entry["name"] for entry in decisions["keep as-is"]]
-    improve_names = [entry["name"] for entry in decisions["improve next"]]
-    retire_names = [entry["name"] for entry in decisions["retire"]]
-    merge_entries = decisions["merge with another skill"]
-
-    lines.append("- keep as-is: " + (", ".join(keep_names) if keep_names else "ありません。"))
+    lines.append(f"- モード: {mode_result['mode']}")
+    lines.append(f"- 出力形式: {maintenance_application['mode']}")
+    lines.append(f"- Xcode同期状態: {xcode_sync_report['status']}")
+    lines.append(f"- managed external: {xcode_sync_report['managed_external_count']}件")
     lines.append(
-        "- improve next: " + (", ".join(improve_names) if improve_names else "ありません。")
+        f"- unmanaged xcode prefix: {xcode_sync_report['unmanaged_xcode_prefix_count']}件"
     )
-    if merge_entries:
-        merge_summary = ", ".join(
-            f"{entry['name']} -> {entry['merge_target']}"
-            for entry in merge_entries
-            if entry.get("merge_target")
-        )
-        lines.append("- merge with another skill: " + (merge_summary or "ありません。"))
-    else:
-        lines.append("- merge with another skill: ありません。")
-    lines.append("- retire: " + (", ".join(retire_names) if retire_names else "ありません。"))
+    if xcode_sync_report.get("issues"):
+        lines.append("- Xcode同期整合性の課題:")
+        for issue in xcode_sync_report["issues"]:
+            lines.append(f"  - {issue['summary_ja']}")
 
-    if implementation["eligible_skills"]:
-        lines.append(
-            "- 低リスク実装候補: " + ", ".join(implementation["eligible_skills"])
-        )
-    else:
-        lines.append("- 低リスク実装候補: ありません。")
-    if implementation["manual_review_skills"]:
-        lines.append(
-            "- 手動確認が必要: " + ", ".join(implementation["manual_review_skills"])
-        )
-    else:
-        lines.append("- 手動確認が必要: ありません。")
+    applied_fixes = maintenance_application["applied_fixes"]
+    if mode == "maintenance":
+        if not applied_fixes:
+            lines.append("- 自動適用した修正はありません。")
+        else:
+            for applied_fix in applied_fixes:
+                lines.append(
+                    f"- {applied_fix['name']}: {applied_fix['file']}"
+                )
+                lines.append(
+                    "  - issue codes: " + ", ".join(applied_fix["issue_codes"])
+                )
+                if applied_fix.get("patch"):
+                    lines.append("  - patch:")
+                    lines.append("```diff")
+                    lines.append(applied_fix["patch"].rstrip())
+                    lines.append("```")
 
-    if not bundle["entries"]:
-        lines.append("- 更新対象はありません。")
+        if mode_result["maintenance_candidates"]:
+            lines.append(
+                "- 未適用の maintenance 候補: "
+                + ", ".join(mode_result["maintenance_candidates"])
+            )
+            lines.append("- 未適用理由: 自動適用後の再監査でも残ったため、個別確認が必要です。")
+        else:
+            lines.append("- 未適用の maintenance 候補: ありません。")
     else:
-        for entry in bundle["entries"]:
-            lines.append("")
-            lines.append(f"--- SKILL: {entry['name']} ---")
-            if bundle["mode"] == "full":
-                lines.append(f"Description: {entry['description']}")
-                lines.append("Instructions:")
-                lines.append("```markdown")
-                lines.append(entry["instructions"].rstrip())
-                lines.append("```")
-            else:
-                lines.append("Description: (unchanged)")
-                lines.append("Instructions:")
-                lines.append("```diff")
-                lines.append(entry["patch"].rstrip())
-                lines.append("```")
+        keep_names = [entry["name"] for entry in decisions["keep as-is"]]
+        improve_names = [entry["name"] for entry in decisions["improve next"]]
+        retire_names = [entry["name"] for entry in decisions["retire"]]
+        merge_entries = decisions["merge with another skill"]
+
+        lines.append("- keep as-is: " + (", ".join(keep_names) if keep_names else "ありません。"))
+        lines.append(
+            "- improve next: " + (", ".join(improve_names) if improve_names else "ありません。")
+        )
+        if merge_entries:
+            merge_summary = ", ".join(
+                f"{entry['name']} -> {entry['merge_target']}"
+                for entry in merge_entries
+                if entry.get("merge_target")
+            )
+            lines.append("- merge with another skill: " + (merge_summary or "ありません。"))
+        else:
+            lines.append("- merge with another skill: ありません。")
+        lines.append("- retire: " + (", ".join(retire_names) if retire_names else "ありません。"))
+        lines.append("- refresh では自動適用用の更新本文を出力しません。")
 
     lines.append("")
-    lines.append("3) 任意: 単発の推奨事項")
+    if mode == "maintenance":
+        lines.append("3) refresh に回した判断事項")
+    else:
+        lines.append("3) maintenance に回せる整合性候補")
     lines.append("")
 
     recommendations = result.get("one_time_recommendations", [])
+    if mode == "maintenance":
+        if mode_result["refresh_candidates"]:
+            lines.append("- refresh 判断事項: " + ", ".join(mode_result["refresh_candidates"]))
+        else:
+            lines.append("- refresh 判断事項: ありません。")
+    else:
+        if mode_result["maintenance_candidates"]:
+            lines.append(
+                "- maintenance 候補: " + ", ".join(mode_result["maintenance_candidates"])
+            )
+        else:
+            lines.append("- maintenance 候補: ありません。")
+
     if not recommendations:
         lines.append("- 追加の提案はありません。")
     else:
@@ -1966,6 +2388,7 @@ def format_fallback_markdown(payload: dict[str, Any]) -> str:
 
 def main() -> int:
     arguments = parse_arguments()
+    requested_skill_names = set(arguments.skill)
 
     repo_root = Path(arguments.repo_root).expanduser().resolve()
     skills_root = (
@@ -1996,7 +2419,7 @@ def main() -> int:
             skills_root=skills_root,
             scope=arguments.scope,
             include_system=arguments.include_system,
-            include_self=arguments.include_self,
+            include_self=arguments.include_self or "skills-batch-auditor" in requested_skill_names,
         )
     except PermissionError:
         payload = fallback_payload(repo_root, skills_root, base_ground_truth)
@@ -2014,6 +2437,24 @@ def main() -> int:
             print(format_fallback_markdown(payload), end="")
         return 0
 
+    if requested_skill_names:
+        records = [
+            record
+            for record in records
+            if record.name in requested_skill_names or record.directory.name in requested_skill_names
+        ]
+
+    if not records:
+        payload = fallback_payload(repo_root, skills_root, base_ground_truth)
+        payload["fallback_request"]["message_ja"] = (
+            "指定された Skill が見つかりません。次の2点を1メッセージで共有してください。"
+        )
+        if arguments.format == "json":
+            print(json.dumps(payload, ensure_ascii=False, indent=2))
+        else:
+            print(format_fallback_markdown(payload), end="")
+        return 0
+
     ground_truth = base_ground_truth
     if needs_doc_source(records):
         try:
@@ -2024,17 +2465,69 @@ def main() -> int:
         except Exception:
             ground_truth = base_ground_truth
 
-    skill_records = {record.name: record for record in records}
-    analyses = [analyze_skill(record, ground_truth) for record in records]
+    xcode_sync_report = analyze_xcode_sync_integrity(
+        skills_root,
+        records,
+        check_catalog_missing_directories=not requested_skill_names,
+    )
+    audit_records = [
+        record for record in records if record.classification != "managed-external"
+    ]
+    skill_records = {record.name: record for record in audit_records}
+    analyses = [analyze_skill(record, ground_truth) for record in audit_records]
     enriched = enrich_portfolio_prioritization(analyses, skill_records)
     prioritized = prioritize_report(enriched)
+    applied_fixes: list[dict[str, Any]] = []
+
+    if arguments.mode == "maintenance":
+        applied_fixes = apply_maintenance_updates(
+            report_items=prioritized,
+            skill_records=skill_records,
+            ground_truth=ground_truth,
+            bundle_mode=arguments.bundle_mode,
+        )
+
+        if applied_fixes:
+            records = discover_skill_records(
+                skills_root=skills_root,
+                scope=arguments.scope,
+                include_system=arguments.include_system,
+                include_self=arguments.include_self or "skills-batch-auditor" in requested_skill_names,
+            )
+            if requested_skill_names:
+                records = [
+                    record
+                    for record in records
+                    if record.name in requested_skill_names or record.directory.name in requested_skill_names
+                ]
+            if needs_doc_source(records):
+                try:
+                    ground_truth = extract_ground_truth(
+                        repo_root,
+                        include_doc_source=True,
+                    )
+                except Exception:
+                    ground_truth = base_ground_truth
+            xcode_sync_report = analyze_xcode_sync_integrity(
+                skills_root,
+                records,
+                check_catalog_missing_directories=not requested_skill_names,
+            )
+            audit_records = [
+                record for record in records if record.classification != "managed-external"
+            ]
+            skill_records = {record.name: record for record in audit_records}
+            analyses = [analyze_skill(record, ground_truth) for record in audit_records]
+            enriched = enrich_portfolio_prioritization(analyses, skill_records)
+            prioritized = prioritize_report(enriched)
 
     result = build_result(
         report_items=prioritized,
-        skill_records=skill_records,
         ground_truth=ground_truth,
         bundle_mode=arguments.bundle_mode,
-        implementation_mode=arguments.implementation_mode,
+        mode=arguments.mode,
+        applied_fixes=applied_fixes,
+        xcode_sync_report=xcode_sync_report,
     )
 
     if arguments.format == "json":

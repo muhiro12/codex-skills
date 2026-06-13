@@ -1,0 +1,4 @@
+interface:
+  display_name: "Regular Custom Fixture"
+  short_description: "Regular custom fixture metadata"
+  default_prompt: "Use $internal-fixture-regular-custom-skill to validate classification."

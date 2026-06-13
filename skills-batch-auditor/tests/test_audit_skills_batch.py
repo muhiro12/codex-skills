@@ -107,20 +107,36 @@ class AuditSkillsBatchCLITests(unittest.TestCase):
         self.assertTrue(ground_truth["optional_doc_source_used"])
         self.assertIn("docs/alpha-current-overview.md", ground_truth["sources_read"])
 
-    def test_markdown_output_uses_japanese_sections_and_recommendation_cap(self) -> None:
+    def test_refresh_markdown_output_uses_mode_sections_and_recommendation_cap(self) -> None:
         output = self._run_cli("with_ci", "mixed", "--format", "markdown")
 
-        self.assertIn("1) 監査結果（優先順）", output)
-        self.assertIn("2) 更新バンドル（一括提案）", output)
-        self.assertIn("3) 任意: 単発の推奨事項", output)
-        self.assertIn("- 実装モード: report-only", output)
-        self.assertIn("--- SKILL: internal-fixture-ci-drift-skill ---", output)
-        self.assertIn("Description: Internal fixture for CI drift checks in skills-batch-auditor.", output)
-        self.assertIn("Instructions:", output)
+        self.assertIn("1) refresh 提案（優先順）", output)
+        self.assertIn("2) 採用判断材料", output)
+        self.assertIn("3) maintenance に回せる整合性候補", output)
+        self.assertIn("- モード: refresh", output)
+        self.assertIn("- refresh では自動適用用の更新本文を出力しません。", output)
+        self.assertNotIn("--- SKILL: internal-fixture-ci-drift-skill ---", output)
 
-        recommendation_block = output.split("3) 任意: 単発の推奨事項", 1)[1].strip().splitlines()
-        recommendation_lines = [line for line in recommendation_block if line.startswith("- ")]
+        recommendation_block = output.split("3) maintenance に回せる整合性候補", 1)[1].strip().splitlines()
+        recommendation_lines = [
+            line
+            for line in recommendation_block
+            if line.startswith("- ") and not line.startswith("- maintenance 候補:")
+        ]
         self.assertEqual(len(recommendation_lines), 3)
+
+    def test_maintenance_markdown_output_reports_applied_fixes(self) -> None:
+        output = self._run_cli("with_ci", "mixed", "--format", "markdown", "--mode", "maintenance")
+
+        self.assertIn("1) maintenance 実施結果", output)
+        self.assertIn("2) 自動適用した整合性修正", output)
+        self.assertIn("3) refresh に回した判断事項", output)
+        self.assertIn("- モード: maintenance", output)
+        self.assertIn("- internal-fixture-ci-drift-skill:", output)
+        self.assertIn("- internal-fixture-prompt-drift-skill:", output)
+        self.assertIn("issue codes: ci_entrypoint_not_aligned, ci_policy_not_dynamic", output)
+        self.assertIn("issue codes: default_prompt_missing_skill_reference", output)
+        self.assertNotIn("--- SKILL: internal-fixture-ci-drift-skill ---", output)
 
     def test_ci_alignment_checks_are_skipped_without_ground_truth(self) -> None:
         payload = self._run_json("without_ci", "mixed")
@@ -163,6 +179,47 @@ class AuditSkillsBatchCLITests(unittest.TestCase):
         self.assertEqual(item["status"], "aligned")
         self.assertEqual(item["visibility"], "internal")
         self.assertNotIn("missing_openai_yaml", item["issue_codes"])
+
+    def test_xcode_managed_external_is_excluded_from_custom_drift_report(self) -> None:
+        payload = self._run_json("without_ci", "xcode_classification")
+
+        drift_names = {item["name"] for item in payload["drift_report"]}
+        self.assertIn("internal-fixture-regular-custom-skill", drift_names)
+        self.assertNotIn("xcode-skill-managed-fixture", drift_names)
+        self.assertNotIn("internal-fixture-system-skill", drift_names)
+
+        sync_report = payload["xcode_sync_report"]
+        self.assertEqual(sync_report["managed_external_count"], 1)
+        self.assertEqual(sync_report["unmanaged_xcode_prefix_count"], 1)
+        self.assertEqual(sync_report["managed_external"][0]["name"], "xcode-skill-managed-fixture")
+        self.assertEqual(sync_report["managed_external"][0]["status"], "aligned")
+        self.assertEqual(sync_report["managed_external"][0]["issues"], [])
+
+    def test_unmanaged_xcode_prefix_is_reported_as_risky(self) -> None:
+        payload = self._run_json("without_ci", "xcode_classification")
+
+        item = self._find_report_item(payload, "xcode-skill-unmanaged-collision")
+        self.assertEqual(item["classification"], "unmanaged-xcode-prefix")
+        self.assertEqual(item["status"], "risky")
+        self.assertIn("unmanaged_xcode_prefix", item["issue_codes"])
+        self.assertEqual(item["maintenance_issue_codes"], [])
+        self.assertIn("unmanaged_xcode_prefix", item["refresh_issue_codes"])
+
+    def test_named_xcode_managed_external_stays_sync_only(self) -> None:
+        payload = self._run_json(
+            "without_ci",
+            "xcode_classification",
+            "--skill",
+            "xcode-skill-managed-fixture",
+        )
+
+        self.assertEqual(payload["drift_report"], [])
+        self.assertEqual(payload["xcode_sync_report"]["status"], "aligned")
+        self.assertEqual(payload["xcode_sync_report"]["managed_external_count"], 1)
+        self.assertEqual(
+            payload["xcode_sync_report"]["managed_external"][0]["name"],
+            "xcode-skill-managed-fixture",
+        )
 
     def test_prioritization_output_includes_scores_classification_and_actions(self) -> None:
         payload = self._run_json("without_ci", "prioritization")
@@ -247,26 +304,77 @@ class AuditSkillsBatchCLITests(unittest.TestCase):
         self.assertIn("  - 分類: core", output)
         self.assertIn("  - 推奨アクション: improve next", output)
 
-    def test_low_risk_mode_separates_eligible_and_manual_review_items(self) -> None:
-        payload = self._run_json("with_ci", "mixed", "--implementation-mode", "low-risk")
+    def test_maintenance_mode_separates_candidates_and_refresh_items(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            temp_root = Path(temporary_directory)
+            repo_root = self._copy_fixture(temp_root, "repos", "with_ci")
+            skills_root = self._copy_fixture(temp_root, "skills", "mixed")
 
-        implementation = payload["implementation"]
-        self.assertEqual(implementation["mode"], "low-risk")
-        self.assertIn("internal-fixture-ci-drift-skill", implementation["eligible_skills"])
-        self.assertIn("internal-fixture-manual-review-skill", implementation["manual_review_skills"])
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT_PATH),
+                    "--repo-root",
+                    str(repo_root),
+                    "--skills-root",
+                    str(skills_root),
+                    "--scope",
+                    "custom",
+                    "--format",
+                    "json",
+                    "--mode",
+                    "maintenance",
+                ],
+                capture_output=True,
+                check=True,
+                text=True,
+            )
+            payload = json.loads(completed.stdout)
+
+            ci_skill_text = (skills_root / "ci-drift-skill" / "SKILL.md").read_text(
+                encoding="utf-8"
+            )
+            prompt_openai_text = (
+                skills_root / "prompt-drift-skill" / "agents" / "openai.yaml"
+            ).read_text(encoding="utf-8")
+
+        mode_result = payload["mode_result"]
+        self.assertEqual(mode_result["mode"], "maintenance")
+        self.assertEqual(mode_result["maintenance_candidates"], [])
+        self.assertIn("internal-fixture-refresh-review-skill", mode_result["refresh_candidates"])
+        self.assertIn("internal-fixture-scan-drift-skill", mode_result["refresh_candidates"])
+        self.assertEqual(
+            [
+                (entry["name"], entry["issue_codes"])
+                for entry in mode_result["applied_fixes"]
+            ],
+            [
+                (
+                    "internal-fixture-ci-drift-skill",
+                    ["ci_entrypoint_not_aligned", "ci_policy_not_dynamic"],
+                ),
+                (
+                    "internal-fixture-prompt-drift-skill",
+                    ["default_prompt_missing_skill_reference"],
+                ),
+            ],
+        )
 
         ci_drift_item = self._find_report_item(payload, "internal-fixture-ci-drift-skill")
-        self.assertIn("ci_entrypoint_not_aligned", ci_drift_item["low_risk_issue_codes"])
-        self.assertIn("ci_policy_not_dynamic", ci_drift_item["low_risk_issue_codes"])
-        self.assertEqual(ci_drift_item["manual_review_issue_codes"], [])
+        self.assertEqual(ci_drift_item["status"], "aligned")
+        self.assertEqual(ci_drift_item["maintenance_issue_codes"], [])
+        self.assertEqual(ci_drift_item["refresh_issue_codes"], [])
+        self.assertIn("bash ci_scripts/tasks/verify_task_completion.sh", ci_skill_text)
+        self.assertNotIn("bash ci_scripts/tasks/run_required_builds.sh", ci_skill_text)
 
-        manual_review_item = self._find_report_item(payload, "internal-fixture-manual-review-skill")
-        self.assertEqual(manual_review_item["low_risk_issue_codes"], [])
-        self.assertIn("missing_openai_yaml", manual_review_item["manual_review_issue_codes"])
+        refresh_item = self._find_report_item(payload, "internal-fixture-refresh-review-skill")
+        self.assertEqual(refresh_item["maintenance_issue_codes"], [])
+        self.assertIn("missing_openai_yaml", refresh_item["refresh_issue_codes"])
 
-        bundle_names = {entry["name"] for entry in payload["batch_update_bundle"]["entries"]}
-        self.assertIn("internal-fixture-ci-drift-skill", bundle_names)
-        self.assertNotIn("internal-fixture-manual-review-skill", bundle_names)
+        scan_item = self._find_report_item(payload, "internal-fixture-scan-drift-skill")
+        self.assertEqual(scan_item["maintenance_issue_codes"], [])
+        self.assertIn("generated_directory_guard_missing", scan_item["refresh_issue_codes"])
+        self.assertIn("$internal-fixture-prompt-drift-skill", prompt_openai_text)
 
     def test_distinct_roles_fixture_blocks_false_positive_merge_targets(self) -> None:
         payload = self._run_json("without_ci", "distinct_roles")

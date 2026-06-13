@@ -1,0 +1,4 @@
+interface:
+  display_name: xcode_skill_managed_fixture
+  short_description: "Xcode managed fixture metadata"
+  default_prompt: "Use this Xcode managed fixture."
