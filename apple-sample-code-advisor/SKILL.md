@@ -1,6 +1,6 @@
 ---
 name: apple-sample-code-advisor
-description: Find, cache, inspect, and apply Apple Developer sample code projects as strong official implementation guidance for Apple-platform architecture, framework adoption, SwiftUI app structure, SwiftData, App Intents, StoreKit, WidgetKit, AVFoundation, Liquid Glass, concurrency, and modern iOS/iPadOS/macOS app patterns. Use when Codex needs project-level Apple sample code evidence, not just HIG or Swift rule checks; when comparing current repository architecture to Apple sample projects; or when fetching, refreshing, pruning, or analyzing cached Apple sample code outside the target repository.
+description: Find, cache, inspect, and apply Apple Developer sample code projects as strong official implementation guidance for Apple-platform architecture, framework adoption, SwiftUI app structure, SwiftData, App Intents, StoreKit, WidgetKit, AVFoundation, Liquid Glass, concurrency, cross-surface data flow, and modern iOS/iPadOS/macOS app patterns. Use when a related Apple sample may provide concrete implementation shape for an Apple-platform task, especially after matching Xcode-provided skills and before relying only on prose documentation, HIG/Swift rule checks, current repository convention, or sibling repositories. Use when Codex is adopting or revising Apple frameworks, app shell/lifecycle, target boundaries, entitlements, multi-surface features, data/model wiring, SwiftUI app composition, App Intents, widgets, StoreKit, AVFoundation, SwiftData, or cached Apple sample code itself.
 ---
 
 # Apple Sample Code Advisor
@@ -8,6 +8,8 @@ description: Find, cache, inspect, and apply Apple Developer sample code project
 ## Overview
 
 Use this skill when Apple sample projects can clarify the implementation shape. Treat Apple sample code as strong official implementation evidence, especially for app structure, framework integration, target layout, entitlements, data flow, and cross-surface examples.
+
+When a cached or current Apple sample appears directly related to the implementation area, use it early as concrete code evidence after matching Xcode-provided skill guidance. Do not wait until prose documentation, HIG/Swift rule checks, or current repository conventions leave the approach ambiguous. Prefer a focused sample inspection over broad web research when the sample shows the same framework or system surface in a working project.
 
 Sample code is still sample code, not a specification. Prefer HIG for user-interface requirements, Swift.org and Swift documentation for language/API/concurrency requirements, and Apple framework documentation for API contracts. Use samples to understand how Apple composes those pieces in a working project.
 
@@ -30,7 +32,7 @@ Migration check:
 - If the dry-run reports legacy cached samples, run `python3 scripts/migrate_skill_data.py --only apple-sample-cache --apply` before relying on the cache, unless the reported copy size is large enough to require confirmation.
 - The migration copies only missing targets and never overwrites conflicting files. Resolve conflicts manually before trusting the migrated sample metadata.
 
-Do not pre-seed samples just because this skill exists. Fetch lazily when a concrete implementation, review, or architecture decision needs project-level sample evidence, or when the user explicitly asks to cache or refresh a named sample.
+Do not pre-seed samples just because this skill exists. Fetch lazily when a concrete implementation, review, or architecture decision has a plausibly related Apple sample, or when the user explicitly asks to cache or refresh a named sample.
 
 Use `scripts/sample_cache.py` for cache operations:
 
@@ -58,12 +60,12 @@ Read `references/source-map.md` when finding samples, resolving frequent samples
 1. Start from the user's framework, feature, platform, or architecture question.
 2. Search Apple Developer Documentation and the Sample Code Library first.
 3. Prefer recent samples tied to current SDKs, WWDC sessions, or current documentation pages.
-4. Check `references/source-map.md` for frequent samples such as Wishlist and Landmarks.
+4. Check the local cache and `references/source-map.md` for frequent samples such as Wishlist and Landmarks before treating prose documentation as enough.
 5. Report candidate samples with what each can and cannot teach.
 
 ### Inspect Cached Samples
 
-1. Run `scripts/sample_cache.py list` to see whether the sample is already cached.
+1. Run `scripts/sample_cache.py list` when a related sample may exist.
 2. If cached, run `scripts/sample_cache.py inspect <slug>` and read only the relevant files first: app entry point, scene/root view, model/data source, package manifest, entitlements, framework-specific files, tests, and sample fixtures.
 3. If the cached copy is stale or predates the relevant SDK/API, check the Apple page before relying on it.
 4. Summarize project-level patterns separately from sample-specific shortcuts.
@@ -78,9 +80,9 @@ Read `references/source-map.md` when finding samples, resolving frequent samples
 
 ### Lazy Fetch Policy
 
-- Fetch only when a task needs actual project source or the user asks for a specific sample to be cached.
+- Fetch only when a task has a plausibly related Apple sample whose source would materially clarify implementation, or the user asks for a specific sample to be cached.
 - Prefer using an already cached current sample when it is fresh enough for the task.
-- If the sample is missing and project-level evidence is important, resolve the Apple page and perform an on-demand fetch before making strong architecture claims.
+- If the sample is missing and related sample source would materially clarify the implementation, resolve the Apple page and perform an on-demand fetch before making strong architecture claims.
 - If a sample is large, stale, or would replace an existing cache entry, pause for explicit approval unless the user already requested that fetch or refresh.
 
 ### Apply Sample Guidance
