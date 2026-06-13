@@ -8,6 +8,7 @@ description: Export Xcode-provided agent Skills through `xcrun mcpbridge run-age
 ## Overview
 
 Use this skill to keep Codex's local skill set aligned with the Skills that Xcode exposes through its agent integration.
+Default response language is concise, polite Japanese.
 
 From Codex, run Xcode export as a standalone command first:
 
@@ -55,6 +56,7 @@ Apple-platform orchestrator skills should consult this catalog instead of hardco
 - Xcode-exported frontmatter can contain fields Codex does not need, such as `when_to_use` or `effort`. The script rewrites installed `SKILL.md` frontmatter to `name` and `description`, folding `when_to_use` into the description when present.
 - The script writes `agents/openai.yaml` and `.xcode-skill-sync.json` into each installed managed skill.
 - The script writes a generated central catalog for surrounding skills to discover the current Xcode-provided skill set without depending on stable external Xcode naming.
+- When copying exported skill directories, the script ignores generated or local-only directories and files such as `.build`, `build`, `DerivedData`, `.git`, `.swiftpm`, `Pods`, `Carthage`, `.DS_Store`, and `__pycache__`.
 - A successful export is treated as the desired Xcode-provided skill set. Managed `xcode-skill-*` directories that are absent from the current export are pruned so Xcode-side deletions and renames are reflected locally.
 - If the export returns no skills, the script exits with an error instead of pruning installed skills.
 - Any unmanaged `xcode-skill-*` directory causes an error before install or prune begins. This keeps the reserved namespace easy to reason about: every `xcode-skill-*` directory is either managed by `sync-xcode-skills` or must be resolved manually before syncing.

@@ -18,6 +18,17 @@ MARKER_FILE = ".xcode-skill-sync.json"
 MANAGED_BY = "sync-xcode-skills"
 DEFAULT_EXPORT_DIR = Path(tempfile.gettempdir()) / "xcode-exported-skills"
 DEFAULT_STATE_DIR = Path(__file__).resolve().parents[1] / "state"
+IGNORED_EXPORT_TREE_NAMES = {
+    ".DS_Store",
+    "__pycache__",
+    ".build",
+    "build",
+    "DerivedData",
+    ".git",
+    ".swiftpm",
+    "Pods",
+    "Carthage",
+}
 
 
 class SyncError(Exception):
@@ -216,7 +227,7 @@ def short_text(value: str, limit: int = 160) -> str:
 
 def copy_skill_tree(source: Path, target: Path) -> None:
     def ignore(_: str, names: list[str]) -> set[str]:
-        return {name for name in names if name in {".DS_Store", "__pycache__"}}
+        return {name for name in names if name in IGNORED_EXPORT_TREE_NAMES}
 
     shutil.copytree(source, target, ignore=ignore)
     for path in target.rglob("*"):
