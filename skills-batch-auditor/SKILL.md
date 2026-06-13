@@ -69,11 +69,13 @@ Review each target against:
 In `refresh`:
 
 - do not apply changes automatically
-- provide proposals only
-- make clear that more than one valid answer may exist
+- provide proposals only, but do not be neutral or passive
+- provide a clear primary recommendation for each target: keep, modernize, narrow, split, merge, or retire
+- state "if this Skill were designed today, I would..." when enough evidence exists
+- make clear that more than one valid answer may exist, then choose the best default for the user's current operating model
 - respect the intent and background of each target Skill
 - avoid uniform standardization when local variation is intentional
-- provide priority, rationale, and adoption decision material
+- provide priority, rationale, confidence, adoption trigger, and tradeoffs
 
 ## Workflow
 
@@ -83,7 +85,7 @@ In `refresh`:
 - Read `.pre-commit-config.yaml` when present.
 - Read a current overview doc such as `docs/current-overview.md` only when doc-related checks require it.
 - When skill quality depends on user-specific development philosophy, consult a local principle archive skill such as `$track-developer-principles`.
-- When skill quality depends on current tool availability, use the active tool/plugin/skill context first and `tool_search` only for deferred tools that are relevant to the audited skill.
+- When skill quality depends on current tool availability, use the current runtime-provided capability and skill discovery surfaces before relying on remembered tool names. Treat the specific discovery mechanism as a replaceable adapter, record which evidence source was used, and lower confidence when discovery is unavailable.
 
 2. Discover audit targets.
 - Classify each skill directory under the local skills root:
@@ -142,6 +144,7 @@ Use `--include-self` only when the user explicitly asks to include `skills-batch
 5. Classify portfolio position and next action.
 - Keep invocation phrases and external interface behavior unless safety requires change.
 - Prefer practical, implementation-ready recommendations over vague suggestions.
+- In `refresh`, do not end at "consider improving"; recommend a specific target design or explicitly recommend keeping the current design with a concrete reason and review horizon.
 - Classify every skill into exactly one portfolio class:
   - `core`
   - `useful`
@@ -157,7 +160,7 @@ Use `--include-self` only when the user explicitly asks to include `skills-batch
 
 6. Execute the selected mode.
 - In `maintenance`, apply only deterministic consistency fixes, rerun the audit, and summarize applied edits plus anything moved to `refresh`.
-- In `refresh`, do not mutate files; provide prioritized evolution proposals and adoption criteria.
+- In `refresh`, do not mutate files; provide assertive prioritized evolution proposals, adoption criteria, and the strongest default recommendation supported by current evidence.
 - In either mode, do not apply local custom-skill quality rules such as `missing_japanese_output_rule` or `agents/openai.yaml` wording checks to `managed-external` Xcode skills.
 
 ## Maintenance Eligibility
@@ -185,6 +188,7 @@ Move these to `refresh` by default:
 
 - Never create a separate read-only audit mode; use `refresh` for proposal-only review.
 - Never auto-apply `refresh` proposals.
+- Never treat `proposal-only` as permission to be vague; refresh recommendations should be explicit even when adoption stays user-controlled.
 - Never invent repository architecture or product features.
 - Never claim a skill is fully current solely because the bundled audit script passed.
 - Never recursively scan generated directories except explicitly scoped newest run artifacts.
@@ -221,6 +225,11 @@ For each reported skill, include:
   - `maintenance burden`
 - portfolio classification: `core` / `useful` / `optional` / `retire candidate`
 - recommended action: `keep as-is` / `improve next` / `merge with another skill` / `retire`
+- primary recommendation
+- target design if built today
+- confidence
+- adoption trigger
+- what not to change
 - issues or proposal reasons, using short Japanese labels
 - recommended fix or proposal, using short Japanese labels
 
@@ -242,7 +251,12 @@ For `refresh`, explicitly separate:
 
 - proposal priority
 - rationale
+- primary recommendation
+- target design if built today
+- confidence
+- adoption trigger
 - adoption tradeoffs
+- what not to change
 - maintenance-only consistency fixes that can be handled separately
 
 When the user requested a named subset, include only that subset.
@@ -253,6 +267,7 @@ Use patch mode only when explicitly requested.
 - Confirm script output is valid in both `--format markdown` and `--format json`.
 - Confirm `--mode maintenance` uses maintenance terminology, applies only deterministic consistency fixes, and reruns the audit afterward.
 - Confirm `--mode refresh` uses refresh terminology and does not produce automatic application output.
+- Confirm `--mode refresh` gives explicit primary recommendations instead of ending with passive observations.
 - Confirm named-skill requests are reported only for the requested subset.
 - Confirm custom-scope runs exclude `skills-batch-auditor` itself by default.
 - Confirm `--include-self` includes `skills-batch-auditor` when explicitly requested and does not create a separate self-audit mode.

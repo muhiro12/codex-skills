@@ -115,6 +115,11 @@ class AuditSkillsBatchCLITests(unittest.TestCase):
         self.assertIn("3) maintenance に回せる整合性候補", output)
         self.assertIn("- モード: refresh", output)
         self.assertIn("- refresh では自動適用用の更新本文を出力しません。", output)
+        self.assertIn("  - 一次推奨:", output)
+        self.assertIn("  - 今ならこう作る:", output)
+        self.assertIn("  - 確信度:", output)
+        self.assertIn("  - 採用トリガー:", output)
+        self.assertIn("  - 変えないこと:", output)
         self.assertNotIn("--- SKILL: internal-fixture-ci-drift-skill ---", output)
 
         recommendation_block = output.split("3) maintenance に回せる整合性候補", 1)[1].strip().splitlines()
@@ -241,6 +246,11 @@ class AuditSkillsBatchCLITests(unittest.TestCase):
         self.assertEqual(improve_item["portfolio_classification"], "useful")
         self.assertEqual(improve_item["recommended_action"], "improve next")
         self.assertIn("default_prompt_missing_skill_reference", improve_item["issue_codes"])
+        self.assertIn("primary_recommendation_ja", improve_item)
+        self.assertIn("target_design_ja", improve_item)
+        self.assertIn("confidence_ja", improve_item)
+        self.assertIn("adoption_trigger_ja", improve_item)
+        self.assertIn("what_not_to_change_ja", improve_item)
 
         merge_item = self._find_report_item(payload, "internal-fixture-overview-refresh-skill")
         self.assertEqual(merge_item["portfolio_classification"], "optional")

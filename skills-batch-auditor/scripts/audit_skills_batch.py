@@ -1352,6 +1352,71 @@ def build_priority_note(item: dict[str, Any]) -> str:
     return "現状の定義で安定しており、直近の追加保守は不要です。"
 
 
+def build_primary_recommendation(item: dict[str, Any]) -> str:
+    action = item["recommended_action"]
+    name = item["name"]
+    if action == "retire":
+        return f"`{name}` は退役を第一候補にし、代替先確認後に整理してください。"
+    if action == "merge with another skill":
+        merge_target = item.get("merge_target", "")
+        if merge_target:
+            return f"`{name}` は `{merge_target}` への統合を第一候補にしてください。"
+        return f"`{name}` は独立維持より統合を第一候補にしてください。"
+    if action == "improve next":
+        return f"`{name}` は現役維持のまま、次の refresh 採用候補として改善してください。"
+    return f"`{name}` は現設計を維持してください。"
+
+
+def build_target_design(item: dict[str, Any]) -> str:
+    action = item["recommended_action"]
+    first_fix = item["recommended_fix"][0] if item["recommended_fix"] else ""
+    if action == "retire":
+        return "今作るなら独立 Skill にせず、残す必要がある責務だけを代替 Skill へ移します。"
+    if action == "merge with another skill":
+        merge_target = item.get("merge_target", "")
+        if merge_target:
+            return f"今作るなら独立 Skill にせず、`{merge_target}` の呼び出し語彙か手順として吸収します。"
+        return "今作るなら独立 Skill にせず、最も近い役割の Skill へ責務を寄せます。"
+    if action == "improve next":
+        if first_fix:
+            return f"今作るなら現行の責務は維持し、まず {first_fix}"
+        return "今作るなら現行の責務は維持し、曖昧な境界や古い前提を明確な運用契約へ寄せます。"
+    return "今作るなら現在の責務、呼び出し面、安全境界を維持し、次回 refresh まで追加設計を足しません。"
+
+
+def build_confidence_note(item: dict[str, Any]) -> str:
+    action = item["recommended_action"]
+    if action == "keep as-is" and not item["issue_codes"]:
+        return "高: 現行契約との不整合がなく、追加設計の必要性も低いです。"
+    if action in {"merge with another skill", "retire"}:
+        return "中: ポートフォリオ判断を含むため、採用前に代替先と呼び出し影響を確認してください。"
+    if item["issue_codes"]:
+        return "中: 検出課題は明確ですが、採用する設計文言はユーザー判断を前提にします。"
+    return "中: 現行情報では改善余地がありますが、採用前に対象 Skill の意図を再確認してください。"
+
+
+def build_adoption_trigger(item: dict[str, Any]) -> str:
+    action = item["recommended_action"]
+    if action == "keep as-is":
+        return "次回 refresh で環境、契約、隣接 Skill の変化が検出されるまで採用不要です。"
+    if action == "merge with another skill":
+        return "統合先が明確で、既存呼び出しを壊さない移行手順を用意できた時点です。"
+    if action == "retire":
+        return "参照元と代替 Skill を確認し、退役後の導線を説明できた時点です。"
+    return "次に対象 Skill を編集する時、または検出課題が実運用で再発した時点です。"
+
+
+def build_what_not_to_change(item: dict[str, Any]) -> str:
+    action = item["recommended_action"]
+    if action == "retire":
+        return "代替先確認なしに削除せず、必要な呼び出し導線を失わないでください。"
+    if action == "merge with another skill":
+        return "統合前に Skill 名、既存 trigger、利用者の呼び出し導線を不用意に壊さないでください。"
+    if action == "improve next":
+        return "目的、外部インターフェース、既存 trigger は安全上必要な場合を除き維持してください。"
+    return "安定している責務、Skill 名、フォルダ名、外部インターフェースは変えないでください。"
+
+
 def calculate_priority_score(item: dict[str, Any]) -> int:
     scores = item["scores"]
     priority = ACTION_PRIORITY_BASE[item["recommended_action"]]
@@ -1394,6 +1459,11 @@ def enrich_portfolio_prioritization(
             item["merge_target"] = ""
             item["merge_shared_keywords"] = []
         item["priority_note_ja"] = build_priority_note(item)
+        item["primary_recommendation_ja"] = build_primary_recommendation(item)
+        item["target_design_ja"] = build_target_design(item)
+        item["confidence_ja"] = build_confidence_note(item)
+        item["adoption_trigger_ja"] = build_adoption_trigger(item)
+        item["what_not_to_change_ja"] = build_what_not_to_change(item)
         item["maintenance_priority_score"] = calculate_priority_score(item)
 
     return report_items
@@ -2225,6 +2295,12 @@ def format_markdown(result: dict[str, Any]) -> str:
         lines.append(f"  - 推奨アクション: {item['recommended_action']}")
         lines.append(f"  - 保守優先度スコア: {item['maintenance_priority_score']}/100")
         lines.append(f"  - 優先度メモ: {item['priority_note_ja']}")
+        if mode == "refresh":
+            lines.append(f"  - 一次推奨: {item['primary_recommendation_ja']}")
+            lines.append(f"  - 今ならこう作る: {item['target_design_ja']}")
+            lines.append(f"  - 確信度: {item['confidence_ja']}")
+            lines.append(f"  - 採用トリガー: {item['adoption_trigger_ja']}")
+            lines.append(f"  - 変えないこと: {item['what_not_to_change_ja']}")
         lines.append("  - 評価軸スコア:")
         lines.append(f"    - reuse value: {item['scores']['reuse value']}/5")
         lines.append(
