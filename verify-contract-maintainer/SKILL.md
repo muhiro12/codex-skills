@@ -36,10 +36,17 @@ For repositories in scope, use this contract:
 - `AGENTS.md` documents the repository's verification contract.
 - Any documented repository-managed shell command resolves to an executable script.
 - Any documented XcodeBuildMCP check names concrete project/workspace, scheme, simulator, or equivalent session-default expectations.
+- The contract distinguishes concrete verification capabilities, such as
+  library/package tests, app or surface builds, retained repository-rule checks,
+  and targeted runtime/UI evidence, without turning every repository file into a
+  full cross-repository decision playbook.
 
 2. Recommended:
 - `ci_scripts/tasks/check_repository_rules.sh` for retained static rule checks that are not naturally covered by XcodeBuildMCP.
 - XcodeBuildMCP `build_sim`, `test_sim`, `build_run_sim`, `launch_app_sim`, `snapshot_ui`, or `screenshot` for Apple build/test/runtime/UI evidence when the repository is deliberately MCP-first.
+- Short risk-based selection guardrails, for example when public APIs, persisted
+  schema, wire contracts, package products, lifecycle wiring, or visible UI
+  behavior require stronger evidence than the narrowest local check.
 - `ci_scripts/tasks/verify_task_completion.sh` only when the repository intentionally keeps an aggregate shell gate.
 
 3. Optional:

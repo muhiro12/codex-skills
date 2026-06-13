@@ -70,6 +70,9 @@ Move information to the narrowest durable layer that can carry it forward:
   lint contract.
 - Include concrete build/test/run schemes, package workspaces, and retained
   repository rule commands.
+- For verification guidance, expose concrete repository capabilities and a few
+  risk-based guardrails rather than a full decision tree; long evidence
+  selection logic belongs in skills or developer principles.
 - Include architecture or package boundary summaries when they prevent unsafe
   edits.
 - Point to durable docs such as `Designs/Architecture/` or

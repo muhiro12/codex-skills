@@ -109,6 +109,33 @@ Use this routing before editing when a sidecar skill can narrow the work:
 - Related Apple sample exists or likely exists for framework adoption, lifecycle, target layout, entitlements, cross-surface features, SwiftUI composition, model/data wiring, or modern app shell decisions: use `$apple-sample-code-advisor` after matching Xcode-provided skill guidance and before relying on prose documentation alone or sibling repository fallback.
 - Final verification and diff summary: use `$ci-verify-and-summarize` when the repository provides a shell or retained repository-rule entrypoint and the user asks for verify/CI/push-readiness summarization; otherwise run the documented MCP checks and retained rule checks directly.
 
+## Verification Evidence Selection
+
+Use the repository `AGENTS.md` as the source of concrete schemes, packages,
+scripts, and surfaces, then choose verification evidence by the changed
+boundary:
+
+- Shared-library or package logic changes: run the documented library/package
+  tests and retained repository-rule checks. Add an app or example build when
+  the change affects public APIs, `*Operations`, persisted schema, route or wire
+  contracts, package products, or adopter-facing integration.
+- App, widget, watch, extension, App Intent, or UI-adapter-only changes: run the
+  documented build for the changed surface. Run shared-library tests only when
+  the shared contract or reusable behavior changed.
+- Mixed library plus surface changes: run both the relevant library/package
+  tests and the affected surface builds.
+- Runtime, navigation, visible UI, lifecycle, entitlement, persistence,
+  notification, sync, widget timeline, watch connectivity, App Intent, or
+  framework-integration risk: add targeted simulator launch, logs, UI snapshot,
+  screenshot, preview, smoke, or specialist evidence instead of treating live UI
+  checks as a default for every change.
+- If the change scope is uncertain, choose the stronger evidence set and say
+  which boundary made the narrower check insufficient.
+
+Do not copy this decision model into every repository `AGENTS.md`. Repository
+contracts should expose the concrete verification capabilities needed from a
+fresh clone; this skill should choose among them in Hiromu's local environment.
+
 ## Workflow
 
 1. Confirm repository workflow prerequisites.
