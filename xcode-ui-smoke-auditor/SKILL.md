@@ -1,13 +1,14 @@
 ---
 name: xcode-ui-smoke-auditor
-description: Run a safe, audit-only live Simulator UI smoke review for Apple-platform app repositories using native Xcode MCP Device Interaction. Use when the user asks for release UI smoke, diff-focused release smoke, full gallery audit, targeted screen audit, release screenshot gallery, Simulator screenshot audit, visual check, iPad landscape UI check, Apple Watch/companion target coverage, Xcode MCPでUI確認, 実アプリを起動して画面崩れを確認, or similar requests to build/run the current app, inspect live UI, capture screenshots, and report audit findings. Preserve and restore the active Xcode scheme and destination; do not inspect SwiftUI #Preview or modify code by default.
+description: Run a safe, audit-only live Simulator UI smoke review for Apple-platform app repositories using the active Xcode-native live UI capabilities. Use when the user asks for release UI smoke, diff-focused release smoke, full gallery audit, targeted screen audit, release screenshot gallery, Simulator screenshot audit, visual check, iPad landscape UI check, Apple Watch/companion target coverage, Xcode MCPでUI確認, 実アプリを起動して画面崩れを確認, or similar requests to build/run the current app, inspect live UI, capture screenshots, and report audit findings. Preserve and restore the active Xcode scheme and destination; do not inspect SwiftUI #Preview or modify code by default.
 ---
 
 # Xcode UI Smoke Auditor
 
 ## Overview
 
-Run a pre-release or change-time UI smoke audit against the real app running in Simulator through native Xcode MCP Device Interaction.
+Run a pre-release or change-time UI smoke audit against the real app running in
+Simulator through the active Xcode-native live UI capabilities.
 Keep the workflow evidence-backed and non-mutating: inspect repository truth, preserve Xcode's active selection, run the current app, capture UI hierarchy, screenshots, and logs, navigate core reachable screens, restore the original selection, and report what was covered and what remains unknown.
 When the audited surface is user-visible Apple UI, use `$apple-hig-ui-guardian` as the HIG review rubric after captures are available.
 Return user-facing reports in concise, polite Japanese by default unless the user explicitly asks for another language.
@@ -52,38 +53,69 @@ Before asking questions or running the app, discover the repository's own instru
 
 ## Simulator Selection
 
-Respect the current native Xcode MCP active scheme and run destination first.
+Respect the Xcode-native integration's current active scheme and run
+destination first.
 Do not force a Release configuration, release-like scheme, or iPhone/iPad-only matrix unless the user or repository instructions explicitly require it.
 
-Select representative simulator coverage from the app's discovered supported targets and native Xcode MCP tools available in the current session:
+Select representative simulator coverage from the app's discovered supported
+targets and Xcode-native capabilities available in the current session:
 
 - Prefer the currently configured simulator when it matches the app target.
-- When the active selection does not cover the requested surface, choose a discovered eligible destination that native Xcode MCP can actually build/run and inspect.
+- When the active selection does not cover the requested surface, choose a
+  discovered eligible destination that the active integration can actually
+  build, run, and inspect.
 - For iPhone-capable apps, include a representative iPhone simulator as the compact UI smoke target unless the user narrows scope away from iPhone.
 - For iPadOS-capable apps, treat landscape as the preferred representative iPad smoke case because split views, sidebars, and wide layouts are common shipping surfaces.
-- Attempt iPad landscape with `DeviceInteractionSynthesize` only when the active device supports the orientation change. Do not imply landscape is covered until the returned screenshot dimensions or hierarchy confirm it.
+- Attempt iPad landscape through the available live interaction capability only
+  when the active device supports the orientation change. Do not imply
+  landscape is covered until the returned screenshot dimensions or hierarchy
+  confirm it.
 - If orientation cannot be changed or verified because the tool is missing, MCP/macOS accessibility blocks it, or the user has not manually rotated the Simulator, continue with the available iPad orientation and record `iPad landscape not confirmed` as a coverage gap with the concrete reason.
 - If the user manually rotates the Simulator, re-check orientation from screenshot dimensions, UI hierarchy, or other visible evidence, then continue the landscape audit only after verification.
-- Probe the native Xcode MCP tool surface before promising coverage. If Device Interaction supports only iOS Simulator for the current target, audit the supported iOS/iPadOS surface and report non-iOS targets as coverage gaps instead of pretending they were checked.
+- Probe the current Xcode-native tool surface before promising coverage. If its
+  live UI capability supports only iOS Simulator for the current target, audit
+  the supported iOS/iPadOS surface and report non-iOS targets as coverage gaps
+  instead of pretending they were checked.
 - If a target is unsupported, unavailable, not configured, or unsafe to run, record the reason in the report.
 - Treat WidgetKit, Siri/Shortcuts, purchases, destructive deletes, sensitive permission grants, and externally visible flows as outside the default live app smoke scope. Add them to the ledger as `skipped` unless the user explicitly requests a separate safe audit path.
 
 ## Build And Launch Workflow
 
-Use native Xcode MCP tools over shell commands for workspace discovery, active selection, build/install/run, screenshots, UI hierarchy, logs, orientation, and interactions.
+Use Xcode-native capabilities over shell commands for workspace discovery,
+active selection, build/install/run, screenshots, UI hierarchy, logs,
+orientation, and interactions. Resolve those capabilities from the current tool
+inventory by schema and description; concrete action names and response fields
+are replaceable adapter details.
 
-1. Call `XcodeListWindows` and choose the workspace `tabIdentifier` that matches the current repository. Do not guess when multiple Xcode windows are open.
-2. Call `XcodeListSchemes` and `XcodeListRunDestinations`. Record the original `activeSchemeName`, the active scheme entry's `disambiguatedName`, and `activeDestinationDisplayTitle` before changing either selection.
-3. Keep the current selection when it covers the requested surface. Otherwise call `XcodeSwitchScheme` with a discovered disambiguated scheme name, refresh destinations because the scheme switch may auto-select one, and call `XcodeSwitchRunDestination` with a discovered eligible `displayTitle` only when needed.
+1. Discover the open Xcode contexts and choose the one that matches the current
+   repository. Do not guess when multiple contexts are open.
+2. Discover the active and available schemes and destinations. Record the
+   original scheme and destination plus the current integration's unambiguous
+   handles for restoration before changing either selection.
+3. Keep the current selection when it covers the requested surface. Otherwise
+   switch only to discovered values, refresh destinations because a scheme
+   switch may auto-select one, and change the destination only when needed.
 4. Use the current app scheme, normal development configuration, and existing launch arguments by default. Use release-like settings only when the user asks or repository instructions clearly require them.
-5. Call `DeviceInteractionStartSession` early for the selected destination. Use a short Title Case session identifier and omit `deviceIdentifier` to use the current destination unless a concrete discovered device must be selected.
-6. Call `DeviceInteractionInstallAndRun`. It builds, installs, and starts the active application without requiring a separate boot or launch command.
-7. Call `DeviceInteractionSynthesize` with no interaction command to capture the initial screenshot, hierarchy, application state, and logs. Do not navigate until the hierarchy is meaningful and the screenshot is reviewable.
-8. Before every interaction, read the newest hierarchy and use the reported element center coordinates. Each `DeviceInteractionSynthesize` call returns the post-interaction screenshot, hierarchy, application state, and logs; use those outputs to verify the transition before continuing.
+5. Start a bounded live UI session for the selected destination. Prefer the
+   current destination unless a concrete discovered device must be selected.
+6. Use the session's install-and-run capability so the active application is
+   built, installed, and started through one coherent lifecycle when supported.
+7. Capture the initial screenshot, hierarchy, application state, and logs
+   without sending an interaction. Do not navigate until the hierarchy is
+   meaningful and the screenshot is reviewable.
+8. Before every interaction, read the newest hierarchy and use the reported
+   element center coordinates. Inspect the post-interaction screenshot,
+   hierarchy, application state, and logs before continuing.
 9. If launch appears slow or ambiguous, capture state again before classifying it. Treat `Stopped`, `Crashed`, `Disconnected`, or `Hanging` as evidence to inspect with the returned logs, not as permission to guess or continue blindly.
-10. Always call `DeviceInteractionEndSession` when interaction finishes or fails. Keeping the session open is resource-heavy.
-11. If a separate non-interactive launch/log diagnostic is needed, use `RunProject`, inspect it with `GetConsoleOutput`, and pair it with `StopProject`; do not leave a verification-only run active.
-12. If the audit changed Xcode's active selection, restore the original scheme first and its original destination second, then re-run `XcodeListSchemes` and `XcodeListRunDestinations` to confirm. If restoration is unsafe or fails, report the final active selection and reason.
+10. Always end the live UI session when interaction finishes or fails. Keeping
+    the session open is resource-heavy.
+11. If a separate non-interactive launch/log diagnostic is needed, use a
+    bounded run, inspect its runtime output, and stop it; do not leave a
+    verification-only run active.
+12. If the audit changed Xcode's active selection, restore the original scheme
+    first and its original destination second, then rediscover both to confirm.
+    If restoration is unsafe or fails, report the final active selection and
+    reason.
 
 ## UI Audit Workflow
 
@@ -95,15 +127,21 @@ For every mode, maintain a screen-candidate ledger with `captured`, `failed`, `s
 - Record the current Simulator/app data state before interpreting content: existing data, empty state, repo-provided sample data, or unknown.
 - If no sample data was inserted and no data was cleared, state that observations are dependent on the current Simulator state.
 - For iPad targets, verify whether the captured UI is landscape or portrait. If landscape was intended but not achieved, do not treat the iPad pass as fully covered.
-- For watchOS or other companion targets, attempt safe live inspection only when the native Xcode MCP destination and Device Interaction surface demonstrably support it. Otherwise record a coverage gap rather than extrapolating from the iOS app.
+- For watchOS or other companion targets, attempt safe live inspection only
+  when the discovered destination and live UI capability demonstrably support
+  it. Otherwise record a coverage gap rather than extrapolating from the iOS
+  app.
 - Prioritize primary tabs, sidebars, navigation roots, settings, detail screens, editor/create flows, sheets, popovers, and platform-specific layouts that can be reached without destructive actions.
-- Read the hierarchy returned by the latest `DeviceInteractionSynthesize` call before tapping or gesturing.
+- Read the hierarchy returned by the latest live UI capture before tapping or
+  gesturing.
 - Use screenshots as the visual evidence source; use UI hierarchy to guide navigation and support findings, not as a substitute for visual inspection.
 - Use the center coordinates calculated in the current hierarchy for touch input; never guess positions from the screenshot alone.
 - After every interaction, inspect the returned hierarchy and screenshot. If the app leaves the expected screen, goes to the Home screen, opens the wrong surface, or becomes ambiguous, stop that transition and record a failed navigation instead of continuing deeper.
 - For Tip popovers, onboarding prompts, permission dialogs, and other transient overlays, capture the covered state first. If a clearly safe Close, Cancel, Dismiss, or Not Now action is available, dismiss it and capture the underlying screen too.
 - Use safe gestures such as scrolls or back swipes only when they match visible navigation.
-- Keep the screenshot returned after launch and after each meaningful `DeviceInteractionSynthesize` transition. Expose screenshot paths in the final report, and show images inline when the environment supports local image rendering.
+- Keep the screenshot returned after launch and after each meaningful live UI
+  transition. Expose screenshot paths in the final report, and show images
+  inline when the environment supports local image rendering.
 - Prefer screenshots that are visually usable as evidence for a human reviewer. If a screenshot is sideways, cropped, blank, on the wrong surface, obscured, or otherwise hard to review, mention that and attempt a safer alternate capture method when one is available.
 - Verify the exact image that will appear in the final Markdown report, not only the raw capture path. If the embedded image is upside down, sideways, cropped, or mismatched with UI hierarchy orientation, treat it as not reviewable until corrected or recaptured.
 - Corrected derivative screenshots may be created as non-repo audit artifacts when the correction is mechanical and obvious. Preserve the original path, expose the corrected path, and state that the image was normalized for review.
@@ -131,7 +169,7 @@ Separate current findings from coverage gaps and tool limitations.
 Include:
 
 - exact device, runtime, platform, orientation when relevant, scheme, configuration, and launch arguments used
-- native Xcode MCP tools and notable commands/actions used
+- Xcode-native capabilities and notable runtime actions used
 - screenshots captured, grouped by device, orientation, and screen, with absolute paths and inline images when possible
 - observed Simulator/app data state for each target, especially when results depend on existing local state
 - screens and transitions covered
@@ -141,7 +179,9 @@ Include:
 - remaining coverage gaps, including supported targets that could not be audited
 - runtime crash/error summary when available
 - tool and fallback actions used, including any approved shell fallback such as `xcrun simctl openurl`
-- any slow or ambiguous install/run recovery attempts, including the application state, hierarchy, screenshot, and logs returned by `DeviceInteractionSynthesize`
+- any slow or ambiguous install/run recovery attempts, including the
+  application state, hierarchy, screenshot, and logs returned by the live UI
+  capability
 - the original active scheme and destination, changes made during the audit, whether both were restored, and the final active selection if not restored
 
 Use these finding categories:
@@ -163,7 +203,7 @@ Use this final report order unless the user asks for another format:
 7. `Xcode selection`
 8. `tool / fallback actions`
 
-Keep each section short. For empty finding sections, say `none observed in audited coverage` rather than omitting the section. In `coverage gaps`, include skipped targets, discovered companion targets that were not audited, orientation gaps such as `iPad landscape not confirmed`, unreviewable screenshots, uncaptured screen candidates, unreachable screens, state-dependent coverage, tool-side limitations, and transient overlays that could not be dismissed safely. In `screen-candidate ledger`, group candidates by target/device or route and mark each as `captured`, `failed`, `skipped`, or `not discovered / not reachable`. In `screenshots`, provide a concise gallery or grouped index by device, orientation, and screen; include absolute paths; embed each reviewable image with Markdown image syntax when local image rendering is supported; record raw path and corrected review path separately when screenshots are normalized for orientation. In `Xcode selection`, include the original scheme and destination, changes made during the audit, whether they were restored, and the final active selection if not restored. In `tool / fallback actions`, list native Xcode MCP tools, approved shell fallbacks, manual/user actions, and limitations.
+Keep each section short. For empty finding sections, say `none observed in audited coverage` rather than omitting the section. In `coverage gaps`, include skipped targets, discovered companion targets that were not audited, orientation gaps such as `iPad landscape not confirmed`, unreviewable screenshots, uncaptured screen candidates, unreachable screens, state-dependent coverage, tool-side limitations, and transient overlays that could not be dismissed safely. In `screen-candidate ledger`, group candidates by target/device or route and mark each as `captured`, `failed`, `skipped`, or `not discovered / not reachable`. In `screenshots`, provide a concise gallery or grouped index by device, orientation, and screen; include absolute paths; embed each reviewable image with Markdown image syntax when local image rendering is supported; record raw path and corrected review path separately when screenshots are normalized for orientation. In `Xcode selection`, include the original scheme and destination, changes made during the audit, whether they were restored, and the final active selection if not restored. In `tool / fallback actions`, list Xcode-native capabilities, approved shell fallbacks, manual/user actions, and limitations.
 
 Use screenshots to support both automated smoke judgment and human release review. If screenshot evidence is incomplete or hard to review, say so in `warnings` or `coverage gaps` and avoid claiming complete visual coverage for that screen.
 
@@ -184,7 +224,9 @@ Do not:
 - perform production, purchase, send, delete, account, or externally visible actions
 - grant sensitive permissions, complete onboarding, create accounts, or sign in unless the user explicitly asks and the environment is known safe
 - treat WidgetKit, Siri/Shortcuts, purchases, destructive deletes, permission granting, or externally visible flows as covered by default live app smoke
-- use shell `xcodebuild`, `simctl`, or app-specific scripts as a replacement for native Xcode MCP UI auditing unless the user approves a fallback after a clear tool-side blocker
+- use shell `xcodebuild`, `simctl`, or app-specific scripts as a replacement for
+  Xcode-native UI auditing unless the user approves a fallback after a clear
+  tool-side blocker
 
 If the user asks for fixes after the audit, treat the report as the handoff and switch to an implementation workflow.
 
@@ -194,7 +236,8 @@ Classify blockers by ownership when coverage fails:
 
 - `app-side`: app build, launch, runtime, routing, or UI behavior prevents inspection
 - `repo-setup`: missing instructions, fixtures, credentials, scheme clarity, or safe sample data prevents realistic coverage
-- `tool-side`: native Xcode MCP, Simulator, Xcode, or current tool-surface limitations prevent trustworthy inspection
+- `tool-side`: the active Xcode-native integration, Simulator, Xcode, or current
+  tool-surface limitations prevent trustworthy inspection
 - `scope`: the requested screen or platform requires a product decision, destructive setup, login, or unavailable device/runtime
 
 For each failure, report what was attempted, the observed symptom, the likely owner, and the next safe action.

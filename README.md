@@ -29,7 +29,7 @@ It intentionally excludes system-managed skills, runtime/vendor-managed assets, 
 - `sync-xcode-skills`: Exports Xcode-provided agent Skills and installs Codex-compatible local copies.
 - `track-developer-principles`: Maintains a personal cross-repository principle system; the private record files themselves are intentionally not tracked here.
 - `track-personal-principles`: Maintains private weighted personal operating principles while keeping the record files out of git.
-- `verify-contract-maintainer`: Maintains a minimal verification contract across native Xcode MCP evidence and retained repository-rule scripts.
+- `verify-contract-maintainer`: Maintains a minimal verification contract across Xcode-native evidence capabilities and retained repository-rule scripts.
 - `xcode-preview-auditor`: Audits SwiftUI `#Preview` coverage and capture results screen-by-screen, with audit-first reporting.
 - `xcode-ui-smoke-auditor`: Runs safe Simulator UI smoke audits for Apple-platform apps and reports visual or interaction risks without auto-fixing by default.
 

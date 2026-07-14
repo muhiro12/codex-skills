@@ -1,11 +1,15 @@
 ---
 name: xcode-preview-auditor
-description: Audit SwiftUI `#Preview` screens in Apple app repositories by discovering previews, grouping them by screen and source file, capturing them directly with native Xcode MCP `RenderPreview`, explicitly reporting Preview or faithful live-app fallback failures and blocker ownership, and returning a concise Japanese audit report without auto-fixing by default. Use for audit-first requests such as `#Previewをキャプチャして`, `Preview を見て UI 崩れを監査して`, `画面プレビューを一覧で確認したい`, and `コンポーネントではなく 1 画面単位で見てほしい`.
+description: Audit SwiftUI `#Preview` screens in Apple app repositories by discovering previews, grouping them by screen and source file, capturing them with the active Xcode-native Preview capability, explicitly reporting Preview or faithful live-app fallback failures and blocker ownership, and returning a concise Japanese audit report without auto-fixing by default. Use for audit-first requests such as `#Previewをキャプチャして`, `Preview を見て UI 崩れを監査して`, `画面プレビューを一覧で確認したい`, and `コンポーネントではなく 1 画面単位で見てほしい`.
 ---
 
 # Xcode Preview Auditor
 
-Audit SwiftUI `#Preview` in Apple app repositories. Discover previews, prefer screen-level captures, use native Xcode MCP `RenderPreview` as the direct capture surface, make capture coverage explicit by file and screen, show captured images back to the user, and return a concise Japanese audit report instead of defaulting to fixes.
+Audit SwiftUI `#Preview` in Apple app repositories. Discover previews, prefer
+screen-level captures, use the active Xcode-native Preview rendering capability
+as the direct capture surface, make capture coverage explicit by file and
+screen, show captured images back to the user, and return a concise Japanese
+audit report instead of defaulting to fixes.
 For screen-level Apple UI previews, use `$apple-hig-ui-guardian` after capture so the audit covers HIG alignment, not only render correctness.
 
 ## Xcode Skill Catalog
@@ -24,19 +28,38 @@ When `sync-xcode-skills/state/catalog.md` exists under the active Codex skills r
    - missing environment objects, model containers, dependencies, or sample data
    - preview-only crashes or compile errors
    - unsupported services or platform/tooling blockers
-5. Establish the native Xcode MCP workspace selection before capture.
-   - Call `XcodeListWindows` and choose the `tabIdentifier` that matches the repository.
-   - Call `XcodeListSchemes` and `XcodeListRunDestinations`, and record the original `activeSchemeName`, the active scheme entry's `disambiguatedName`, and `activeDestinationDisplayTitle`.
-   - Keep the current scheme and destination when they can render the candidate. Otherwise switch only to discovered, eligible values with `XcodeSwitchScheme` and `XcodeSwitchRunDestination`.
-6. Call `RenderPreview` with the source file path and zero-based preview definition index. Treat the first visible viewport as the default audit scope. Record its `previewSnapshotPath`, `errors`, and `renderedDestination`.
+5. Establish the Xcode-native workspace selection before capture.
+   - Inspect the current tool inventory and resolve workspace/project, scheme,
+     destination, and Preview capabilities from their schemas and descriptions;
+     do not assume concrete action names.
+   - Discover the Xcode context that matches the repository plus the active and
+     available schemes and destinations. Record the original scheme and
+     destination with the current integration's unambiguous restoration
+     handles.
+   - Keep the current scheme and destination when they can render the
+     candidate. Otherwise switch only to discovered, eligible values.
+6. Use the direct Preview rendering capability with the source file path and
+   zero-based preview definition index. Treat the first visible viewport as the
+   default audit scope. Record the returned artifact path, errors, and rendered
+   destination without assuming stable response-field names.
 7. Use returned localizations, variants, timeline indexes, or toggle states only when the requested coverage needs them. Run localization overrides sequentially rather than in parallel.
-8. If `RenderPreview` fails or is unavailable, record an explicit failure entry before any fallback:
+8. If direct Preview rendering fails or is unavailable, record an explicit
+   failure entry before any fallback:
    - what was attempted
    - why it failed
    - whether the blocker is `app-side`, `preview-side`, or `tool-side`
    - whether a faithful fallback exists
-9. Use live-app fallback only when the exact same screen state can be reproduced through an existing deep link, seeded route, or normal navigation already present in the repository. Start `DeviceInteractionStartSession` only after deciding fallback is faithful, then call `DeviceInteractionInstallAndRun`, use `DeviceInteractionSynthesize` with no interaction for the initial screenshot and hierarchy, interact only from current hierarchy coordinates when needed, and always call `DeviceInteractionEndSession`.
-10. If fallback succeeds after `RenderPreview` failure or unavailability, keep the preview as `captured`, but note `RenderPreview failed/unavailable -> Device Interaction fallback` and preserve the original failure summary.
+9. Use live-app fallback only when the exact same screen state can be reproduced
+   through an existing deep link, seeded route, or normal navigation already
+   present in the repository. Start a bounded live UI session only after
+   deciding fallback is faithful, install and run through that lifecycle,
+   capture the initial screenshot and hierarchy without an interaction, use
+   current hierarchy coordinates when interaction is needed, and always end
+   the session.
+10. If fallback succeeds after direct Preview rendering fails or is
+    unavailable, keep the preview as `captured`, but note
+    `direct Preview failed/unavailable -> live-app fallback` and preserve the
+    original failure summary.
 11. When capture work finishes, end any device-interaction session. If the workflow changed Xcode's active selection, restore the original scheme first, restore its original destination second, and re-list both to confirm. Report any selection that could not be restored.
 12. Show each obtained capture to the user, not just an inventory line. When local image rendering is supported, embed the image inline with a short caption.
 13. Review captures at screen level. For likely screen previews, apply `$apple-hig-ui-guardian` and classify both visible UI breakage and HIG drift.
@@ -56,7 +79,7 @@ Maintain one coverage entry per discovered preview, grouped by likely screen and
 `captured`
 
 - an inspectable artifact exists and is exposed to the user
-- note the mechanism: `RenderPreview` or `Device Interaction fallback`
+- note the mechanism: `direct Preview` or `live-app fallback`
 
 `failed`
 
@@ -86,15 +109,24 @@ Likely component previews:
 
 When ambiguous, include the preview only if it reasonably represents one screen the user could recognize as a product surface.
 
-## Native RenderPreview-First Capture Policy
+## Native Preview-First Capture Policy
 
 `#Preview` is the canonical source of truth.
 
-Use native Xcode MCP `RenderPreview` as the first-choice mechanism for every eligible preview. It builds and renders the selected Preview definition and returns the snapshot path plus render errors and actual rendered destination.
+Use the active Xcode-native Preview rendering capability as the first-choice
+mechanism for every eligible preview. It must build and render the selected
+Preview definition and return an inspectable artifact plus render errors and
+the actual rendered destination.
 
-If `RenderPreview` is absent from the current tool inventory, rejects the source/index, or returns no inspectable snapshot, record the direct capture as a blocker before considering fallback. Do not replace it silently with a screenshot of a merely similar app state.
+If direct Preview rendering is absent from the current tool inventory, rejects
+the source/index, or returns no inspectable snapshot, record the direct capture
+as a blocker before considering fallback. Do not replace it silently with a
+screenshot of a merely similar app state.
 
-Use Device Interaction fallback only after `RenderPreview` fails or is recorded as unavailable, and only when the exact same screen state can be reproduced through existing app flows such as deep links, seeded routes, or normal navigation already present in the repository.
+Use live-app interaction fallback only after direct Preview rendering fails or
+is recorded as unavailable, and only when the exact same screen state can be
+reproduced through existing app flows such as deep links, seeded routes, or
+normal navigation already present in the repository.
 
 Do not claim equivalence for preview-only states that cannot be reproduced faithfully. Keep them in the `failed` or `not attempted` part of `プレビューカバレッジ要約` with a concrete reason.
 
@@ -124,7 +156,10 @@ Use this ownership only for capture failures and blockers.
 `tool-side`
 
 - the failure is attributable to Xcode, MCP transport, preview renderer instability, or capture tooling rather than product code
-- examples: native Xcode MCP timeout, renderer session crash without app-side evidence, `RenderPreview` cannot resolve a preview that otherwise looks correctly defined, or the current tool surface lacks `RenderPreview`
+- examples: Xcode-native integration timeout, renderer session crash without
+  app-side evidence, direct Preview rendering cannot resolve a preview that
+  otherwise looks correctly defined, or the current tool surface lacks a
+  Preview rendering capability
 
 ## Triage Rules
 
@@ -149,7 +184,9 @@ Classify findings conservatively.
 
 `tooling blocker`
 
-- native Xcode MCP `RenderPreview` failure, unsupported preview dependency, live-app fallback limitation, or another non-product blocker prevents trustworthy capture
+- direct Xcode-native Preview failure, unsupported preview dependency,
+  live-app fallback limitation, or another non-product blocker prevents
+  trustworthy capture
 
 ## Output Contract
 

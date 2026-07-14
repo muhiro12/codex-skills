@@ -1,6 +1,6 @@
 ---
 name: repo-agent-contract-maintainer
-description: Maintain clone-ready repository AGENTS.md contracts and their boundaries with global AGENTS.md, developer principles, personal principles, skills, and durable architecture documents. Use when creating a new repository AGENTS.md, auditing or updating existing AGENTS.md files, deciding whether policy belongs in global AGENTS.md, a repo AGENTS.md, a skill, developer principles, personal principles, Designs/ADRs, or issues, or aligning Apple repositories to MCP-first verification while preserving repository-specific rules.
+description: Maintain clone-ready repository AGENTS.md contracts and their boundaries with global AGENTS.md, developer principles, personal principles, skills, and durable architecture documents. Use when creating a new repository AGENTS.md, auditing or updating existing AGENTS.md files, deciding whether policy belongs in global AGENTS.md, a repo AGENTS.md, a skill, developer principles, personal principles, Designs/ADRs, or issues, or aligning Apple repositories to capability-based Xcode-native verification while preserving repository-specific rules.
 ---
 
 # Repo Agent Contract Maintainer
@@ -72,7 +72,8 @@ Move information to the narrowest durable layer that can carry it forward:
   repository rule commands.
 - For verification guidance, expose concrete repository capabilities and a few
   risk-based guardrails rather than a full decision tree; long evidence
-  selection logic belongs in skills or developer principles.
+  selection logic and current tool-action spelling belong in skills or the
+  runtime integration layer.
 - Include architecture or package boundary summaries when they prevent unsafe
   edits.
 - Point to durable docs such as `Designs/Architecture/` or
@@ -106,13 +107,15 @@ Move information to the narrowest durable layer that can carry it forward:
   global contract.
 - Search for repeated meta-rationale that belongs in this skill or developer
   principles instead of the repository file.
-- For MCP-first Apple repositories, confirm `AGENTS.md` names the project or
-  workspace, concrete schemes and destination families, native Xcode MCP
-  actions such as `BuildProject`, `RunAllTests`/`RunSomeTests`, `RunProject`,
-  `RenderPreview`, or the `DeviceInteraction*` lifecycle as appropriate, and
-  retained repository-rule scripts separately. Require runtime agents to record
-  the original active scheme and destination, restore the scheme and then its
-  destination after switching, and report failed restoration.
+- For Xcode-native Apple repositories, confirm `AGENTS.md` names the project or
+  workspace, concrete schemes and destination families, the required evidence
+  capabilities (build, test, run/log, Preview, or live UI interaction), and
+  retained repository-rule scripts separately. Require runtime agents to
+  resolve current actions from the available tool inventory, record the
+  original active scheme and destination, restore the scheme and then its
+  destination after switching, and report failed restoration. Keep volatile
+  action and namespace names out of repository contracts unless an executable
+  adapter genuinely requires them.
 - Report any global or skill-owned files that are not Git-managed.
 
 ## Editing Guardrails
@@ -127,10 +130,10 @@ Move information to the narrowest durable layer that can carry it forward:
   or issue templates unless they are actually useful.
 - Do not replace repository-specific architecture documents with AGENTS.md
   summaries; summarize only the boundary needed for safe agent behavior.
-- Do not treat shell verification scripts as primary for MCP-first Apple
-  repositories when native Xcode MCP covers the evidence; retain scripts for
-  SwiftLint, formatting, repository-specific static rules, compatibility, or
-  uncovered checks.
+- Do not treat shell verification scripts as primary when the active
+  Xcode-native integration covers the evidence; retain scripts for SwiftLint,
+  formatting, repository-specific static rules, compatibility, or uncovered
+  checks.
 
 ## Output
 

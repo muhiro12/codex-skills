@@ -1,4 +1,4 @@
 interface:
   display_name: "Apple Repo Verify Bootstrapper"
   short_description: "Bootstrap native Apple verification contracts"
-  default_prompt: "Use $apple-repo-verify-bootstrapper to derive an Apple repository's first-pass AGENTS.md verification contract from its real Xcode and Swift package surfaces: define native Xcode MCP build/test/run/Preview/device evidence and active scheme/destination restoration first, then add only necessary format, lint, static-rule, compatibility, or otherwise uncovered scripts."
+  default_prompt: "Use $apple-repo-verify-bootstrapper to derive an Apple repository's first-pass AGENTS.md verification contract from its real Xcode and Swift package surfaces: define capability-based Xcode-native build/test/run/Preview/device evidence and active scheme/destination restoration first, then add only necessary format, lint, static-rule, compatibility, or otherwise uncovered scripts."

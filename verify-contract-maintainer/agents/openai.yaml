@@ -1,4 +1,4 @@
 interface:
   display_name: "Verify Contract Maintainer"
   short_description: "Maintain existing verification contracts safely"
-  default_prompt: "Use $verify-contract-maintainer to audit or normalize an existing native Xcode MCP-first verification contract, including concrete build/test/run/Preview/device actions, active scheme and destination restoration, and retained format/lint/static-rule scripts; use $apple-repo-verify-bootstrapper instead for first-pass Apple verification design."
+  default_prompt: "Use $verify-contract-maintainer to audit or normalize an existing capability-based Xcode-native verification contract, including build/test/run/Preview/device evidence, active scheme and destination restoration, and retained format/lint/static-rule scripts; resolve current actions from the tool inventory and use $apple-repo-verify-bootstrapper for first-pass Apple verification design."

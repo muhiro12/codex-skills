@@ -39,12 +39,21 @@ Use this skill when requests indicate autonomous continuation, such as:
 - If stored principles point to a maintained platform foundation such as a resolved local MHPlatform checkout for shared stack, reusable plumbing, or cross-app implementation direction, use that as decision context before looking at a generic sibling reference repository.
 - For Apple-platform UI candidates, use `$apple-hig-ui-guardian` before selecting or implementing the task so HIG drift is considered alongside verification failures, TODOs, tests, and docs.
 - For Swift-language, API, concurrency, or package-boundary candidates, use `$swift-code-guardian` before selecting or implementing the task so Swift drift is considered alongside verification failures, TODOs, tests, and docs.
-- For Apple-platform tasks that proceed to implementation, follow `$apple-ios-dev-flow` routing so native Xcode MCP evidence, HIG, Swift, sample-code evidence, and final repo verification are sequenced consistently. Use an OpenAI Build iOS Apps specialist only when its required tool namespace and exact tools are present in the current inventory.
+- For Apple-platform tasks that proceed to implementation, follow
+  `$apple-ios-dev-flow` routing so Xcode-native evidence, HIG, Swift,
+  sample-code evidence, and final repo verification are sequenced consistently.
+  Use an OpenAI Build iOS Apps specialist only when its required tool namespace
+  and exact tools are present in the current inventory.
 - For Apple-platform repositories, if the implementation shape is still ambiguous after local inspection, consult Apple official documentation, Swift.org documentation, Swift guidelines, and `$apple-sample-code-advisor` for official project-level sample evidence before looking at a sibling reference repository.
-- Resolve verification from `AGENTS.md` first. For Apple repositories, use its native Xcode MCP actions and active scheme/destination restoration contract, then run only the retained format/lint/static/uncovered scripts it names.
+- Resolve verification from `AGENTS.md` first. For Apple repositories, resolve
+  its Xcode-native evidence capabilities from the current tool inventory,
+  follow its active scheme/destination restoration contract, then run only the
+  retained format/lint/static/uncovered scripts it names.
 - If an Apple repository lacks a coherent verification contract, route contract design to `$apple-repo-verify-bootstrapper` rather than making a discovered aggregate shell the primary build/test gate. For non-Apple repositories or deliberately retained shell contracts, fall back to detected `ci_scripts/**/*.sh` paths and prefer `bash ci_scripts/tasks/verify_task_completion.sh`, then `bash ci_scripts/tasks/check_repository_rules.sh`, then `bash ci_scripts/tasks/verify.sh`, then `bash ci_scripts/tasks/verify_repository_state.sh` when verification is required.
 - Read only the newest `.build/ci/runs/<RUN_ID>` when CI run artifacts are part of the current documented verification contract.
-- Ignore stale `.build/ci/runs` directories left behind by older workflows when the current repository contract is MCP-first or otherwise no longer writes run artifacts.
+- Ignore stale `.build/ci/runs` directories left behind by older workflows when
+  the current repository contract is Xcode-native-first or otherwise no longer
+  writes run artifacts.
 - Never scan older runs under `.build/ci/runs/`.
 - Exclude generated directories from recursive scans (`.build`, `build`, `DerivedData`, `.git`, `.swiftpm`, `Pods`, `Carthage`).
 - Respect the repository's ignore rules when discovering build/test entrypoints. Do not treat manifests found only in ignored caches, vendored samples, runtime-owned skill data, or generated trees as entrypoints for the current repository.
@@ -80,7 +89,10 @@ Use this skill when requests indicate autonomous continuation, such as:
 
 7. Run final verification before finishing.
 - Run the repository's documented verification contract before the final response.
-- For Apple repositories, use `$apple-ios-dev-flow` to select the smallest native Xcode MCP evidence set that proves the changed architecture boundary, restore any changed active scheme and destination, and add retained repository-rule scripts only when documented.
+- For Apple repositories, use `$apple-ios-dev-flow` to select the smallest
+  Xcode-native evidence set that proves the changed architecture boundary,
+  restore any changed active scheme and destination, and add retained
+  repository-rule scripts only when documented.
 - For non-Apple repositories or deliberately retained shell contracts, prefer the standard repo-wide verify or check contract indicated by `AGENTS.md`, CI scripts, or root build files over ad-hoc commands.
 - State the exact actions or commands that supplied the evidence.
 - Treat current-change or clearly introduced build/test/lint/warning failures as incomplete work.

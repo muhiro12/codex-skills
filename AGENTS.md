@@ -25,6 +25,10 @@ portable, English, and usable from a fresh clone.
 - Read a selected skill's complete `SKILL.md` before using or changing it.
 - Keep long procedures in skills and repository-wide entrypoints here. Do not
   copy private local context into tracked files.
+- Describe Xcode workflows in maintained skills by stable evidence capability
+  and resolve current tool actions from the runtime inventory. Keep volatile
+  namespace or action spelling in executable adapters, runtime configuration,
+  or generated upstream content rather than public skill contracts.
 - Use English for tracked documentation, metadata, code comments, and
   identifiers unless the artifact itself requires localization.
 - Preserve unrelated user changes and keep commits scoped to one coherent
