@@ -43,6 +43,7 @@ Writing archive records requires explicit capture intent, and ambiguous scope, s
 - If the dry-run reports legacy archive files, run `python3 scripts/migrate_skill_data.py --only context-archives --apply` before writing new captures, unless the volume, scope, or sensitivity requires confirmation.
 - The migration copies only missing targets and never overwrites conflicting files. Resolve conflicts manually before writing into the same scope.
 - If existing archive Markdown files predate `observer_perspective`, `coverage_limitations`, or `use_policies`, run `python3 scripts/backfill_archive_metadata.py` in this skill directory and apply it only after reviewing the planned metadata-only edits.
+- The backfill inspects regular Markdown files only, skips symbolic links, and replaces each accepted file atomically without following links outside the selected archive root.
 - Never mix `private` and `work` in the same physical root.
 - If scope, sensitivity, destination path, or masking policy is ambiguous, ask before writing.
 
@@ -71,6 +72,7 @@ Writing archive records requires explicit capture intent, and ambiguous scope, s
 6. Write without overwriting.
 - Place raw records under `<scope>/raw/YYYY/MM/<id>.md` inside this skill's `archives/` directory.
 - If the path already exists, choose the next sequence number or ask the user.
+- Create archive directories with owner-only access and archive files with owner read/write access (`0700` directories and `0600` files). Use a same-directory temporary file plus atomic replacement for any approved derived-record revision.
 - Treat raw files as immutable-ish: later corrections should become a new raw capture or a derived note rather than an in-place rewrite.
 
 7. Add derived records only when useful.

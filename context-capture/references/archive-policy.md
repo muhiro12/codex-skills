@@ -41,6 +41,8 @@ conflicts.
 
 Do not create a cross-domain root that mixes private and work raw data.
 Ask before moving or copying work material into `shared-safe`.
+Keep skill-owned archive directories owner-only (`0700`) and archive files owner-readable and owner-writable only (`0600`). `shared-safe` describes the content's approved use boundary; it does not make the local filesystem copy world-readable.
+Do not follow symbolic links while discovering, migrating, validating in bulk, or backfilling archive files. Rewrite an approved existing record through a same-directory temporary file and atomic replacement.
 
 ## Evidence Layers
 
@@ -134,6 +136,7 @@ Never silently replace an earlier person-role, count, responsibility, or evaluat
 Existing archive files created before the observer/use-policy fields remain readable.
 Use `python3 scripts/backfill_archive_metadata.py` from the `context-capture` skill directory to dry-run metadata-only additions, then rerun with `--apply` only after reviewing the planned changes.
 The backfill must not rewrite raw bodies, reclassify old derived records, or infer new facts. It may add conservative metadata such as legacy coverage limitations, unknown raw use policy, internal-reference derived use policy, and derived lifecycle fields.
+It must skip symbolic links and non-Markdown files and must replace an accepted regular file atomically.
 
 ## Not in v1
 

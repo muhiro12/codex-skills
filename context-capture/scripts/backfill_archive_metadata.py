@@ -5,8 +5,11 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import os
 import re
+import stat
 import sys
+import tempfile
 from pathlib import Path
 
 
@@ -28,6 +31,9 @@ def local_timestamp() -> str:
 def iter_markdown_files(root: Path) -> list[Path]:
     results: list[Path] = []
     for child in sorted(root.iterdir()):
+        if child.is_symlink():
+            print(f"skipped  {child} (symbolic link)", file=sys.stderr)
+            continue
         if child.is_dir():
             if child.name in GENERATED_DIRECTORIES:
                 continue
@@ -40,14 +46,51 @@ def iter_markdown_files(root: Path) -> list[Path]:
 def find_markdown_files(paths: list[Path]) -> list[Path]:
     files: list[Path] = []
     for path in paths:
-        expanded = path.expanduser()
-        if expanded.is_file():
+        expanded = path.expanduser().absolute()
+        if expanded.is_symlink():
+            print(f"skipped  {expanded} (symbolic link)", file=sys.stderr)
+        elif expanded.is_file() and expanded.suffix == ".md":
             files.append(expanded)
         elif expanded.is_dir():
             files.extend(iter_markdown_files(expanded))
+        elif expanded.is_file():
+            print(f"skipped  {expanded} (not Markdown)", file=sys.stderr)
         else:
             print(f"missing  {expanded}", file=sys.stderr)
     return sorted(dict.fromkeys(files))
+
+
+def atomic_rewrite(path: Path, text: str, expected_stat: os.stat_result) -> None:
+    """Replace a regular file atomically without following a late symlink swap."""
+
+    current_stat = path.lstat()
+    if stat.S_ISLNK(current_stat.st_mode) or not stat.S_ISREG(current_stat.st_mode):
+        raise RuntimeError(f"refusing to replace non-regular file: {path}")
+    if (current_stat.st_dev, current_stat.st_ino) != (expected_stat.st_dev, expected_stat.st_ino):
+        raise RuntimeError(f"file changed while backfill was running: {path}")
+
+    temporary_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            newline="",
+            dir=path.parent,
+            prefix=f".{path.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as temporary:
+            temporary.write(text)
+            temporary.flush()
+            os.fsync(temporary.fileno())
+            temporary_path = Path(temporary.name)
+
+        os.chmod(temporary_path, stat.S_IMODE(expected_stat.st_mode))
+        os.replace(temporary_path, path)
+        temporary_path = None
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
 
 
 def split_frontmatter(text: str) -> tuple[str, str] | None:
@@ -169,7 +212,13 @@ def main() -> int:
     skipped = 0
     now = local_timestamp()
     for path in files:
-        text = path.read_text(encoding="utf-8")
+        initial_stat = path.lstat()
+        if stat.S_ISLNK(initial_stat.st_mode) or not stat.S_ISREG(initial_stat.st_mode):
+            print(f"skipped  {path} (not a regular file)", file=sys.stderr)
+            skipped += 1
+            continue
+        with path.open("r", encoding="utf-8", newline="") as source:
+            text = source.read()
         updated, additions = backfill_text(text, now)
         if not additions:
             skipped += 1
@@ -178,7 +227,7 @@ def main() -> int:
         changed += 1
         keys = ", ".join(line.split(":", 1)[0] for line in additions)
         if args.apply:
-            path.write_text(updated, encoding="utf-8")
+            atomic_rewrite(path, updated, initial_stat)
             print(f"updated  {path} ({keys})")
         else:
             print(f"would-update {path} ({keys})")
