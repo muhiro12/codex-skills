@@ -45,6 +45,13 @@ Use `scripts/sample_cache.py` for cache operations:
 
 Each cached sample lives under `samples/<slug>/source` with metadata recorded in both the cache manifest and `samples/<slug>/metadata.json`.
 
+Cache mutations follow these safety rules:
+
+- Treat local paths as caller-owned input and never delete them. Remove only temporary downloads created by the cache script.
+- Validate and fully stage source before replacement. Reject unsafe ZIP members, keep the previous entry until staging succeeds, and roll it back if the manifest update fails.
+- Write manifest and per-sample metadata atomically, and serialize mutating operations with the cache lock.
+- Fail closed when `fetched_at` is missing or invalid. `prune --apply` must not delete any entry in that state and must verify each requested removal.
+
 Before fetching or replacing a cached sample, state the sample title, Apple documentation URL, source/download URL, cache path, and whether this is a refresh. A task may proceed with an on-demand fetch when the sample is clearly needed, but do not silently fetch large archives or replace cached source.
 
 ## Required References
