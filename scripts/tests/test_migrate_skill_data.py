@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import os
 import stat
 import sys
@@ -120,6 +121,80 @@ class MigrateSkillDataTests(unittest.TestCase):
             self.assertEqual(stat.S_IMODE(directory.stat().st_mode), 0o700)
             self.assertEqual(stat.S_IMODE(file_path.stat().st_mode), 0o600)
             self.assertEqual(stat.S_IMODE(outside.stat().st_mode), 0o644)
+
+    def test_apple_cache_migration_rebases_manifest_and_metadata_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            base = Path(temporary_directory)
+            skills_root = base / "skills"
+            home = base / "home"
+            source_root = home / ".codex/cache/apple-sample-code"
+            source_sample = source_root / "samples/example-sample"
+            source_sample.mkdir(parents=True)
+            legacy_path = str(source_sample)
+            metadata = {
+                "slug": "example-sample",
+                "cache_path": legacy_path,
+            }
+            (source_root / "manifest.json").write_text(
+                json.dumps(
+                    {
+                        "version": 1,
+                        "samples": {"example-sample": metadata},
+                    }
+                ),
+                encoding="utf-8",
+            )
+            (source_sample / "metadata.json").write_text(
+                json.dumps(metadata),
+                encoding="utf-8",
+            )
+
+            dry_run = MODULE.MigrationStats()
+            MODULE.migrate_apple_cache(
+                skills_root,
+                home,
+                apply=False,
+                stats=dry_run,
+            )
+            self.assertEqual(dry_run.metadata_would_rebase, 2)
+            self.assertFalse(
+                (skills_root / "apple-sample-code-advisor/cache/manifest.json").exists()
+            )
+
+            applied = MODULE.MigrationStats()
+            MODULE.migrate_apple_cache(
+                skills_root,
+                home,
+                apply=True,
+                stats=applied,
+            )
+
+            target_root = skills_root / "apple-sample-code-advisor/cache"
+            desired_path = str((target_root / "samples/example-sample").resolve())
+            target_manifest = json.loads(
+                (target_root / "manifest.json").read_text(encoding="utf-8")
+            )
+            target_metadata = json.loads(
+                (target_root / "samples/example-sample/metadata.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertEqual(applied.metadata_rebased, 2)
+            self.assertEqual(
+                target_manifest["samples"]["example-sample"]["cache_path"],
+                desired_path,
+            )
+            self.assertEqual(target_metadata["cache_path"], desired_path)
+
+            second_run = MODULE.MigrationStats()
+            MODULE.migrate_apple_cache(
+                skills_root,
+                home,
+                apply=True,
+                stats=second_run,
+            )
+            self.assertEqual(second_run.metadata_rebased, 0)
+            self.assertEqual(second_run.conflicts, 0)
 
 
 if __name__ == "__main__":

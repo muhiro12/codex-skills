@@ -4,8 +4,11 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import filecmp
+import json
 import os
+import re
 import stat
 import shutil
 import tempfile
@@ -15,6 +18,7 @@ from pathlib import Path
 
 
 GROUPS = ("principles", "context-archives", "apple-sample-cache")
+SAFE_CACHE_SLUG_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 INITIAL_DATA_LAYOUT_VERSION = 1
 CURRENT_DATA_LAYOUT_VERSION = 2
 
@@ -30,6 +34,8 @@ class MigrationStats:
     skipped_links: int = 0
     permissions_changed: int = 0
     permissions_would_change: int = 0
+    metadata_rebased: int = 0
+    metadata_would_rebase: int = 0
 
 
 @dataclass(frozen=True)
@@ -100,6 +106,154 @@ def atomic_copy(source: Path, target: Path) -> None:
     finally:
         if temporary_path is not None:
             temporary_path.unlink(missing_ok=True)
+
+
+def load_json_object(path: Path) -> dict:
+    if path.is_symlink() or not path.is_file():
+        raise ValueError(f"expected a regular JSON file: {path}")
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError(f"expected a JSON object: {path}")
+    return data
+
+
+def write_json_updates_atomically(updates: dict[Path, dict]) -> None:
+    staged: dict[Path, Path] = {}
+    backups: dict[Path, Path] = {}
+    replaced: list[Path] = []
+    try:
+        for path, payload in sorted(updates.items()):
+            file_stat = path.lstat()
+            if stat.S_ISLNK(file_stat.st_mode) or not stat.S_ISREG(file_stat.st_mode):
+                raise ValueError(f"refusing to replace non-regular JSON file: {path}")
+            mode = stat.S_IMODE(file_stat.st_mode)
+
+            stage_descriptor, stage_name = tempfile.mkstemp(
+                dir=path.parent,
+                prefix=f".{path.name}.stage-",
+                suffix=".tmp",
+            )
+            staged[path] = Path(stage_name)
+            with os.fdopen(stage_descriptor, "w", encoding="utf-8") as stage_file:
+                json.dump(payload, stage_file, indent=2, sort_keys=True)
+                stage_file.write("\n")
+                stage_file.flush()
+                os.fsync(stage_file.fileno())
+            os.chmod(staged[path], mode)
+
+            backup_descriptor, backup_name = tempfile.mkstemp(
+                dir=path.parent,
+                prefix=f".{path.name}.backup-",
+                suffix=".tmp",
+            )
+            backups[path] = Path(backup_name)
+            with path.open("rb") as source_file, os.fdopen(backup_descriptor, "wb") as backup_file:
+                shutil.copyfileobj(source_file, backup_file)
+                backup_file.flush()
+                os.fsync(backup_file.fileno())
+            os.chmod(backups[path], mode)
+
+        for path in sorted(updates):
+            os.replace(staged[path], path)
+            replaced.append(path)
+    except BaseException as error:
+        rollback_errors: list[str] = []
+        for path in reversed(replaced):
+            backup = backups.get(path)
+            if backup is None or not backup.exists():
+                rollback_errors.append(f"missing backup for {path}")
+                continue
+            try:
+                os.replace(backup, path)
+            except OSError as rollback_error:
+                rollback_errors.append(f"restore {path}: {rollback_error}")
+        if rollback_errors:
+            raise RuntimeError(
+                "JSON update failed and rollback was incomplete: "
+                f"{error}; {'; '.join(rollback_errors)}"
+            ) from error
+        raise
+    finally:
+        for temporary_path in [*staged.values(), *backups.values()]:
+            temporary_path.unlink(missing_ok=True)
+
+
+def rebase_apple_cache_metadata(
+    source_root: Path,
+    target_root: Path,
+    *,
+    apply: bool,
+    stats: MigrationStats,
+) -> None:
+    inspection_root = target_root if target_root.is_dir() else source_root
+    manifest_path = inspection_root / "manifest.json"
+    if not manifest_path.exists():
+        return
+
+    try:
+        manifest = load_json_object(manifest_path)
+        samples = manifest.get("samples")
+        if not isinstance(samples, dict):
+            raise ValueError(f"manifest samples must be a JSON object: {manifest_path}")
+    except (OSError, ValueError, json.JSONDecodeError) as error:
+        stats.conflicts += 1
+        print(f"conflict cannot rebase Apple sample metadata: {error}")
+        return
+
+    updated_manifest = copy.deepcopy(manifest)
+    updates: dict[Path, dict] = {}
+    changed_paths: list[Path] = []
+    for slug, metadata in samples.items():
+        if not isinstance(slug, str) or not SAFE_CACHE_SLUG_PATTERN.fullmatch(slug):
+            stats.conflicts += 1
+            print(f"conflict unsafe Apple sample slug in manifest: {slug!r}")
+            return
+        if not isinstance(metadata, dict):
+            stats.conflicts += 1
+            print(f"conflict invalid Apple sample metadata for: {slug}")
+            return
+
+        desired_cache_path = str((target_root / "samples" / slug).resolve())
+        if metadata.get("cache_path") != desired_cache_path:
+            updated_manifest["samples"][slug]["cache_path"] = desired_cache_path
+            changed_paths.append(target_root / "manifest.json")
+
+        inspection_metadata_path = inspection_root / "samples" / slug / "metadata.json"
+        target_metadata_path = target_root / "samples" / slug / "metadata.json"
+        if not inspection_metadata_path.exists():
+            continue
+        try:
+            sample_metadata = load_json_object(inspection_metadata_path)
+        except (OSError, ValueError, json.JSONDecodeError) as error:
+            stats.conflicts += 1
+            print(f"conflict cannot rebase sample metadata: {error}")
+            return
+        if sample_metadata.get("cache_path") != desired_cache_path:
+            updated_metadata = copy.deepcopy(sample_metadata)
+            updated_metadata["cache_path"] = desired_cache_path
+            updates[target_metadata_path] = updated_metadata
+            changed_paths.append(target_metadata_path)
+
+    if updated_manifest != manifest:
+        updates[target_root / "manifest.json"] = updated_manifest
+
+    unique_changed_paths = sorted(set(changed_paths))
+    if not unique_changed_paths:
+        return
+    if apply:
+        try:
+            write_json_updates_atomically(updates)
+        except (OSError, RuntimeError, ValueError) as error:
+            stats.conflicts += 1
+            print(f"conflict failed to rebase Apple sample metadata: {error}")
+            return
+        stats.metadata_rebased += len(unique_changed_paths)
+        for path in unique_changed_paths:
+            print(f"rebased  {path}")
+    else:
+        stats.metadata_would_rebase += len(unique_changed_paths)
+        for path in unique_changed_paths:
+            print(f"rebase   {path}")
 
 
 def has_symbolic_link_component(path: Path, boundary: Path) -> bool:
@@ -289,10 +443,108 @@ def migrate_context_archives(
         )
 
 
+def normalized_apple_cache_json(
+    path: Path,
+    relative_path: Path,
+    target_root: Path,
+) -> dict:
+    data = load_json_object(path)
+    if relative_path == Path("manifest.json"):
+        samples = data.get("samples")
+        if not isinstance(samples, dict):
+            raise ValueError(f"manifest samples must be a JSON object: {path}")
+        for slug, metadata in samples.items():
+            if not isinstance(slug, str) or not SAFE_CACHE_SLUG_PATTERN.fullmatch(slug):
+                raise ValueError(f"unsafe Apple sample slug in {path}: {slug!r}")
+            if not isinstance(metadata, dict):
+                raise ValueError(f"invalid Apple sample metadata in {path}: {slug!r}")
+            metadata["cache_path"] = str((target_root / "samples" / slug).resolve())
+        return data
+
+    slug = data.get("slug")
+    if not isinstance(slug, str) or not SAFE_CACHE_SLUG_PATTERN.fullmatch(slug):
+        raise ValueError(f"unsafe Apple sample slug in {path}: {slug!r}")
+    data["cache_path"] = str((target_root / "samples" / slug).resolve())
+    return data
+
+
+def migrate_apple_cache_tree(
+    source_root: Path,
+    target_root: Path,
+    *,
+    apply: bool,
+    stats: MigrationStats,
+) -> None:
+    if source_root.is_symlink():
+        stats.skipped_links += 1
+        print(f"skip     symbolic link source: {source_root}")
+        return
+    if not source_root.exists():
+        stats.missing_sources += 1
+        print(f"missing  {source_root}")
+        return
+    if not source_root.is_dir():
+        stats.conflicts += 1
+        print(f"skip     unsupported source type: {source_root}")
+        return
+
+    for source_path in list_files(source_root):
+        relative_path = source_path.relative_to(source_root)
+        target_path = target_root / relative_path
+        is_cache_json = relative_path == Path("manifest.json") or (
+            len(relative_path.parts) == 3
+            and relative_path.parts[0] == "samples"
+            and relative_path.parts[2] == "metadata.json"
+        )
+        if not is_cache_json or not os.path.lexists(target_path):
+            copy_file(
+                source_path,
+                target_path,
+                apply=apply,
+                stats=stats,
+                target_boundary=target_root,
+            )
+            continue
+
+        if target_path.is_symlink() or not target_path.is_file():
+            stats.conflicts += 1
+            print(f"conflict {source_path} -> {target_path}")
+            continue
+        try:
+            normalized_source = normalized_apple_cache_json(
+                source_path,
+                relative_path,
+                target_root,
+            )
+            normalized_target = normalized_apple_cache_json(
+                target_path,
+                relative_path,
+                target_root,
+            )
+        except (OSError, ValueError, json.JSONDecodeError) as error:
+            stats.conflicts += 1
+            print(f"conflict cannot compare Apple sample metadata: {error}")
+            continue
+        if normalized_source == normalized_target:
+            stats.same += 1
+            print(f"same     {source_path} -> {target_path}")
+        else:
+            stats.conflicts += 1
+            print(f"conflict {source_path} -> {target_path}")
+
+
 def migrate_apple_cache(skills_root: Path, home: Path, *, apply: bool, stats: MigrationStats) -> None:
-    migrate_tree(
-        home / ".codex" / "cache" / "apple-sample-code",
-        skills_root / "apple-sample-code-advisor" / "cache",
+    source_root = home / ".codex" / "cache" / "apple-sample-code"
+    target_root = skills_root / "apple-sample-code-advisor" / "cache"
+    migrate_apple_cache_tree(
+        source_root,
+        target_root,
+        apply=apply,
+        stats=stats,
+    )
+    rebase_apple_cache_metadata(
+        source_root,
+        target_root,
         apply=apply,
         stats=stats,
     )
@@ -456,6 +708,8 @@ def main(argv: list[str] | None = None) -> int:
         f"skipped_links={stats.skipped_links} "
         f"permissions_changed={stats.permissions_changed} "
         f"permissions_would_change={stats.permissions_would_change} "
+        f"metadata_rebased={stats.metadata_rebased} "
+        f"metadata_would_rebase={stats.metadata_would_rebase} "
         f"bytes_to_copy={human_size(stats.bytes_to_copy)}"
     )
     if stats.conflicts:
