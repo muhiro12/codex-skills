@@ -6,6 +6,9 @@ from __future__ import annotations
 import argparse
 import copy
 import json
+import os
+import stat
+import tempfile
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
@@ -155,11 +158,33 @@ def should_skip_path(path: Path) -> bool:
     return any(part in EXCLUDED_DIRS for part in path.parts)
 
 
+def has_symbolic_link_component(path: Path, boundary: Path) -> bool:
+    try:
+        relative = path.relative_to(boundary)
+    except ValueError:
+        return True
+
+    current = boundary
+    for component in relative.parts:
+        current /= component
+        if current.is_symlink():
+            return True
+    return False
+
+
 def resolve_catalog_path(project_root: Path, raw_path: str) -> Path:
     path = Path(raw_path)
     if not path.is_absolute():
-        path = (project_root / path).resolve()
-    return path.resolve()
+        path = project_root / path
+    path = path.expanduser().absolute()
+    if not path.is_relative_to(project_root):
+        raise ValueError(f"Path is outside the project root: {path}")
+    if has_symbolic_link_component(path, project_root):
+        raise ValueError(f"Path contains a symbolic link: {path}")
+    resolved = path.resolve()
+    if not resolved.is_relative_to(project_root):
+        raise ValueError(f"Resolved path is outside the project root: {path} -> {resolved}")
+    return resolved
 
 
 def render_report_path(project_root: Path, path: Path) -> str:
@@ -180,11 +205,19 @@ def discover_catalogs(project_root: Path, raw_catalogs: list[str]) -> list[Path]
         catalogs = [
             path.resolve()
             for path in project_root.rglob("*.xcstrings")
-            if path.is_file() and not should_skip_path(path)
+            if (
+                not path.is_symlink()
+                and path.is_file()
+                and not has_symbolic_link_component(path, project_root)
+                and not should_skip_path(path)
+            )
         ]
     catalogs = sorted(dict.fromkeys(catalogs))
     if not catalogs:
         raise ValueError(f"No xcstrings files found under {project_root}")
+    for catalog in catalogs:
+        if catalog.suffix != ".xcstrings" or catalog.is_symlink() or not catalog.is_file():
+            raise ValueError(f"Catalog must be a regular .xcstrings file: {catalog}")
     return catalogs
 
 
@@ -431,7 +464,9 @@ def collect_source_files(
 
         for path in candidates:
             if (
-                path.is_file()
+                not path.is_symlink()
+                and path.is_file()
+                and not has_symbolic_link_component(path, project_root)
                 and path.suffix in SOURCE_SUFFIXES
                 and not should_skip_path(path)
                 and path.suffix != ".xcstrings"
@@ -787,7 +822,11 @@ def group_translation_patches(
         if raw_catalog is None and len(catalogs) == 1:
             catalog_path = catalogs[0]
         elif isinstance(raw_catalog, str):
-            catalog_path = resolve_catalog_path(project_root, raw_catalog)
+            try:
+                catalog_path = resolve_catalog_path(project_root, raw_catalog)
+            except ValueError as error:
+                errors.append(f"patch[{index}] invalid catalog path: {error}")
+                continue
         else:
             errors.append(f"patch[{index}] missing catalog")
             continue
@@ -947,7 +986,7 @@ def apply_translation_patches(
     }
 
 
-def write_catalog(path: Path, catalog: dict[str, Any]) -> None:
+def serialize_catalog(path: Path, catalog: dict[str, Any]) -> str:
     formatting = detect_json_formatting(read_raw_text(path))
     serialized = json.dumps(
         catalog,
@@ -958,8 +997,111 @@ def write_catalog(path: Path, catalog: dict[str, Any]) -> None:
         serialized = serialized.replace("\n", formatting.newline)
     if formatting.trailing_newline:
         serialized += formatting.newline
-    with path.open("w", encoding="utf-8", newline="") as file:
-        file.write(serialized)
+    return serialized
+
+
+def write_temporary_file(path: Path, content: bytes, mode: int, label: str) -> Path:
+    descriptor, temporary_name = tempfile.mkstemp(
+        dir=path.parent,
+        prefix=f".{path.name}.{label}-",
+        suffix=".tmp",
+    )
+    temporary_path = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "wb") as file:
+            descriptor = -1
+            file.write(content)
+            file.flush()
+            os.fsync(file.fileno())
+        os.chmod(temporary_path, mode)
+        return temporary_path
+    except BaseException:
+        if descriptor >= 0:
+            os.close(descriptor)
+        temporary_path.unlink(missing_ok=True)
+        raise
+
+
+def file_identity(file_stat: os.stat_result) -> tuple[int, int, int, int, int]:
+    return (
+        file_stat.st_dev,
+        file_stat.st_ino,
+        file_stat.st_size,
+        file_stat.st_mtime_ns,
+        file_stat.st_ctime_ns,
+    )
+
+
+def write_catalogs_atomically(
+    catalogs: dict[Path, dict[str, Any]],
+    expected_snapshots: dict[Path, os.stat_result] | None = None,
+) -> None:
+    """Replace every changed catalog or restore the complete original set."""
+
+    snapshots: dict[Path, os.stat_result] = {}
+    staged: dict[Path, Path] = {}
+    backups: dict[Path, Path] = {}
+    replaced: list[Path] = []
+    rollback_errors: list[str] = []
+
+    try:
+        for path, catalog in sorted(catalogs.items()):
+            file_stat = path.lstat()
+            if stat.S_ISLNK(file_stat.st_mode) or not stat.S_ISREG(file_stat.st_mode):
+                raise ValueError(f"Refusing to replace non-regular catalog: {path}")
+            expected_snapshot = (expected_snapshots or {}).get(path)
+            if expected_snapshot is not None and file_identity(file_stat) != file_identity(expected_snapshot):
+                raise ValueError(f"Catalog changed after it was loaded: {path}")
+            snapshots[path] = file_stat
+            mode = stat.S_IMODE(file_stat.st_mode)
+            staged[path] = write_temporary_file(
+                path,
+                serialize_catalog(path, catalog).encode("utf-8"),
+                mode,
+                "staged",
+            )
+            backups[path] = write_temporary_file(
+                path,
+                path.read_bytes(),
+                mode,
+                "backup",
+            )
+
+        for path, snapshot in snapshots.items():
+            current = path.lstat()
+            if stat.S_ISLNK(current.st_mode) or not stat.S_ISREG(current.st_mode):
+                raise ValueError(f"Catalog changed type before replacement: {path}")
+            expected_identity = file_identity(snapshot)
+            current_identity = file_identity(current)
+            if current_identity != expected_identity:
+                raise ValueError(f"Catalog changed while the audit was running: {path}")
+
+        for path in sorted(catalogs):
+            os.replace(staged[path], path)
+            replaced.append(path)
+    except BaseException as error:
+        for path in reversed(replaced):
+            backup = backups.get(path)
+            if backup is None or not backup.exists():
+                rollback_errors.append(f"missing backup for {path}")
+                continue
+            try:
+                os.replace(backup, path)
+            except OSError as rollback_error:
+                rollback_errors.append(f"restore {path}: {rollback_error}")
+        if rollback_errors:
+            details = "; ".join(rollback_errors)
+            raise RuntimeError(
+                f"Catalog transaction failed and rollback was incomplete: {error}; {details}"
+            ) from error
+        raise
+    finally:
+        for temporary_path in [*staged.values(), *backups.values()]:
+            temporary_path.unlink(missing_ok=True)
+
+
+def write_catalog(path: Path, catalog: dict[str, Any]) -> None:
+    write_catalogs_atomically({path: catalog})
 
 
 def audit_catalog(
@@ -1156,9 +1298,6 @@ def audit_catalog(
         (seeded_entries or pruned_keys or normalized_stale_keys) and apply_changes
     )
     translation_mutated = bool(translation_patch_result["applied_entries"])
-    mutated = catalog_mutated or translation_mutated
-    if mutated and not translation_patch_result["errors"] and (apply_changes or translation_mutated):
-        write_catalog(path, catalog)
 
     return {
         "path": catalog_report_path,
@@ -1201,10 +1340,10 @@ def format_markdown(report: dict[str, Any]) -> str:
     ]
     if report["planned_changes"] and not report["apply"] and not report.get("apply_translations"):
         lines.append("- Mutations are a dry run because `--apply` was not set.")
-    if report["apply"]:
-        lines.append("- Catalog maintenance mutations were written in place.")
-    if report.get("apply_translations"):
-        lines.append("- Translation patch mutations were written in place when validation passed.")
+    if report.get("writes_committed"):
+        lines.append("- All validated catalog mutations were committed atomically.")
+    elif report["planned_changes"] and (report["apply"] or report.get("apply_translations")):
+        lines.append("- No catalog mutation was written because validation did not complete successfully.")
     if report.get("translation_patch_errors"):
         lines.append("- Translation patch grouping errors:")
         for error in report["translation_patch_errors"]:
@@ -1324,7 +1463,10 @@ def format_markdown(report: dict[str, Any]) -> str:
 
 def main() -> int:
     arguments = parse_arguments()
-    project_root = Path(arguments.project_root).resolve()
+    project_root = Path(arguments.project_root).expanduser().resolve()
+    if not project_root.is_dir():
+        print(f"Project root is not a directory: {project_root}", file=sys.stderr)
+        return 1
     required_locales_override = parse_required_locales(arguments.required_locales)
     try:
         source_roots = resolve_source_roots(project_root, arguments.source_root)
@@ -1339,10 +1481,16 @@ def main() -> int:
         return 1
 
     catalog_data: dict[Path, dict[str, Any]] = {}
+    catalog_snapshots: dict[Path, os.stat_result] = {}
     for catalog_path in catalogs:
         try:
+            before_load = catalog_path.lstat()
             catalog_data[catalog_path] = load_catalog(catalog_path)
-        except ValueError as error:
+            after_load = catalog_path.lstat()
+            if file_identity(before_load) != file_identity(after_load):
+                raise ValueError(f"Catalog changed while it was being loaded: {catalog_path}")
+            catalog_snapshots[catalog_path] = after_load
+        except (OSError, ValueError) as error:
             print(str(error), file=sys.stderr)
             return 1
 
@@ -1367,6 +1515,7 @@ def main() -> int:
         source_roots=source_roots,
     )
 
+    mutation_allowed = not translation_patch_errors
     catalog_reports = [
         audit_catalog(
             project_root=project_root,
@@ -1379,14 +1528,51 @@ def main() -> int:
             prune_stale_unused=arguments.prune_stale_unused,
             normalize_stale_referenced=arguments.normalize_stale_referenced,
             seed_missing_locales=arguments.seed_missing_locales,
-            apply_changes=arguments.apply,
+            apply_changes=arguments.apply and mutation_allowed,
             translation_patches=grouped_translation_patches[catalog_path],
-            apply_translations=arguments.apply_translations,
+            apply_translations=arguments.apply_translations and mutation_allowed,
             source_roots=source_roots,
             raw_stale_marker_count=len(STALE_MARKER_PATTERN.findall(read_raw_text(catalog_path))),
         )
         for catalog_path in catalogs
     ]
+
+    has_translation_errors = bool(translation_patch_errors) or any(
+        catalog_report["translation_patch"]["errors"]
+        for catalog_report in catalog_reports
+    )
+    if has_translation_errors:
+        for catalog_report in catalog_reports:
+            translation_patch = catalog_report["translation_patch"]
+            if translation_patch["applied_entries"]:
+                translation_patch["applied_entries"] = []
+                translation_patch["applied"] = False
+                translation_patch["dry_run_changes"] = bool(
+                    translation_patch["validated_entries"]
+                )
+            if catalog_report["applied"]:
+                catalog_report["applied"] = False
+                catalog_report["dry_run_changes"] = True
+
+    writes_committed = False
+    changed_catalogs = {
+        catalog_path: catalog_data[catalog_path]
+        for catalog_path, catalog_report in zip(catalogs, catalog_reports)
+        if catalog_report["applied"]
+    }
+    if changed_catalogs and not has_translation_errors:
+        try:
+            write_catalogs_atomically(
+                changed_catalogs,
+                expected_snapshots={
+                    path: catalog_snapshots[path]
+                    for path in changed_catalogs
+                },
+            )
+        except (OSError, RuntimeError, ValueError) as error:
+            print(f"Failed to commit catalog transaction: {error}", file=sys.stderr)
+            return 1
+        writes_committed = True
 
     report = {
         "project_root": str(project_root),
@@ -1397,6 +1583,7 @@ def main() -> int:
         "apply": arguments.apply,
         "apply_translations": arguments.apply_translations,
         "translation_patch_errors": translation_patch_errors,
+        "writes_committed": writes_committed,
         "planned_changes": any(
             catalog_report["seeded_entries"]
             or catalog_report["pruned_keys"]
@@ -1412,10 +1599,6 @@ def main() -> int:
     else:
         print(format_markdown(report), end="")
 
-    has_translation_errors = bool(translation_patch_errors) or any(
-        catalog_report["translation_patch"]["errors"]
-        for catalog_report in catalog_reports
-    )
     return 1 if has_translation_errors else 0
 
 

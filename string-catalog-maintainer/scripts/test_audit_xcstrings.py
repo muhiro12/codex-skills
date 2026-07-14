@@ -3,15 +3,24 @@
 
 from __future__ import annotations
 
+import importlib.util
 import json
+import os
+import stat
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 SCRIPT = Path(__file__).with_name("audit_xcstrings.py")
+SPEC = importlib.util.spec_from_file_location("audit_xcstrings_for_tests", SCRIPT)
+assert SPEC is not None and SPEC.loader is not None
+MODULE = importlib.util.module_from_spec(SPEC)
+sys.modules[SPEC.name] = MODULE
+SPEC.loader.exec_module(MODULE)
 
 
 def string_unit(value: str, state: str = "translated") -> dict:
@@ -212,6 +221,173 @@ class AuditXCStringsTests(unittest.TestCase):
             self.assertTrue(rewritten.endswith(b"\r\n"))
             self.assertIn(b'\r\n\t"sourceLanguage"', rewritten)
             self.assertNotIn(b"\n", rewritten.replace(b"\r\n", b""))
+
+    def test_apply_atomically_replaces_catalog_and_preserves_mode(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            catalog_path = root / "Resources/Localizable.xcstrings"
+            patch_path = root / "patch.json"
+            write_json(
+                catalog_path,
+                {
+                    "sourceLanguage": "en",
+                    "strings": {
+                        "Hello": {
+                            "localizations": {
+                                "en": string_unit("Hello"),
+                                "ja": string_unit("Hello", state="new"),
+                            }
+                        }
+                    },
+                },
+            )
+            catalog_path.chmod(0o640)
+            original_inode = catalog_path.stat().st_ino
+            write_json(
+                patch_path,
+                {
+                    "translations": [
+                        {
+                            "catalog": "Resources/Localizable.xcstrings",
+                            "key": "Hello",
+                            "locale": "ja",
+                            "path": ["stringUnit"],
+                            "value": "Konnichiwa",
+                        }
+                    ]
+                },
+            )
+
+            report = json.loads(
+                self.run_audit(
+                    root,
+                    "--translation-patch",
+                    str(patch_path),
+                    "--apply-translations",
+                ).stdout
+            )
+
+            self.assertTrue(report["writes_committed"])
+            self.assertNotEqual(catalog_path.stat().st_ino, original_inode)
+            self.assertEqual(stat.S_IMODE(catalog_path.stat().st_mode), 0o640)
+            self.assertEqual(list(catalog_path.parent.glob(".Localizable.xcstrings.*.tmp")), [])
+
+    def test_multi_catalog_validation_error_writes_nothing(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            first = root / "A.xcstrings"
+            second = root / "B.xcstrings"
+            patch_path = root / "patch.json"
+            write_json(
+                first,
+                {
+                    "sourceLanguage": "en",
+                    "strings": {
+                        "Hello": {
+                            "localizations": {
+                                "en": string_unit("Hello"),
+                                "ja": string_unit("Hello", state="new"),
+                            }
+                        }
+                    },
+                },
+            )
+            write_json(
+                second,
+                {
+                    "sourceLanguage": "en",
+                    "strings": {
+                        "%lld marks": {
+                            "localizations": {
+                                "en": string_unit("%lld marks"),
+                                "ja": string_unit("%lld marks", state="new"),
+                            }
+                        }
+                    },
+                },
+            )
+            first_before = first.read_bytes()
+            second_before = second.read_bytes()
+            write_json(
+                patch_path,
+                {
+                    "translations": [
+                        {
+                            "catalog": "A.xcstrings",
+                            "key": "Hello",
+                            "locale": "ja",
+                            "path": ["stringUnit"],
+                            "value": "Konnichiwa",
+                        },
+                        {
+                            "catalog": "B.xcstrings",
+                            "key": "%lld marks",
+                            "locale": "ja",
+                            "path": ["stringUnit"],
+                            "value": "marks",
+                        },
+                    ]
+                },
+            )
+
+            result = self.run_audit(
+                root,
+                "--translation-patch",
+                str(patch_path),
+                "--apply-translations",
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 1)
+            report = json.loads(result.stdout)
+            self.assertFalse(report["writes_committed"])
+            self.assertEqual(first.read_bytes(), first_before)
+            self.assertEqual(second.read_bytes(), second_before)
+
+    def test_discovery_does_not_follow_catalog_symlink(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            base = Path(temporary_directory)
+            root = base / "project"
+            root.mkdir()
+            outside = base / "outside.xcstrings"
+            write_json(outside, {"sourceLanguage": "en", "strings": {}})
+            (root / "linked.xcstrings").symlink_to(outside)
+
+            result = self.run_audit(root, check=False)
+
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("No xcstrings files found", result.stderr)
+
+    def test_transaction_failure_restores_all_catalogs(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            first = root / "A.xcstrings"
+            second = root / "B.xcstrings"
+            write_json(first, {"sourceLanguage": "en", "strings": {"A": {}}})
+            write_json(second, {"sourceLanguage": "en", "strings": {"B": {}}})
+            first_before = first.read_bytes()
+            second_before = second.read_bytes()
+            original_replace = os.replace
+
+            def fail_second_staged_replace(source: os.PathLike[str], target: os.PathLike[str]) -> None:
+                source_path = Path(source)
+                target_path = Path(target)
+                if target_path == second and ".staged-" in source_path.name:
+                    raise OSError("injected second catalog failure")
+                original_replace(source, target)
+
+            with mock.patch.object(MODULE.os, "replace", side_effect=fail_second_staged_replace):
+                with self.assertRaisesRegex(OSError, "injected second catalog failure"):
+                    MODULE.write_catalogs_atomically(
+                        {
+                            first: {"sourceLanguage": "en", "strings": {"A2": {}}},
+                            second: {"sourceLanguage": "en", "strings": {"B2": {}}},
+                        }
+                    )
+
+            self.assertEqual(first.read_bytes(), first_before)
+            self.assertEqual(second.read_bytes(), second_before)
+            self.assertEqual(list(root.glob(".*.tmp")), [])
 
     def test_rejects_placeholder_mismatch(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:

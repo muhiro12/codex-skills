@@ -75,6 +75,8 @@ Use this skill when the user asks to:
 ## Safety / Guardrails
 
 - Keep diffs minimal; do not rewrite unrelated tables.
+- Keep selected catalogs and source roots inside the resolved project root. Reject symbolic links in selected or discovered paths instead of following them outside the repository.
+- Validate every selected catalog and every translation patch before committing any file. Stage all changed catalogs first and treat a multi-catalog update as one transaction: either every catalog is atomically replaced or the original set is restored.
 - Preserve existing JSON whitespace conventions when rewriting catalogs, including indentation style, line ending style, and whether the file ends with a trailing newline.
 - Preserve placeholders, plural structure, punctuation, and `shouldTranslate: false` semantics.
 - Preserve proper nouns and established feature names unless an official localized name is known or the user explicitly asks for a translation.
