@@ -385,25 +385,24 @@ else
 fi
 
 section "Potential Build/Test Entry Points"
-find . \
-  \( -type d \
-    \( -name '.git' -o -name '.build' -o -name 'build' -o -name 'DerivedData' -o -name '.swiftpm' -o -name 'Pods' -o -name 'Carthage' \) \
-    -prune \
-  \) -o \
-  \( -type f \
-    \( -name 'Package.swift' \
-    -o -name '*.xcodeproj' \
-    -o -name '*.xcworkspace' \
-    -o -name 'Makefile' \
-    -o -name 'justfile' \
-    -o -name 'pyproject.toml' \
-    -o -name 'package.json' \
-    -o -name 'Cargo.toml' \
-    -o -name 'go.mod' \
-    -o -name 'build.gradle' \) \
-    -print \
-  \) \
-  | sort
+git ls-files --cached --others --exclude-standard \
+  | awk '
+      /(^|\/)(\.build|build|DerivedData|\.git|\.swiftpm|Pods|Carthage)(\/|$)/ { next }
+      /\.xcodeproj\/project\.pbxproj$/ {
+        sub(/\/project\.pbxproj$/, "")
+        print "./" $0
+        next
+      }
+      /\.xcworkspace\/contents\.xcworkspacedata$/ {
+        sub(/\/contents\.xcworkspacedata$/, "")
+        print "./" $0
+        next
+      }
+      /(^|\/)(Package\.swift|Makefile|justfile|pyproject\.toml|package\.json|Cargo\.toml|go\.mod|build\.gradle)$/ {
+        print "./" $0
+      }
+    ' \
+  | sort -u
 
 section "Verification Entrypoint Candidates"
 print_verification_candidates

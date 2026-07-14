@@ -28,6 +28,7 @@ When a consistency judgment depends on durable cross-repository preferences rath
 - Inspect top-level layout and entry points first.
 - Prioritize files and directories such as `README*`, `AGENTS.md`, `Package.swift`, `pyproject.toml`, `Cargo.toml`, `package.json`, `.xcodeproj`, `.xcworkspace`, `ci_scripts/`, `.github/workflows/`, hook configs such as `.pre-commit-config.yaml`, `verify.sh`, `.build/`, `docs/`, `adr/`, and architecture overviews.
 - Prefer fast inventory commands such as `rg --files`, shallow `find`, and targeted `rg` searches over loading large trees.
+- Respect `.gitignore` and exclude generated, vendored, cached, private-data, and runtime-owned trees from recursive inventory. Never recursively enumerate `.build`; inspect only its shallow convention and, when the current repository contract explicitly uses `.build/ci/runs/<RUN_ID>`, the newest run needed for the current judgment.
 - Use Git metadata when available to confirm tracked structure or recent drift, but keep the audit focused on consistency, not feature review.
 
 4. Evaluate the repository with four consistency lenses.
@@ -69,7 +70,7 @@ When a consistency judgment depends on durable cross-repository preferences rath
 
 ### Workflow
 
-- Inspect `ci_scripts/`, `.github/workflows/`, `verify.sh`, hook configs, `.build/` conventions, and contributor instructions.
+- Inspect `ci_scripts/`, `.github/workflows/`, `verify.sh`, hook configs, shallow `.build/` conventions, and contributor instructions.
 - Flag duplicated verification entry points, stale script names, inconsistent artifact locations, or repository rules documented in `AGENTS.md` that the codebase no longer follows.
 - Flag heavy verification attached to commit-time hooks when the repository already has a better direct-shell or push-time path.
 - Prefer maintainability and predictability concerns over one-off local quirks.

@@ -47,6 +47,7 @@ Use this skill when requests indicate autonomous continuation, such as:
 - Ignore stale `.build/ci/runs` directories left behind by older workflows when the current repository contract is MCP-first or otherwise no longer writes run artifacts.
 - Never scan older runs under `.build/ci/runs/`.
 - Exclude generated directories from recursive scans (`.build`, `build`, `DerivedData`, `.git`, `.swiftpm`, `Pods`, `Carthage`).
+- Respect the repository's ignore rules when discovering build/test entrypoints. Do not treat manifests found only in ignored caches, vendored samples, runtime-owned skill data, or generated trees as entrypoints for the current repository.
 
 3. Evaluate candidates in deterministic order.
 - Apply [references/signal-priority.md](references/signal-priority.md).
