@@ -54,12 +54,16 @@ Apple-platform orchestrator skills should consult this catalog instead of hardco
 - Prefer direct `xcrun mcpbridge run-agent skills export`. The older `xcrun agent skills export` wrapper can fail from Codex's embedded shell by trying to launch Xcode instead of connecting to the running instance.
 - Run `xcrun mcpbridge ...` as a standalone top-level command in Codex. Python subprocesses, `bash -c`, shell chaining, and explicit `MCP_XCODE_PID` can fail to connect to the running Xcode.
 - Xcode-exported frontmatter can contain fields Codex does not need, such as `when_to_use` or `effort`. The script rewrites installed `SKILL.md` frontmatter to `name` and `description`, folding `when_to_use` into the description when present.
+- Exported `name` values and `--name-prefix` must be filesystem-safe slugs. The installer rejects traversal-like values, duplicate installed names (including case-only duplicates), symbolic links in exported trees or install targets, and any resolved install target outside the skills root before changing managed skills.
 - The script writes `agents/openai.yaml` and `.xcode-skill-sync.json` into each installed managed skill.
+- Every exported skill is copied, normalized, and validated in a same-filesystem staging directory under the skills root before any existing managed skill is moved. Existing skills are moved to a transaction backup before staged copies are swapped into place; any staging, swap, prune, or catalog failure rolls the managed set back.
 - The script writes a generated central catalog for surrounding skills to discover the current Xcode-provided skill set without depending on stable external Xcode naming.
+- Stale managed skills are moved into the transaction backup only after all staged installs have swapped successfully. `state/catalog.json` and `state/catalog.md` are prepared together and installed with atomic file replacements; a failure restores both catalogs and the prior managed skill set before backups are removed.
+- The Xcode version is captured once at the start of a run and reused for every managed marker and both catalog representations so one sync cannot report mixed toolchain versions.
 - When copying exported skill directories, the script ignores generated or local-only directories and files such as `.build`, `build`, `DerivedData`, `.git`, `.swiftpm`, `Pods`, `Carthage`, `.DS_Store`, and `__pycache__`.
 - A successful export is treated as the desired Xcode-provided skill set. Managed `xcode-skill-*` directories that are absent from the current export are pruned so Xcode-side deletions and renames are reflected locally.
 - If the export returns no skills, the script exits with an error instead of pruning installed skills.
-- Any unmanaged `xcode-skill-*` directory causes an error before install or prune begins. This keeps the reserved namespace easy to reason about: every `xcode-skill-*` directory is either managed by `sync-xcode-skills` or must be resolved manually before syncing.
+- Any unmanaged `xcode-skill-*` path, including a directory with a missing, malformed, non-object, symlinked, or identity-mismatched marker, causes an error before install or prune begins. This keeps the reserved namespace easy to reason about: every `xcode-skill-*` directory is either managed by `sync-xcode-skills` or must be resolved manually before syncing.
 
 ## Useful Options
 
