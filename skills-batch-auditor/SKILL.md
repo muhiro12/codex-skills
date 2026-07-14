@@ -12,7 +12,7 @@ Use this skill to run one of two modes across custom skills:
 - `maintenance`: automatically preserve consistency when the correct fix is nearly unique and does not need user judgment.
 - `refresh`: propose how skills should evolve against the current Codex / AI agent environment, available tools/plugins/skills, repository practice, and the user's current development principles.
 
-Treat bundled script output as a baseline. Add manual fit checks when the task depends on current tool availability, plugin overlap, repository changes, or stored cross-repository principles.
+Treat bundled script output as a static-definition baseline. It does not execute discovered tests or arbitrary Skill scripts, and it does not evaluate runtime/tool fit. Add manual fit checks and separately obtained execution evidence when the task depends on current tool availability, plugin overlap, repository changes, or stored cross-repository principles.
 Default explanation language is concise, polite Japanese.
 
 ## Trigger Conditions
@@ -90,16 +90,19 @@ In `refresh`:
 2. Discover audit targets.
 - Classify each skill directory under the local skills root:
   - `custom`: ordinary user-managed skills
+  - `workspace-local`: Git-ignored runtime/workspace-owned skills that are present locally but are not tracked as custom-skill source
   - `managed-external`: Xcode-provided skills with `.xcode-skill-sync.json`
   - `unmanaged-xcode-prefix`: `xcode-skill-*` directories without `.xcode-skill-sync.json`
   - `system`: skills under `.system`
 - Audit `custom` skills under the local skills root.
+- Report `workspace-local` skills separately and exclude them from normal custom drift checks, maintenance edits, refresh proposals, and portfolio decisions.
 - Exclude `.system` by default.
 - Exclude `managed-external` from normal custom skill drift checks, maintenance edits, and refresh proposals.
 - Check `managed-external` only for sync integrity: readable `.xcode-skill-sync.json`, consistency with `sync-xcode-skills/state/catalog.json` or `catalog.md`, and actual directory presence.
 - Report `unmanaged-xcode-prefix` as risky because `xcode-skill-*` is reserved for Xcode-provided managed skills.
 - Exclude `skills-batch-auditor` itself from batch targets by default.
 - If the user explicitly names one or more skills, limit the report, maintenance edits, and refresh proposals to that subset.
+- If the user explicitly names a `workspace-local` skill, report its ownership classification without treating its runtime-provided definition as tracked custom drift.
 - If the user explicitly names a `managed-external` Xcode skill, inspect it read-only and route findings to sync integrity or upstream Xcode/sync updates; never auto-edit it.
 - If the user explicitly names `skills-batch-auditor` or passes `--include-self`, treat that as target selection only; do not introduce a separate self-audit mode.
 
@@ -117,6 +120,8 @@ python3 scripts/audit_skills_batch.py \
 Use `--mode refresh` for proposal-only runs.
 Use `--include-self` only when the user explicitly asks to include `skills-batch-auditor` itself.
 
+The bundled script only reads definitions and safely lists conventional test-file paths. It must not execute discovered tests, Skill scripts, or runtime capability probes. Treat `static-aligned` as a statement about the implemented static checks only, never as proof of runtime/tool compatibility or successful execution.
+
 4. Analyze drift, consistency, and evolution needs.
 - Check workflow contract alignment, generated-directory scan safety, and CI artifact handling.
 - Check public skill `agents/openai.yaml` quality:
@@ -130,6 +135,7 @@ Use `--include-self` only when the user explicitly asks to include `skills-batch
   - UI directives and structured tool fields are current
   - MCP or simulator workflow assumptions name available capabilities accurately
   - local sibling-repository assumptions still match the user's current platform principles
+- Perform these environment-fit checks manually from current runtime discovery evidence. Record the evidence source and do not copy the bundled script's `not-evaluated` runtime/tool status into a stronger claim.
 - Distinguish true merge candidates from intentionally split neighboring skills.
 - Do not recommend `merge with another skill` when overlap is mostly broad repository-workflow vocabulary such as `ci_scripts`, `AGENTS.md`, `verify`, `hook`, or `entrypoint`.
 - Score every skill explicitly on these four dimensions:
@@ -156,7 +162,7 @@ Use `--include-self` only when the user explicitly asks to include `skills-batch
   - `merge with another skill`
   - `retire`
 - Use the four scores plus detected drift/risk to make ordering stronger than a simple issue-count sort.
-- Do not rely on the script's `aligned` result alone when manual environment fit shows stale tool names, outdated directives, or superseded local-reference assumptions.
+- Do not rely on the script's `static-aligned` result alone when manual environment fit shows stale tool names, outdated directives, or superseded local-reference assumptions.
 
 6. Execute the selected mode.
 - In `maintenance`, apply only deterministic consistency fixes, rerun the audit, and summarize applied edits plus anything moved to `refresh`.
@@ -190,7 +196,10 @@ Move these to `refresh` by default:
 - Never auto-apply `refresh` proposals.
 - Never treat `proposal-only` as permission to be vague; refresh recommendations should be explicit even when adoption stays user-controlled.
 - Never invent repository architecture or product features.
-- Never claim a skill is fully current solely because the bundled audit script passed.
+- Never claim a skill is fully current solely because the bundled audit script passed; its machine-readable `status: aligned` is scoped by `audit_evidence.scope: static-definition-only` and its user-facing label is `static-aligned`.
+- Never present discovered test files as executed evidence. Preserve `execution_evidence: not-run` until a separate, explicitly selected verification command has actually completed.
+- Never execute discovered tests or arbitrary Skill scripts as part of the bundled static audit.
+- Never include Git-ignored `workspace-local` runtime skills in tracked custom drift or portfolio decisions.
 - Never recursively scan generated directories except explicitly scoped newest run artifacts.
 - Keep skill names, folder names, CLI flags, and default scope unchanged unless safety requires change.
 - Keep `xcode-skill-*` reserved for `sync-xcode-skills` managed external skills; report unmanaged prefix collisions instead of silently auditing them as custom skills.
@@ -216,7 +225,10 @@ For each reported skill, include:
 
 - name
 - intent
-- status: `✅ aligned` / `⚠ drift` / `❌ risky`
+- static status: `✅ static-aligned` / `⚠ static-drift` / `❌ static-risky`
+- assurance scope: `static-definition-only`
+- runtime/tool fit: `not-evaluated` unless current runtime evidence was checked separately
+- execution evidence: `not-run` plus discovered conventional test-file coverage; never imply those files were executed
 - mode disposition: `maintenance` / `refresh` / `no action`
 - scores:
   - `reuse value`
@@ -275,6 +287,10 @@ Use patch mode only when explicitly requested.
 - Confirm unmanaged `xcode-skill-*` directories without `.xcode-skill-sync.json` are reported as risky reserved-prefix collisions.
 - Confirm recommendations are bounded and implementation-oriented.
 - Confirm `agents/openai.yaml` parsing works with double-quoted, single-quoted, and bare scalar values.
+- Confirm Skill frontmatter descriptions and `agents/openai.yaml` interface fields parse YAML literal and folded block scalars without returning the raw `|` or `>` indicator.
+- Confirm Git-ignored runtime/workspace-owned Skill directories appear only in `workspace_local_report` and not in `drift_report` or portfolio decisions.
+- Confirm JSON and Markdown output label findings as static-only, report runtime/tool fit as `not-evaluated`, and report test execution as `not-run`.
+- Confirm conventional test files are listed as coverage without importing or executing them.
 - Confirm `metadata.visibility: internal` allows missing `agents/openai.yaml` without drift.
 - Confirm post-maintenance reruns report remaining `refresh` items clearly.
 

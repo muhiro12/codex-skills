@@ -75,6 +75,272 @@ class AuditSkillsBatchCLITests(unittest.TestCase):
         spec.loader.exec_module(module)
         return module
 
+    def _write_minimal_skill(self, skills_root: Path, directory_name: str) -> Path:
+        skill_directory = skills_root / directory_name
+        (skill_directory / "agents").mkdir(parents=True)
+        (skill_directory / "SKILL.md").write_text(
+            "\n".join(
+                [
+                    "---",
+                    f"name: {directory_name}",
+                    (
+                        "description: Use when auditing a reusable local workflow "
+                        "with explicit static safety boundaries."
+                    ),
+                    "---",
+                    "",
+                    f"# {directory_name}",
+                    "",
+                    "## Workflow",
+                    "",
+                    "Audit the requested definitions without executing arbitrary scripts.",
+                    "Return output in concise, polite Japanese.",
+                    "",
+                    "## Verification",
+                    "",
+                    "Report static evidence separately from execution evidence.",
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        (skill_directory / "agents" / "openai.yaml").write_text(
+            "\n".join(
+                [
+                    "interface:",
+                    f'  display_name: "{directory_name.title()}"',
+                    '  short_description: "Audit a bounded local workflow safely"',
+                    (
+                        f'  default_prompt: "Use ${directory_name} to audit this '
+                        'workflow in concise Japanese."'
+                    ),
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        return skill_directory
+
+    def _run_json_with_roots(self, repo_root: Path, skills_root: Path) -> dict[str, object]:
+        completed = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPT_PATH),
+                "--repo-root",
+                str(repo_root),
+                "--skills-root",
+                str(skills_root),
+                "--scope",
+                "custom",
+                "--format",
+                "json",
+            ],
+            capture_output=True,
+            check=True,
+            text=True,
+        )
+        return json.loads(completed.stdout)
+
+    def test_skill_frontmatter_parser_supports_block_scalar_descriptions(self) -> None:
+        module = self._load_script_module()
+        literal_skill = """---
+name: literal-skill
+description: |- # literal block
+  First description line.
+  Second description line.
+metadata:
+  visibility: internal
+---
+
+# Literal Skill
+"""
+        folded_skill = """---
+name: folded-skill
+description: >-
+  First description line.
+  Second description line.
+---
+
+# Folded Skill
+"""
+        folded_paragraph_skill = """---
+name: folded-paragraph-skill
+description: >-
+  First paragraph line.
+
+  Second paragraph line.
+---
+"""
+
+        literal_name, literal_description, _, literal_visibility = (
+            module.parse_skill_markdown(literal_skill)
+        )
+        folded_name, folded_description, _, _ = module.parse_skill_markdown(folded_skill)
+        _, folded_paragraph_description, _, _ = module.parse_skill_markdown(
+            folded_paragraph_skill
+        )
+
+        self.assertEqual(literal_name, "literal-skill")
+        self.assertEqual(
+            literal_description,
+            "First description line.\nSecond description line.",
+        )
+        self.assertEqual(literal_visibility, "internal")
+        self.assertEqual(folded_name, "folded-skill")
+        self.assertEqual(
+            folded_description,
+            "First description line. Second description line.",
+        )
+        self.assertEqual(
+            folded_paragraph_description,
+            "First paragraph line.\nSecond paragraph line.",
+        )
+
+    def test_openai_interface_parser_supports_block_scalars(self) -> None:
+        module = self._load_script_module()
+        fields = module.parse_openai_interface_fields(
+            """interface:
+  display_name: >-
+    Block Scalar
+    Skill
+  short_description: |-
+    Audit a bounded workflow safely
+  default_prompt: "Use $block-scalar-skill now."
+"""
+        )
+
+        self.assertEqual(fields["display_name"], "Block Scalar Skill")
+        self.assertEqual(
+            fields["short_description"],
+            "Audit a bounded workflow safely",
+        )
+        self.assertEqual(fields["default_prompt"], "Use $block-scalar-skill now.")
+
+    def test_static_assurance_lists_tests_without_executing_them(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            temp_root = Path(temporary_directory)
+            repo_root = temp_root / "repo"
+            skills_root = temp_root / "skills"
+            repo_root.mkdir()
+            skills_root.mkdir()
+            skill_directory = self._write_minimal_skill(skills_root, "evidence-skill")
+            tests_directory = skill_directory / "tests"
+            tests_directory.mkdir()
+            (tests_directory / "test_must_not_run.py").write_text(
+                'raise RuntimeError("the auditor must not execute this file")\n',
+                encoding="utf-8",
+            )
+            outside_tests_directory = temp_root / "outside-tests"
+            outside_tests_directory.mkdir()
+            (outside_tests_directory / "test_external.py").write_text(
+                'raise RuntimeError("the auditor must not follow this symlink")\n',
+                encoding="utf-8",
+            )
+            (tests_directory / "external-tests").symlink_to(
+                outside_tests_directory,
+                target_is_directory=True,
+            )
+
+            payload = self._run_json_with_roots(repo_root, skills_root)
+
+        assurance = payload["audit_assurance"]
+        self.assertEqual(assurance["runtime_tool_fit"], "not-evaluated")
+        self.assertEqual(assurance["test_execution"], "not-run")
+        self.assertFalse(assurance["arbitrary_skill_scripts_executed"])
+
+        item = self._find_report_item(payload, "evidence-skill")
+        self.assertEqual(item["status"], "aligned")
+        self.assertEqual(item["status_label"], "✅ static-aligned")
+        self.assertEqual(item["audit_evidence"]["scope"], "static-definition-only")
+        self.assertEqual(item["audit_evidence"]["runtime_tool_fit"], "not-evaluated")
+        self.assertEqual(item["audit_evidence"]["execution_evidence"], "not-run")
+        self.assertEqual(item["audit_evidence"]["declared_test_file_count"], 1)
+        self.assertEqual(
+            item["audit_evidence"]["declared_test_files"],
+            ["tests/test_must_not_run.py"],
+        )
+
+    def test_skill_and_script_discovery_do_not_follow_symbolic_links(self) -> None:
+        module = self._load_script_module()
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            temp_root = Path(temporary_directory)
+            skills_root = temp_root / "skills"
+            outside_root = temp_root / "outside"
+            skills_root.mkdir()
+            outside_root.mkdir()
+            real_skill = self._write_minimal_skill(skills_root, "real-skill")
+            outside_skill = self._write_minimal_skill(outside_root, "outside-skill")
+            (skills_root / "linked-skill").symlink_to(
+                outside_skill,
+                target_is_directory=True,
+            )
+            outside_scripts = temp_root / "outside-scripts"
+            outside_scripts.mkdir()
+            (outside_scripts / "unsafe.py").write_text(
+                'raise RuntimeError("must not be read")\n',
+                encoding="utf-8",
+            )
+            (real_skill / "scripts").symlink_to(
+                outside_scripts,
+                target_is_directory=True,
+            )
+
+            records = module.discover_skill_records(
+                skills_root,
+                scope="custom",
+                include_system=False,
+                include_self=True,
+            )
+
+        self.assertEqual([record.name for record in records], ["real-skill"])
+        self.assertEqual(records[0].script_texts, {})
+
+    @unittest.skipUnless(shutil.which("git"), "git is required for ignore classification")
+    def test_gitignored_skill_is_reported_as_workspace_local(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            temp_root = Path(temporary_directory)
+            repo_root = temp_root / "repo"
+            skills_root = temp_root / "skills"
+            repo_root.mkdir()
+            skills_root.mkdir()
+            self._write_minimal_skill(skills_root, "tracked-skill")
+            self._write_minimal_skill(skills_root, "runtime-owned-skill")
+            (skills_root / ".gitignore").write_text(
+                "/runtime-owned-skill/\n",
+                encoding="utf-8",
+            )
+            subprocess.run(
+                ["git", "init", "--quiet", str(skills_root)],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+
+            payload = self._run_json_with_roots(repo_root, skills_root)
+
+        drift_names = {item["name"] for item in payload["drift_report"]}
+        self.assertEqual(drift_names, {"tracked-skill"})
+        portfolio_names = {
+            item["name"]
+            for decision_items in payload["batch_decisions"].values()
+            for item in decision_items
+        }
+        self.assertNotIn("runtime-owned-skill", portfolio_names)
+        workspace_local_report = payload["workspace_local_report"]
+        self.assertEqual(workspace_local_report["status"], "informational")
+        self.assertEqual(workspace_local_report["count"], 1)
+        self.assertEqual(
+            workspace_local_report["skills"],
+            [
+                {
+                    "name": "runtime-owned-skill",
+                    "directory": str((skills_root / "runtime-owned-skill").resolve()),
+                    "classification": "workspace-local",
+                    "reason": "gitignored-by-skills-repository",
+                }
+            ],
+        )
+
     def test_repo_specific_detection_uses_generic_concrete_references(self) -> None:
         module = self._load_script_module()
         repo_specific_text = (
@@ -120,6 +386,11 @@ class AuditSkillsBatchCLITests(unittest.TestCase):
         self.assertIn("  - 確信度:", output)
         self.assertIn("  - 採用トリガー:", output)
         self.assertIn("  - 変えないこと:", output)
+        self.assertIn("  - 判定範囲: static-definition-only", output)
+        self.assertIn("  - runtime/tool fit: not-evaluated", output)
+        self.assertIn("  - 実行証拠: not-run", output)
+        self.assertIn("- テスト実行: not-run", output)
+        self.assertIn("- 任意の Skill スクリプト実行: なし", output)
         self.assertNotIn("--- SKILL: internal-fixture-ci-drift-skill ---", output)
 
         recommendation_block = output.split("3) maintenance に回せる整合性候補", 1)[1].strip().splitlines()

@@ -8,6 +8,7 @@ import difflib
 import json
 import os
 import re
+import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -24,9 +25,9 @@ GENERATED_DIRECTORIES = [
 ]
 
 STATUS_LABELS = {
-    "aligned": "✅ aligned",
-    "drift": "⚠ drift",
-    "risky": "❌ risky",
+    "aligned": "✅ static-aligned",
+    "drift": "⚠ static-drift",
+    "risky": "❌ static-risky",
 }
 
 STATUS_ORDER = {
@@ -248,6 +249,7 @@ class SkillRecord:
     skill_text: str
     openai_text: str
     script_texts: dict[str, str]
+    declared_test_files: list[str]
 
 
 @dataclass(frozen=True)
@@ -343,49 +345,197 @@ def read_text(path: Path) -> str:
 
 
 def read_text_if_exists(path: Path) -> str:
-    if not path.exists() or not path.is_file():
+    if path.is_symlink() or not path.exists() or not path.is_file():
         return ""
     return read_text(path)
+
+
+def parse_block_scalar_indicator(raw_value: str) -> tuple[str, str, int | None] | None:
+    value = raw_value.strip()
+    comment_index = value.find(" #")
+    if comment_index >= 0:
+        value = value[:comment_index].rstrip()
+    if not value or value[0] not in {"|", ">"}:
+        return None
+
+    style = value[0]
+    chomping = ""
+    explicit_indent: int | None = None
+    for character in value[1:]:
+        if character in {"+", "-"} and not chomping:
+            chomping = character
+            continue
+        if character in "123456789" and explicit_indent is None:
+            explicit_indent = int(character)
+            continue
+        return None
+
+    return style, chomping, explicit_indent
+
+
+def fold_yaml_block_lines(lines: list[str]) -> str:
+    if not lines:
+        return ""
+
+    index = 0
+    while index < len(lines) and not lines[index]:
+        index += 1
+
+    folded = "\n" * index
+    while index < len(lines):
+        current_line = lines[index]
+        folded += current_line
+
+        next_index = index + 1
+        blank_line_count = 0
+        while next_index < len(lines) and not lines[next_index]:
+            blank_line_count += 1
+            next_index += 1
+
+        if next_index >= len(lines):
+            break
+
+        next_line = lines[next_index]
+        if blank_line_count:
+            preserved_break_count = blank_line_count
+            if current_line.startswith(" ") or next_line.startswith(" "):
+                preserved_break_count += 1
+            folded += "\n" * preserved_break_count
+        elif current_line.startswith(" ") or next_line.startswith(" "):
+            folded += "\n"
+        else:
+            folded += " "
+
+        index = next_index
+
+    return folded
+
+
+def parse_yaml_block_scalar(
+    lines: list[str],
+    start_index: int,
+    parent_indent: int,
+    indicator: tuple[str, str, int | None],
+) -> tuple[str, int]:
+    style, chomping, explicit_indent = indicator
+    end_index = start_index
+
+    while end_index < len(lines):
+        line = lines[end_index]
+        if line.strip():
+            indent = len(line) - len(line.lstrip(" "))
+            if indent <= parent_indent:
+                break
+        end_index += 1
+
+    scalar_lines = lines[start_index:end_index]
+    nonempty_indents = [
+        len(line) - len(line.lstrip(" "))
+        for line in scalar_lines
+        if line.strip()
+    ]
+    if explicit_indent is not None:
+        content_indent = parent_indent + explicit_indent
+    elif nonempty_indents:
+        content_indent = min(nonempty_indents)
+    else:
+        content_indent = parent_indent + 1
+
+    content_lines = [
+        line[content_indent:] if len(line) >= content_indent else ""
+        for line in scalar_lines
+    ]
+    value = (
+        "\n".join(content_lines)
+        if style == "|"
+        else fold_yaml_block_lines(content_lines)
+    )
+
+    trailing_blank_line_count = 0
+    for content_line in reversed(content_lines):
+        if content_line:
+            break
+        trailing_blank_line_count += 1
+
+    value = value.rstrip("\n")
+    if chomping == "+" and value:
+        value += "\n" * (trailing_blank_line_count + 1)
+    elif not chomping and value:
+        value += "\n"
+
+    return value, end_index
 
 
 def parse_frontmatter(raw_frontmatter: str) -> dict[str, Any]:
     frontmatter: dict[str, Any] = {}
     current_mapping_key: str | None = None
     current_mapping_indent: int | None = None
+    lines = raw_frontmatter.splitlines()
+    index = 0
 
-    for line in raw_frontmatter.splitlines():
+    while index < len(lines):
+        line = lines[index]
         if not line.strip() or line.lstrip().startswith("#"):
+            index += 1
             continue
 
         indent = len(line) - len(line.lstrip(" "))
         stripped = line.strip()
         if ":" not in stripped:
+            index += 1
             continue
 
         key, raw_value = stripped.split(":", 1)
         key = key.strip()
         raw_value = raw_value.strip()
+        block_indicator = parse_block_scalar_indicator(raw_value)
 
         if indent == 0:
             current_mapping_key = None
             current_mapping_indent = None
+            if block_indicator is not None:
+                value, index = parse_yaml_block_scalar(
+                    lines,
+                    start_index=index + 1,
+                    parent_indent=indent,
+                    indicator=block_indicator,
+                )
+                frontmatter[key] = value
+                continue
             if raw_value:
                 frontmatter[key] = parse_simple_yaml_scalar(raw_value)
             else:
                 frontmatter[key] = {}
                 current_mapping_key = key
                 current_mapping_indent = indent
+            index += 1
             continue
 
         if current_mapping_key is None or current_mapping_indent is None or indent <= current_mapping_indent:
+            index += 1
             continue
 
         nested_mapping = frontmatter.get(current_mapping_key)
         if not isinstance(nested_mapping, dict):
+            index += 1
             continue
 
         nested_key, nested_raw_value = stripped.split(":", 1)
-        nested_mapping[nested_key.strip()] = parse_simple_yaml_scalar(nested_raw_value.strip())
+        nested_key = nested_key.strip()
+        nested_raw_value = nested_raw_value.strip()
+        nested_block_indicator = parse_block_scalar_indicator(nested_raw_value)
+        if nested_block_indicator is not None:
+            value, index = parse_yaml_block_scalar(
+                lines,
+                start_index=index + 1,
+                parent_indent=indent,
+                indicator=nested_block_indicator,
+            )
+            nested_mapping[nested_key] = value
+            continue
+
+        nested_mapping[nested_key] = parse_simple_yaml_scalar(nested_raw_value)
+        index += 1
 
     return frontmatter
 
@@ -479,10 +629,14 @@ def parse_openai_interface_fields(openai_text: str) -> dict[str, str]:
     interface_fields: dict[str, str] = {}
     interface_indent: int | None = None
     inside_interface = False
+    lines = openai_text.splitlines()
+    index = 0
 
-    for line in openai_text.splitlines():
+    while index < len(lines):
+        line = lines[index]
         stripped_line = line.strip()
         if not stripped_line or stripped_line.startswith("#"):
+            index += 1
             continue
 
         indent = len(line) - len(line.lstrip(" "))
@@ -490,20 +644,35 @@ def parse_openai_interface_fields(openai_text: str) -> dict[str, str]:
             if stripped_line == "interface:":
                 inside_interface = True
                 interface_indent = indent
+            index += 1
             continue
 
-        if interface_indent is not None and indent <= interface_indent and not line.startswith(" "):
+        if interface_indent is not None and indent <= interface_indent:
             break
 
         field_match = re.match(r"^\s*([A-Za-z0-9_]+)\s*:\s*(.*)$", line)
         if not field_match:
+            index += 1
             continue
 
         field_name, raw_value = field_match.groups()
         if field_name not in OPENAI_INTERFACE_FIELDS:
+            index += 1
+            continue
+
+        block_indicator = parse_block_scalar_indicator(raw_value)
+        if block_indicator is not None:
+            value, index = parse_yaml_block_scalar(
+                lines,
+                start_index=index + 1,
+                parent_indent=indent,
+                indicator=block_indicator,
+            )
+            interface_fields[field_name] = value
             continue
 
         interface_fields[field_name] = parse_simple_yaml_scalar(raw_value)
+        index += 1
 
     return interface_fields
 
@@ -575,32 +744,100 @@ def iter_skill_directories(
 ) -> list[Path]:
     directories: list[Path] = []
 
-    for child in sorted(path for path in skills_root.iterdir() if path.is_dir()):
+    for child in sorted(
+        path
+        for path in skills_root.iterdir()
+        if not path.is_symlink() and path.is_dir()
+    ):
         if child.name == ".system":
             if scope == "all" or include_system:
                 directories.extend(
                     sorted(
                         system_child
                         for system_child in child.iterdir()
-                        if system_child.is_dir() and (system_child / "SKILL.md").is_file()
+                        if (
+                            not system_child.is_symlink()
+                            and system_child.is_dir()
+                            and not (system_child / "SKILL.md").is_symlink()
+                            and (system_child / "SKILL.md").is_file()
+                        )
                     )
                 )
             continue
 
-        if (child / "SKILL.md").is_file():
+        if not (child / "SKILL.md").is_symlink() and (child / "SKILL.md").is_file():
             directories.append(child)
 
     return directories
 
 
-def classify_skill_directory(skill_directory: Path) -> str:
+def is_gitignored_path(path: Path, skills_root: Path) -> bool:
+    try:
+        completed = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(skills_root),
+                "check-ignore",
+                "--quiet",
+                "--",
+                str(path),
+            ],
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except OSError:
+        return False
+
+    return completed.returncode == 0
+
+
+def classify_skill_directory(skill_directory: Path, skills_root: Path) -> str:
     if ".system" in skill_directory.parts:
         return "system"
-    if (skill_directory / XCODE_SKILL_MARKER).exists():
+    marker_path = skill_directory / XCODE_SKILL_MARKER
+    if not marker_path.is_symlink() and marker_path.is_file():
         return "managed-external"
     if skill_directory.name.startswith(XCODE_SKILL_PREFIX):
         return "unmanaged-xcode-prefix"
+    if is_gitignored_path(skill_directory, skills_root):
+        return "workspace-local"
     return "custom"
+
+
+def discover_declared_test_files(skill_directory: Path) -> list[str]:
+    tests_directory = skill_directory / "tests"
+    if not tests_directory.is_dir() or tests_directory.is_symlink():
+        return []
+
+    declared_test_files: list[str] = []
+    directories_to_scan = [tests_directory]
+    while directories_to_scan:
+        current_directory = directories_to_scan.pop()
+        for test_path in sorted(current_directory.iterdir()):
+            if test_path.is_symlink():
+                continue
+            if test_path.is_dir():
+                if test_path.name not in {"fixtures", "__pycache__"}:
+                    directories_to_scan.append(test_path)
+                continue
+            if not test_path.is_file():
+                continue
+
+            name = test_path.name
+            is_python_test = test_path.suffix == ".py" and (
+                name.startswith("test_") or name.endswith("_test.py")
+            )
+            is_shell_test = test_path.suffix == ".sh" and (
+                name.startswith("test_") or name.endswith("_test.sh")
+            )
+            if not (is_python_test or is_shell_test):
+                continue
+
+            declared_test_files.append(str(test_path.relative_to(skill_directory)))
+
+    return sorted(declared_test_files)
 
 
 def discover_skill_records(
@@ -615,7 +852,7 @@ def discover_skill_records(
         if skill_directory.name == "skills-batch-auditor" and not include_self:
             continue
 
-        classification = classify_skill_directory(skill_directory)
+        classification = classify_skill_directory(skill_directory, skills_root)
         is_system = classification == "system"
 
         skill_file = skill_directory / "SKILL.md"
@@ -630,9 +867,13 @@ def discover_skill_records(
 
         script_texts: dict[str, str] = {}
         scripts_directory = skill_directory / "scripts"
-        if scripts_directory.exists() and scripts_directory.is_dir():
+        if (
+            not scripts_directory.is_symlink()
+            and scripts_directory.exists()
+            and scripts_directory.is_dir()
+        ):
             for script_path in sorted(scripts_directory.rglob("*")):
-                if not script_path.is_file():
+                if script_path.is_symlink() or not script_path.is_file():
                     continue
                 if script_path.suffix not in {".py", ".sh", ".md", ".txt"}:
                     continue
@@ -651,6 +892,7 @@ def discover_skill_records(
                 skill_text=skill_text,
                 openai_text=openai_text,
                 script_texts=script_texts,
+                declared_test_files=discover_declared_test_files(skill_directory),
             )
         )
 
@@ -731,8 +973,12 @@ def extract_ground_truth(repo_root: Path, include_doc_source: bool) -> dict[str,
 
     ci_script_files: list[Path] = []
     ci_root = repo_root / "ci_scripts"
-    if ci_root.exists() and ci_root.is_dir():
-        ci_script_files = sorted(path for path in ci_root.rglob("*.sh") if path.is_file())
+    if not ci_root.is_symlink() and ci_root.exists() and ci_root.is_dir():
+        ci_script_files = sorted(
+            path
+            for path in ci_root.rglob("*.sh")
+            if not path.is_symlink() and path.is_file()
+        )
 
     ci_script_rel_paths = [str(path.relative_to(repo_root)) for path in ci_script_files]
 
@@ -1349,7 +1595,7 @@ def build_priority_note(item: dict[str, Any]) -> str:
         return "用途重複が見込まれるため、統合候補として扱うのが妥当です。"
     if action == "improve next":
         return "再利用価値はあるため、現役のまま次の保守対象として改善を進めるべきです。"
-    return "現状の定義で安定しており、直近の追加保守は不要です。"
+    return "静的定義では不整合を検出していません。runtime/tool 適合と実行証拠は別途確認が必要です。"
 
 
 def build_primary_recommendation(item: dict[str, Any]) -> str:
@@ -1364,7 +1610,10 @@ def build_primary_recommendation(item: dict[str, Any]) -> str:
         return f"`{name}` は独立維持より統合を第一候補にしてください。"
     if action == "improve next":
         return f"`{name}` は現役維持のまま、次の refresh 採用候補として改善してください。"
-    return f"`{name}` は現設計を維持してください。"
+    return (
+        f"`{name}` の静的定義は維持し、runtime/tool 適合と実行証拠は"
+        "利用時に別途確認してください。"
+    )
 
 
 def build_target_design(item: dict[str, Any]) -> str:
@@ -1381,18 +1630,30 @@ def build_target_design(item: dict[str, Any]) -> str:
         if first_fix:
             return f"今作るなら現行の責務は維持し、まず {first_fix}"
         return "今作るなら現行の責務は維持し、曖昧な境界や古い前提を明確な運用契約へ寄せます。"
-    return "今作るなら現在の責務、呼び出し面、安全境界を維持し、次回 refresh まで追加設計を足しません。"
+    return (
+        "今作るなら現在の責務、呼び出し面、安全境界を維持し、"
+        "静的監査と runtime/tool・実行検証を分離して記録します。"
+    )
 
 
 def build_confidence_note(item: dict[str, Any]) -> str:
     action = item["recommended_action"]
     if action == "keep as-is" and not item["issue_codes"]:
-        return "高: 現行契約との不整合がなく、追加設計の必要性も低いです。"
+        return (
+            "高（静的定義のみ）: 検出対象の定義不整合はありません。"
+            "runtime/tool 適合とテスト実行結果は未評価です。"
+        )
     if action in {"merge with another skill", "retire"}:
         return "中: ポートフォリオ判断を含むため、採用前に代替先と呼び出し影響を確認してください。"
     if item["issue_codes"]:
-        return "中: 検出課題は明確ですが、採用する設計文言はユーザー判断を前提にします。"
-    return "中: 現行情報では改善余地がありますが、採用前に対象 Skill の意図を再確認してください。"
+        return (
+            "中（静的定義のみ）: 検出課題は明確ですが、採用する設計文言は"
+            "ユーザー判断を前提にし、runtime/tool 適合とテスト実行結果は未評価です。"
+        )
+    return (
+        "中（静的定義のみ）: 現行情報では改善余地がありますが、採用前に対象 Skill の"
+        "意図を再確認し、runtime/tool 適合と実行証拠を追加してください。"
+    )
 
 
 def build_adoption_trigger(item: dict[str, Any]) -> str:
@@ -1469,6 +1730,19 @@ def enrich_portfolio_prioritization(
     return report_items
 
 
+def build_audit_evidence(skill: SkillRecord) -> dict[str, Any]:
+    return {
+        "scope": "static-definition-only",
+        "runtime_tool_fit": "not-evaluated",
+        "execution_evidence": "not-run",
+        "declared_test_file_count": len(skill.declared_test_files),
+        "declared_test_files": skill.declared_test_files,
+        "verification_contract_present": bool(
+            re.search(r"^##\s+Verification\s*$", skill.instructions, re.MULTILINE)
+        ),
+    }
+
+
 def analyze_skill(skill: SkillRecord, ground_truth: dict[str, Any]) -> dict[str, Any]:
     if skill.classification == "unmanaged-xcode-prefix":
         return analyze_unmanaged_xcode_prefix_skill(skill)
@@ -1506,9 +1780,9 @@ def analyze_skill(skill: SkillRecord, ground_truth: dict[str, Any]) -> dict[str,
             )
     else:
         interface_fields = parse_openai_interface_fields(skill.openai_text)
-        display_name = interface_fields.get("display_name", "")
-        short_description = interface_fields.get("short_description", "")
-        default_prompt = interface_fields.get("default_prompt", "")
+        display_name = interface_fields.get("display_name", "").strip()
+        short_description = interface_fields.get("short_description", "").strip()
+        default_prompt = interface_fields.get("default_prompt", "").strip()
 
         if display_name and re.fullmatch(r"[a-z0-9_]+", display_name):
             add_issue(
@@ -1699,6 +1973,7 @@ def analyze_skill(skill: SkillRecord, ground_truth: dict[str, Any]) -> dict[str,
         "is_system": skill.is_system,
         "classification": skill.classification,
         "visibility": skill.visibility,
+        "audit_evidence": build_audit_evidence(skill),
     }
 
 
@@ -1731,6 +2006,26 @@ def analyze_unmanaged_xcode_prefix_skill(skill: SkillRecord) -> dict[str, Any]:
         "is_system": skill.is_system,
         "classification": skill.classification,
         "visibility": skill.visibility,
+        "audit_evidence": build_audit_evidence(skill),
+    }
+
+
+def build_workspace_local_report(records: list[SkillRecord]) -> dict[str, Any]:
+    workspace_local_records = [
+        record for record in records if record.classification == "workspace-local"
+    ]
+    return {
+        "status": "informational",
+        "count": len(workspace_local_records),
+        "skills": [
+            {
+                "name": record.name,
+                "directory": str(record.directory),
+                "classification": record.classification,
+                "reason": "gitignored-by-skills-repository",
+            }
+            for record in workspace_local_records
+        ],
     }
 
 
@@ -1739,10 +2034,27 @@ def load_xcode_skill_catalog(skills_root: Path) -> dict[str, Any]:
     catalog_json_path = state_dir / "catalog.json"
     catalog_md_path = state_dir / "catalog.md"
 
+    if state_dir.is_symlink() or catalog_json_path.is_symlink() or catalog_md_path.is_symlink():
+        return {
+            "status": "risky",
+            "source": str(state_dir),
+            "installed_names": [],
+            "entries": {},
+            "issues": [
+                {
+                    "code": "xcode_catalog_symlink",
+                    "summary_ja": "Xcode Skill catalog state にシンボリックリンクが含まれています。",
+                    "fix_ja": "リンクを手動確認し、通常ファイルとして `sync-xcode-skills` から再生成してください。",
+                }
+            ],
+        }
+
     if catalog_json_path.exists():
         try:
             catalog = json.loads(catalog_json_path.read_text(encoding="utf-8"))
-        except json.JSONDecodeError as error:
+            if not isinstance(catalog, dict) or not isinstance(catalog.get("skills"), list):
+                raise ValueError("catalog root must be an object with a skills list")
+        except (OSError, json.JSONDecodeError, ValueError) as error:
             return {
                 "status": "risky",
                 "source": str(catalog_json_path),
@@ -2234,6 +2546,7 @@ def build_result(
     mode: str,
     applied_fixes: list[dict[str, Any]] | None = None,
     xcode_sync_report: dict[str, Any] | None = None,
+    workspace_local_report: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     applied_maintenance_fixes = applied_fixes or []
     maintenance_candidates: list[str] = []
@@ -2253,7 +2566,22 @@ def build_result(
 
     return {
         "ground_truth": ground_truth,
+        "audit_assurance": {
+            "definition_analysis": "performed",
+            "runtime_tool_fit": "not-evaluated",
+            "test_execution": "not-run",
+            "arbitrary_skill_scripts_executed": False,
+            "claim_limit_ja": (
+                "判定は静的定義の整合性だけを示します。runtime/tool 適合と実行成功を保証しません。"
+            ),
+        },
         "drift_report": report_items,
+        "workspace_local_report": workspace_local_report
+        or {
+            "status": "informational",
+            "count": 0,
+            "skills": [],
+        },
         "xcode_sync_report": xcode_sync_report
         or {
             "status": "aligned",
@@ -2290,6 +2618,17 @@ def format_markdown(result: dict[str, Any]) -> str:
     for item in result["drift_report"]:
         lines.append(f"- {item['status_label']} {item['name']}")
         lines.append(f"  - 意図: {item['intent']}")
+        lines.append(f"  - 判定範囲: {item['audit_evidence']['scope']}")
+        lines.append(
+            f"  - runtime/tool fit: {item['audit_evidence']['runtime_tool_fit']}"
+        )
+        lines.append(
+            f"  - 実行証拠: {item['audit_evidence']['execution_evidence']}"
+        )
+        lines.append(
+            "  - 検出したテスト定義: "
+            f"{item['audit_evidence']['declared_test_file_count']}件（未実行）"
+        )
         lines.append(f"  - モード振り分け: {item['mode_disposition']}")
         lines.append(f"  - 分類: {item['portfolio_classification']}")
         lines.append(f"  - 推奨アクション: {item['recommended_action']}")
@@ -2339,10 +2678,22 @@ def format_markdown(result: dict[str, Any]) -> str:
     maintenance_application = result["maintenance_application"]
     mode_result = result["mode_result"]
     xcode_sync_report = result["xcode_sync_report"]
+    workspace_local_report = result["workspace_local_report"]
+    audit_assurance = result["audit_assurance"]
     decisions = result["batch_decisions"]
     lines.append(f"- モード: {mode_result['mode']}")
     lines.append(f"- 出力形式: {maintenance_application['mode']}")
-    lines.append(f"- Xcode同期状態: {xcode_sync_report['status']}")
+    lines.append(f"- 監査保証範囲: {audit_assurance['claim_limit_ja']}")
+    lines.append(f"- runtime/tool fit: {audit_assurance['runtime_tool_fit']}")
+    lines.append(f"- テスト実行: {audit_assurance['test_execution']}")
+    lines.append("- 任意の Skill スクリプト実行: なし")
+    lines.append(f"- workspace-local: {workspace_local_report['count']}件")
+    for workspace_local_skill in workspace_local_report["skills"]:
+        lines.append(
+            f"  - {workspace_local_skill['name']}: Git 管理外の runtime/workspace 所有として"
+            "通常の drift 判定から除外"
+        )
+    lines.append(f"- Xcode同期の静的状態: {xcode_sync_report['status']}")
     lines.append(f"- managed external: {xcode_sync_report['managed_external_count']}件")
     lines.append(
         f"- unmanaged xcode prefix: {xcode_sync_report['unmanaged_xcode_prefix_count']}件"
@@ -2546,8 +2897,11 @@ def main() -> int:
         records,
         check_catalog_missing_directories=not requested_skill_names,
     )
+    workspace_local_report = build_workspace_local_report(records)
     audit_records = [
-        record for record in records if record.classification != "managed-external"
+        record
+        for record in records
+        if record.classification not in {"managed-external", "workspace-local"}
     ]
     skill_records = {record.name: record for record in audit_records}
     analyses = [analyze_skill(record, ground_truth) for record in audit_records]
@@ -2589,8 +2943,11 @@ def main() -> int:
                 records,
                 check_catalog_missing_directories=not requested_skill_names,
             )
+            workspace_local_report = build_workspace_local_report(records)
             audit_records = [
-                record for record in records if record.classification != "managed-external"
+                record
+                for record in records
+                if record.classification not in {"managed-external", "workspace-local"}
             ]
             skill_records = {record.name: record for record in audit_records}
             analyses = [analyze_skill(record, ground_truth) for record in audit_records]
@@ -2604,6 +2961,7 @@ def main() -> int:
         mode=arguments.mode,
         applied_fixes=applied_fixes,
         xcode_sync_report=xcode_sync_report,
+        workspace_local_report=workspace_local_report,
     )
 
     if arguments.format == "json":
