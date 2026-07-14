@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate tracked skill metadata and the public README inventory."""
+"""Validate tracked skill metadata, contracts, and the README inventory."""
 
 from __future__ import annotations
 
@@ -13,6 +13,29 @@ from typing import Iterable, List, Sequence, Set
 
 SKILL_NAME_PATTERN = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*\Z")
 README_ENTRY_PATTERN = re.compile(r"^- `([^`]+)`: .+", re.MULTILINE)
+VOLATILE_XCODE_TOOL_LABELS = (
+    "XcodeBuildMCP",
+    "XcodeListWindows",
+    "XcodeListSchemes",
+    "XcodeListRunDestinations",
+    "XcodeSwitchScheme",
+    "XcodeSwitchRunDestination",
+    "BuildProject",
+    "RunAllTests",
+    "RunSomeTests",
+    "RunProject",
+    "GetConsoleOutput",
+    "StopProject",
+    "RenderPreview",
+    "DeviceInteraction",
+    "session_show_defaults",
+    "session_set_defaults",
+    "build_sim",
+    "test_sim",
+    "build_run_sim",
+    "launch_app_sim",
+    "snapshot_ui",
+)
 
 
 def tracked_files(repo_root: Path) -> Set[str]:
@@ -106,6 +129,11 @@ def readme_inventory(text: str) -> List[str]:
     return README_ENTRY_PATTERN.findall(section)
 
 
+def volatile_xcode_tool_labels(text: str) -> List[str]:
+    """Return tool spellings that should stay in runtime adapter layers."""
+    return sorted(label for label in VOLATILE_XCODE_TOOL_LABELS if label in text)
+
+
 def verify_repository(repo_root: Path) -> List[str]:
     issues = []
     files = tracked_files(repo_root)
@@ -124,6 +152,12 @@ def verify_repository(repo_root: Path) -> List[str]:
 
         skill_path = repo_root / skill_name / "SKILL.md"
         skill_text = skill_path.read_text(encoding="utf-8")
+        volatile_labels = volatile_xcode_tool_labels(skill_text)
+        if volatile_labels:
+            issues.append(
+                f"{skill_name}: SKILL.md hardcodes volatile Xcode tool labels: "
+                + ", ".join(volatile_labels)
+            )
         header = frontmatter(skill_text)
         if not header:
             issues.append(f"{skill_name}: SKILL.md has no closed frontmatter block")
@@ -143,6 +177,12 @@ def verify_repository(repo_root: Path) -> List[str]:
             continue
 
         metadata_text = (repo_root / metadata_relative).read_text(encoding="utf-8")
+        volatile_labels = volatile_xcode_tool_labels(metadata_text)
+        if volatile_labels:
+            issues.append(
+                f"{skill_name}: agents/openai.yaml hardcodes volatile Xcode tool labels: "
+                + ", ".join(volatile_labels)
+            )
         for key in ("display_name", "short_description", "default_prompt"):
             if not metadata_value(metadata_text, key):
                 issues.append(f"{skill_name}: agents/openai.yaml has no {key}")

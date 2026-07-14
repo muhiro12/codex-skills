@@ -119,6 +119,34 @@ class VerifyRepositoryTests(unittest.TestCase):
 
         self.assertEqual(VERIFY.verify_repository(self.root), [])
 
+    def test_reports_volatile_xcode_tool_label_in_skill_contract(self):
+        self.write(
+            "example-skill/SKILL.md",
+            "---\nname: example-skill\n"
+            "description: Example.\n---\n\n"
+            "Call `BuildProject` for verification.\n",
+        )
+        self.stage_all()
+
+        issues = VERIFY.verify_repository(self.root)
+
+        self.assertIn(
+            "example-skill: SKILL.md hardcodes volatile Xcode tool labels: "
+            "BuildProject",
+            issues,
+        )
+
+    def test_accepts_capability_based_xcode_contract(self):
+        self.write(
+            "example-skill/SKILL.md",
+            "---\nname: example-skill\n"
+            "description: Example.\n---\n\n"
+            "Resolve the active Xcode-native build capability at runtime.\n",
+        )
+        self.stage_all()
+
+        self.assertEqual(VERIFY.verify_repository(self.root), [])
+
     def test_shell_entrypoint_runs_tracked_tests_without_scanning_ignored_data(self):
         shell_source = MODULE_PATH.with_suffix(".sh")
         shutil.copy2(MODULE_PATH, self.root / "scripts/verify_repository.py")
