@@ -42,6 +42,7 @@ Separate read and write behavior:
   - Append a dated entry whenever a current stance changes, a new principle is introduced, a signal is promoted, or an important signal is discarded.
 
 Keep `references/` for static skill documentation only. Keep mutable user-specific principle records under `records/`, which is skill-owned local data and should stay ignored by git. If legacy records still exist under `references/`, migrate them to the same relative paths under `records/` before writing new records, and leave unrelated static reference files in place.
+Keep `records/` directories owner-only (`0700`) and record files owner-readable and owner-writable only (`0600`). Write approved changes through a same-directory temporary file and atomic replacement, and never traverse or replace symbolic links in the record tree.
 
 Migration check:
 

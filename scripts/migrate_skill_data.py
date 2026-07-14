@@ -5,7 +5,10 @@ from __future__ import annotations
 
 import argparse
 import filecmp
+import os
+import stat
 import shutil
+import tempfile
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -24,6 +27,9 @@ class MigrationStats:
     conflicts: int = 0
     missing_sources: int = 0
     bytes_to_copy: int = 0
+    skipped_links: int = 0
+    permissions_changed: int = 0
+    permissions_would_change: int = 0
 
 
 @dataclass(frozen=True)
@@ -52,16 +58,85 @@ def human_size(size: int) -> str:
 
 
 def list_files(source: Path) -> list[Path]:
+    if source.is_symlink():
+        return []
     if source.is_file():
         return [source]
     if source.is_dir():
-        return sorted(path for path in source.rglob("*") if path.is_file())
+        files: list[Path] = []
+        for root, directory_names, file_names in os.walk(source, followlinks=False):
+            root_path = Path(root)
+            directory_names[:] = [
+                name
+                for name in directory_names
+                if not (root_path / name).is_symlink()
+            ]
+            files.extend(
+                path
+                for name in file_names
+                if not (path := root_path / name).is_symlink() and path.is_file()
+            )
+        return sorted(files)
     return []
 
 
-def copy_file(source: Path, target: Path, *, apply: bool, stats: MigrationStats) -> None:
-    if target.exists():
-        if target.is_file() and filecmp.cmp(source, target, shallow=False):
+def atomic_copy(source: Path, target: Path) -> None:
+    temporary_path: Path | None = None
+    try:
+        with source.open("rb") as source_file, tempfile.NamedTemporaryFile(
+            mode="wb",
+            dir=target.parent,
+            prefix=f".{target.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as temporary:
+            shutil.copyfileobj(source_file, temporary)
+            temporary.flush()
+            os.fsync(temporary.fileno())
+            temporary_path = Path(temporary.name)
+        shutil.copystat(source, temporary_path, follow_symlinks=False)
+        os.replace(temporary_path, target)
+        temporary_path = None
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
+
+
+def has_symbolic_link_component(path: Path, boundary: Path) -> bool:
+    try:
+        relative = path.relative_to(boundary)
+    except ValueError:
+        return True
+
+    current = boundary
+    if current.is_symlink():
+        return True
+    for component in relative.parts:
+        current /= component
+        if current.is_symlink():
+            return True
+    return False
+
+
+def copy_file(
+    source: Path,
+    target: Path,
+    *,
+    apply: bool,
+    stats: MigrationStats,
+    target_boundary: Path | None = None,
+) -> None:
+    if source.is_symlink():
+        stats.skipped_links += 1
+        print(f"skip     symbolic link source: {source}")
+        return
+    boundary = target_boundary or target.parent
+    if has_symbolic_link_component(target, boundary):
+        stats.conflicts += 1
+        print(f"conflict symbolic link in target path: {target}")
+        return
+    if os.path.lexists(target):
+        if not target.is_symlink() and target.is_file() and filecmp.cmp(source, target, shallow=False):
             stats.same += 1
             print(f"same     {source} -> {target}")
             return
@@ -73,7 +148,7 @@ def copy_file(source: Path, target: Path, *, apply: bool, stats: MigrationStats)
     stats.bytes_to_copy += size
     if apply:
         target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source, target)
+        atomic_copy(source, target)
         stats.copied += 1
         print(f"copied   {source} -> {target}")
     else:
@@ -82,13 +157,23 @@ def copy_file(source: Path, target: Path, *, apply: bool, stats: MigrationStats)
 
 
 def migrate_tree(source: Path, target: Path, *, apply: bool, stats: MigrationStats) -> None:
+    if source.is_symlink():
+        stats.skipped_links += 1
+        print(f"skip     symbolic link source: {source}")
+        return
     if not source.exists():
         stats.missing_sources += 1
         print(f"missing  {source}")
         return
 
     if source.is_file():
-        copy_file(source, target, apply=apply, stats=stats)
+        copy_file(
+            source,
+            target,
+            apply=apply,
+            stats=stats,
+            target_boundary=target.parent,
+        )
         return
 
     if not source.is_dir():
@@ -101,7 +186,70 @@ def migrate_tree(source: Path, target: Path, *, apply: bool, stats: MigrationSta
         target.mkdir(parents=True, exist_ok=True)
     for file_path in files:
         relative = file_path.relative_to(source)
-        copy_file(file_path, target / relative, apply=apply, stats=stats)
+        copy_file(
+            file_path,
+            target / relative,
+            apply=apply,
+            stats=stats,
+            target_boundary=target,
+        )
+
+
+def private_data_roots(skills_root: Path, groups: set[str]) -> list[Path]:
+    roots: list[Path] = []
+    if "principles" in groups:
+        roots.extend(
+            [
+                skills_root / "track-developer-principles" / "records",
+                skills_root / "track-personal-principles" / "records",
+            ]
+        )
+    if "context-archives" in groups:
+        roots.append(skills_root / "context-capture" / "archives")
+    return roots
+
+
+def enforce_private_permissions(
+    roots: list[Path],
+    *,
+    apply: bool,
+    stats: MigrationStats,
+) -> None:
+    for root in roots:
+        if root.is_symlink():
+            stats.skipped_links += 1
+            print(f"skip     symbolic link private-data root: {root}")
+            continue
+        if not root.exists():
+            continue
+
+        paths = [root]
+        for directory, directory_names, file_names in os.walk(root, followlinks=False):
+            directory_path = Path(directory)
+            directory_names[:] = [
+                name
+                for name in directory_names
+                if not (directory_path / name).is_symlink()
+            ]
+            paths.extend(directory_path / name for name in directory_names)
+            paths.extend(
+                path
+                for name in file_names
+                if not (path := directory_path / name).is_symlink()
+            )
+
+        for path in paths:
+            desired_mode = 0o700 if path.is_dir() else 0o600
+            current_mode = stat.S_IMODE(path.lstat().st_mode)
+            if current_mode == desired_mode:
+                continue
+            if apply:
+                os.chmod(path, desired_mode, follow_symlinks=False)
+                stats.permissions_changed += 1
+                print(f"secured  {path} ({current_mode:04o} -> {desired_mode:04o})")
+            else:
+                stats.permissions_would_change += 1
+                print(f"secure   {path} ({current_mode:04o} -> {desired_mode:04o})")
 
 
 def migrate_principles(skills_root: Path, *, apply: bool, stats: MigrationStats) -> None:
@@ -291,6 +439,12 @@ def main(argv: list[str] | None = None) -> int:
             print(f"blocked  stopping after conflicts in {migration.identifier}")
             break
 
+    enforce_private_permissions(
+        private_data_roots(skills_root, groups),
+        apply=args.apply,
+        stats=stats,
+    )
+
     print()
     print(
         "summary  "
@@ -299,6 +453,9 @@ def main(argv: list[str] | None = None) -> int:
         f"same={stats.same} "
         f"conflicts={stats.conflicts} "
         f"missing_sources={stats.missing_sources} "
+        f"skipped_links={stats.skipped_links} "
+        f"permissions_changed={stats.permissions_changed} "
+        f"permissions_would_change={stats.permissions_would_change} "
         f"bytes_to_copy={human_size(stats.bytes_to_copy)}"
     )
     if stats.conflicts:
