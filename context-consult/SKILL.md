@@ -1,6 +1,6 @@
 ---
 name: context-consult
-description: Search and read local context archives to produce cited context packs from prior near-raw evidence and derived notes. Use when the user explicitly invokes $context-consult or asks to consult, search, retrieve, or use a local evidence archive for a decision; do not use to save new evidence, summarize newly pasted material, or browse external source systems.
+description: Search and read local context archives to produce cited context packs from prior near-raw evidence and derived notes. Use only when the user explicitly invokes $context-consult; do not invoke implicitly for natural-language archive searches, saving new evidence, summarizing newly pasted material, or browsing external source systems.
 ---
 
 # Context Consult
@@ -13,7 +13,8 @@ Treat archive evidence as observer-perspective evidence: useful but partial reco
 
 ## Trigger Policy
 
-Trigger this skill only when the user explicitly invokes `$context-consult` or clearly asks to consult, search, retrieve, look up, or use a local context archive for the current decision.
+Trigger this skill only when the user explicitly invokes `$context-consult`.
+Treat a natural-language request to consult, search, retrieve, look up, or use a local context archive without the skill name as insufficient to invoke this privacy-sensitive workflow.
 Do not trigger automatically just because prior evidence might be useful, and do not search local archives for ordinary repository or personal-principle tasks unless the user asks to use archived context.
 This skill is read-only even when triggered.
 

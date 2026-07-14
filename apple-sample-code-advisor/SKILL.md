@@ -21,7 +21,9 @@ When `sync-xcode-skills/state/catalog.md` exists under the active Codex skills r
 
 Use a skill-owned, repo-external cache by default:
 
-`~/.codex/skills/apple-sample-code-advisor/cache`
+`<active-skills-root>/apple-sample-code-advisor/cache`
+
+Resolve `<active-skills-root>` from the parent directory of this loaded skill. If only the Codex home is available, use `${CODEX_HOME:-$HOME/.codex}/skills`. Prefer the loaded skill path when available so custom Codex homes, worktrees, and alternate installations do not accidentally read or mutate the default home cache.
 
 Never place downloaded sample projects inside the target product repository unless the user explicitly asks. Keep cached samples disposable and refreshable; they are local evidence, not vendored source.
 Treat legacy `~/.codex/cache/apple-sample-code` contents as a migration source only. Copy or move them into this skill's `cache/` before relying on them, and do not delete the legacy cache unless the user explicitly asks.
@@ -31,6 +33,7 @@ Migration check:
 - After this skill is installed or updated from GitHub, run `python3 scripts/migrate_skill_data.py --only apple-sample-cache` from the skills root when `cache/` is missing or empty.
 - If the dry-run reports legacy cached samples, run `python3 scripts/migrate_skill_data.py --only apple-sample-cache --apply` before relying on the cache, unless the reported copy size is large enough to require confirmation.
 - The migration copies only missing targets and never overwrites conflicting files. Resolve conflicts manually before trusting the migrated sample metadata.
+- During an applied cache migration, transactionally rebase manifest and per-sample metadata `cache_path` values to the active skill cache root; never retain a legacy absolute cache path in migrated metadata.
 
 Do not pre-seed samples just because this skill exists. Fetch lazily when a concrete implementation, review, or architecture decision has a plausibly related Apple sample, or when the user explicitly asks to cache or refresh a named sample.
 
@@ -80,7 +83,7 @@ Read `references/source-map.md` when finding samples, resolving frequent samples
 ### Fetch Or Refresh Samples
 
 1. Resolve the official Apple documentation page and download/archive URL.
-2. Use the cache script to fetch into `cache/samples/<slug>/source` under this skill directory.
+2. Use the cache script to fetch into `cache/samples/<slug>/source` under the loaded skill directory.
 3. Store metadata: title, Apple URL, source URL, fetched time, size, frameworks, and notes.
 4. If an existing cache entry would be replaced, require explicit user approval or an explicit user request.
 5. After fetching, inspect the shallow tree and key files before using the sample as evidence.

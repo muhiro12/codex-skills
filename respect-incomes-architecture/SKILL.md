@@ -1,16 +1,26 @@
 ---
 name: respect-incomes-architecture
-description: Develop, review, refactor, or add repository/tooling structure in the current repository while using `../Incomes` as a read-only architectural reference and checking stored cross-repository platform principles before copying patterns. Use when requests mention aligning with Incomes for repository structure, package and app boundaries, shared-library-first design, adapter boundaries, `ci_scripts`, `verify.sh`, hook strategy or build/test entrypoints, `.build` run artifacts, `AGENTS.md`, overview or ADR documentation, or maintainability-oriented outer architecture review.
+description: Develop, review, refactor, or add repository/tooling structure in the current repository while using a resolved local Incomes checkout as a read-only architectural reference and checking stored cross-repository platform principles before copying patterns. Use when requests mention aligning with Incomes for repository structure, package and app boundaries, shared-library-first design, adapter boundaries, `ci_scripts`, `verify.sh`, hook strategy or build/test entrypoints, `.build` run artifacts, `AGENTS.md`, overview or ADR documentation, or maintainability-oriented outer architecture review.
 ---
 
 # Respect Incomes Architecture
 
 ## Overview
 
-Use this skill to improve the current repository's outer architecture and development workflow by learning from `../Incomes` without copying its product behavior.
-Treat the current repository as the only writable target and treat `../Incomes` as a read-only reference for reusable architectural intent.
+Use this skill to improve the current repository's outer architecture and development workflow by learning from a resolved local Incomes checkout without copying its product behavior.
+Treat the current repository as the only writable target and treat `<incomes-root>` as a read-only reference for reusable architectural intent.
 When the user has durable cross-repository architectural or workflow principles, consult `$track-developer-principles` before deciding how much Incomes alignment is actually desirable.
-If stored principles identify a maintained platform foundation such as `../MHPlatform` as the portfolio source of truth for shared stack, reusable plumbing, or cross-app implementation direction, treat that principle as a higher-level constraint than superficial Incomes similarity.
+If stored principles identify a maintained platform foundation such as a local MHPlatform checkout as the portfolio source of truth for shared stack, reusable plumbing, or cross-app implementation direction, treat that principle as a higher-level constraint than superficial Incomes similarity.
+
+## Reference Resolution
+
+Resolve `<incomes-root>` once before reading it, in this order:
+
+1. An explicit path supplied by the user or the current repository contract.
+2. An `Incomes` sibling of the current repository root, after resolving that root from Git rather than assuming the process working directory.
+3. `$HOME/Repositories/Incomes` when it exists.
+
+Require the selected path to be an existing, readable directory distinct from the current writable repository. Canonicalize it before enforcing the read-only boundary. If no candidate is valid, report that the reference checkout is unavailable and continue only with repository evidence and stored principles; do not guess another path.
 
 ## Scope
 
@@ -41,21 +51,21 @@ Do not copy blindly:
 1. Inspect the current repository first.
 - Identify the actual writable target from the current working directory.
 - Read the current repository's `AGENTS.md`, root layout, `Package.swift`, Xcode project structure, `ci_scripts`, docs, and verification entrypoints when relevant.
-- Understand what problem the user is solving before using `../Incomes` as a reference.
+- Understand what problem the user is solving before using `<incomes-root>` as a reference.
 
 2. Inspect `$track-developer-principles` second when the request depends on judgment.
 - Use it to recover the user's stored cross-repository preferences about boundaries, maintainability, workflow philosophy, naming, reviewability, or abstraction strategy.
 - Treat explicit task instructions and clear repository constraints as higher priority than older archived principles when they conflict.
 
 3. Inspect platform-foundation context when relevant.
-- If stored principles or the current request point to a maintained platform foundation such as `../MHPlatform`, inspect only the relevant files there as a read-only reference before comparing Incomes.
+- If stored principles or the current request point to a maintained platform foundation such as MHPlatform, resolve its checkout from that evidence and inspect only the relevant files there as a read-only reference before comparing Incomes.
 - Use this to understand current cross-app source-of-truth decisions, not to copy platform implementation into the target repository.
 - Skip this step when the request is specifically about an Incomes-only pattern and no platform-foundation principle applies.
 
-4. Inspect `../Incomes` as a read-only reference.
+4. Resolve and inspect `<incomes-root>` as a read-only reference.
 - Compare only the parts relevant to the user request.
-- Prefer concrete files and directories such as `../Incomes/AGENTS.md`, `../Incomes/ci_scripts`, `../Incomes/.build`, docs folders, package boundaries, and app/library split points.
-- Never modify files under `../Incomes`.
+- Prefer concrete files and directories such as `<incomes-root>/AGENTS.md`, `<incomes-root>/ci_scripts`, `<incomes-root>/.build`, docs folders, package boundaries, and app/library split points.
+- Never modify files under `<incomes-root>`.
 
 5. Extract intent, not surface similarity.
 - Ask what architectural problem the Incomes pattern is solving.
@@ -87,7 +97,7 @@ Do not copy blindly:
 
 ## Comparison Heuristics
 
-Use `../Incomes` mainly to learn patterns like:
+Use `<incomes-root>` mainly to learn patterns like:
 
 - How reusable logic is extracted into shared libraries without premature abstraction
 - How app targets stay thin and depend on adapters instead of owning core logic
@@ -105,9 +115,9 @@ Treat these as warning areas where copying is usually wrong unless the user expl
 
 ## Guardrails
 
-- Never modify `../Incomes`.
-- Never use `../Incomes` as a writable dependency or patch target.
-- Never modify `../MHPlatform` or any other platform-foundation repository while using this skill unless that repository is the current writable target.
+- Never modify `<incomes-root>`.
+- Never use `<incomes-root>` as a writable dependency or patch target.
+- Never modify the resolved MHPlatform or any other platform-foundation checkout while using this skill unless that repository is the current writable target.
 - Never recommend Incomes alignment that conflicts with an explicitly relevant principle from `$track-developer-principles` without saying so clearly.
 - Never treat Incomes as the portfolio-wide source of truth when a stored principle points to a maintained platform foundation for the same concern.
 - Never force domain similarity, UI similarity, or feature similarity.
@@ -148,10 +158,10 @@ For `差分評価`, classify each major divergence as:
 
 ## Completion Checklist
 
-- Inspect the current repository before `../Incomes`.
+- Inspect the current repository before `<incomes-root>`.
 - Check relevant stored principles before treating Incomes as a pattern to copy.
-- Inspect `../MHPlatform` or another maintained platform foundation only when current principles or the task make it relevant.
-- Treat `../Incomes` as read-only reference material only.
+- Inspect a resolved MHPlatform or another maintained platform-foundation checkout only when current principles or the task make it relevant.
+- Treat `<incomes-root>` as read-only reference material only.
 - Justify each alignment suggestion with intent, not imitation.
 - Keep all modifications inside the current repository.
 - State clearly when adaptation is better than direct copying.

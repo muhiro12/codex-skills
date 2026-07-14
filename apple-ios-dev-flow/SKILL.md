@@ -43,7 +43,7 @@ Assume these surfaces are available in this Codex desktop environment when the a
 
 - Hiromu custom skills: `$track-developer-principles`, `$apple-hig-ui-guardian`, `$swift-code-guardian`, `$mh-swift-style`, `$apple-sample-code-advisor`, `$xcode-preview-auditor`, `$xcode-ui-smoke-auditor`, `$ci-verify-and-summarize`, and repository workflow skills.
 - OpenAI Build iOS Apps skills: `$build-ios-apps:swiftui-ui-patterns`, `$build-ios-apps:swiftui-view-refactor`, `$build-ios-apps:swiftui-liquid-glass`, `$build-ios-apps:swiftui-performance-audit`, `$build-ios-apps:ios-app-intents`, `$build-ios-apps:ios-debugger-agent`, `$build-ios-apps:ios-ettrace-performance`, `$build-ios-apps:ios-memgraph-leaks`, and `$build-ios-apps:ios-simulator-browser`. Treat a skill that depends on a missing tool namespace as unavailable rather than translating its calls by guesswork.
-- Local Apple sample cache: `~/.codex/skills/apple-sample-code-advisor/cache`, managed through `$apple-sample-code-advisor`.
+- Local Apple sample cache: `apple-sample-code-advisor/cache` under the active Codex skills root, managed through `$apple-sample-code-advisor`. Resolve the active root from the loaded skill paths, or `${CODEX_HOME:-$HOME/.codex}/skills` only when the loaded path is unavailable.
 - Generated Xcode-provided Skill catalog: `sync-xcode-skills/state/catalog.md` under the active Codex skills root, managed through `$sync-xcode-skills`.
 - Native Xcode MCP tools for workspace discovery and active selection, build, test, run, logs, Preview rendering, and device interaction.
 - Repository verification contracts, especially `AGENTS.md`, native Xcode MCP build/test/run expectations, and retained `ci_scripts` format, lint, static-rule, or otherwise uncovered checks.
@@ -57,7 +57,7 @@ Assume these surfaces are available in this Codex desktop environment when the a
 
 2. Use a local principle archive skill second when judgment matters.
 - Consult it when the task depends on tradeoffs such as maintainability, architecture direction, product intent, workflow philosophy, naming heuristics, or quality bars that may repeat across repositories.
-- If stored principles point to a maintained platform foundation such as `../MHPlatform` for shared stack, reusable plumbing, or cross-app implementation direction, treat that as part of the current decision context before falling back to a generic sibling reference repository.
+- If stored principles point to a maintained platform foundation such as a resolved local MHPlatform checkout for shared stack, reusable plumbing, or cross-app implementation direction, treat that as part of the current decision context before falling back to a generic sibling reference repository.
 - Treat explicit current-task instructions and hard repository constraints as higher priority than older archived principles when they conflict.
 
 3. Check Xcode-provided Skill guidance when present.
@@ -183,8 +183,8 @@ fresh clone; this skill should choose among them in Hiromu's local environment.
 - a locally available sibling reference repository read-only fallback
 - State the deciding source when it materially influenced the implementation.
 
-4. Harvest newly explicit durable judgment when appropriate.
-- If the repository conversation reveals a clearly reusable cross-repository principle and a local principle archive skill such as `$track-developer-principles` is available, update it after the implementation is stable.
+4. Surface newly explicit durable judgment when appropriate.
+- If the repository conversation reveals a clearly reusable cross-repository principle and a local principle archive skill such as `$track-developer-principles` is available, surface the candidate after the implementation is stable. Update the archive only when the user explicitly requests or approves that write.
 - Do not promote one-off local implementation details into archived principles.
 
 5. Run the final gate before replying.

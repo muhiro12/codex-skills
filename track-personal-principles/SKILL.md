@@ -1,6 +1,6 @@
 ---
 name: track-personal-principles
-description: "Capture, maintain, harvest, and consult Hiromu's personal operating principles, including values, life and work heuristics, communication preferences, collaboration style, environment boundaries, and broader non-development judgment. Use when the user explicitly wants to record or revise a personal principle; when ordinary conversation reveals a reusable personal operating preference, value judgment, boundary, communication rule, or life/work heuristic even without an explicit recording request; when a plausible but not yet settled personal judgment should be kept as a weighted signal; when the user's thinking has changed; or when current assistance should load stored personal principles before judgment-heavy recommendations or user-facing communication. Do not use for technical developer principles, raw transcript capture, or ordinary one-off preferences."
+description: "Capture, maintain, harvest, and consult Hiromu's personal operating principles, including values, life and work heuristics, communication preferences, collaboration style, environment boundaries, and broader non-development judgment. Use when the user explicitly wants to record or revise a personal principle; when ordinary conversation reveals a reusable personal operating candidate that should be surfaced without being persisted implicitly; when the user's thinking has changed and they ask to update the record; or when current assistance should load stored personal principles before judgment-heavy recommendations or user-facing communication. Do not use for technical developer principles, raw transcript capture, or ordinary one-off preferences."
 ---
 
 # Track Personal Principles
@@ -18,10 +18,10 @@ Trigger this skill proactively when assistance depends on personal judgment, com
 Separate read and write behavior:
 
 - `consult`: trigger frequently without explicit user invocation for judgment-heavy personal assistance or user-facing communication drafts; reading relevant current principles is the default.
-- `harvest` / `signal`: trigger during ordinary conversation when reusable personal operating judgment appears; record provisional thoughts as weighted signals only when they have likely future value.
-- `capture` / `revise`: write `settled` or `strong-default` current principles only when the user explicitly states or clearly endorses a reusable stance.
-- Be more cautious than `track-developer-principles` when saving: ask before recording sensitive personal facts, third-party details, inferred psychology, or anything that cannot be reduced to a reusable decision criterion.
-- Do not treat every invocation as permission to write; pure consultation should stay read-only.
+- `harvest` / `signal`: trigger during ordinary conversation when reusable personal operating judgment appears; identify and surface a weighted candidate, but keep the archive read-only unless the user explicitly asks to record it or explicitly approves the proposed write.
+- `capture` / `revise`: write current principles only when the user explicitly asks to record or revise them, or explicitly approves a proposed archive change. Endorsing a stance is evidence for its weight, not by itself authorization to persist it.
+- Be more cautious than `track-developer-principles` when proposing a write: do not persist sensitive personal facts, third-party details, inferred psychology, or anything that cannot be reduced to a reusable decision criterion without explicit, informed approval.
+- Implicit invocation permits consultation and candidate detection only. No mode may create, modify, migrate, or delete personal-principle records without an explicit current-task request or approval for that write.
 
 ## Storage Files
 
@@ -45,7 +45,7 @@ Keep `records/` directories owner-only (`0700`) and record files owner-readable 
 Migration check:
 
 - After this skill is installed or updated from GitHub, run `python3 scripts/migrate_skill_data.py --only principles` from the skills root when `records/` is missing or when legacy ignored files may still exist under `references/`.
-- If the dry-run reports copyable legacy files, run `python3 scripts/migrate_skill_data.py --only principles --apply` before reading or writing personal principle records.
+- If the dry-run reports copyable legacy files, apply `python3 scripts/migrate_skill_data.py --only principles --apply` only when the user explicitly requests or approves the migration. Otherwise keep consultation read-only and report the legacy-data gap.
 - The migration copies only missing targets and never overwrites conflicting files. Resolve conflicts manually before treating `records/` as complete.
 
 Initial domains:
@@ -67,10 +67,10 @@ Initial domains:
 ## Workflow
 
 1. Determine the mode.
-- `capture`: add a settled or strong-default personal principle that the user clearly endorsed.
-- `harvest`: derive a reusable personal-principle candidate from ordinary conversation.
-- `signal`: record a plausible but not-yet-settled thought with a weight and review trigger.
-- `revise`: update the current stance because the user's thinking changed.
+- `capture`: after explicit write authorization, add a settled or strong-default personal principle that the user clearly endorsed.
+- `harvest`: derive and surface a reusable personal-principle candidate from ordinary conversation; do not persist it implicitly.
+- `signal`: prepare a plausible but not-yet-settled thought with a weight and review trigger; record it only after explicit write authorization.
+- `revise`: after explicit write authorization, update the current stance because the user's thinking changed.
 - `consult`: read the stored principles and apply them to the current task without modifying the record.
 
 2. Route to the right memory.
@@ -93,8 +93,8 @@ Initial domains:
 
 5. Harvest actively but weight conservatively.
 - Watch for reusable personal judgment: repeated preferences, explicitly stated values, durable collaboration norms, life/work heuristics, privacy boundaries, and personal decision rules.
-- If a thought is clearly endorsed and reusable, record it as `settled` or `strong-default` in the domain `current.md`.
-- If a thought is plausible but not confirmed, record it as an `emerging` signal only when it has likely future value.
+- If a thought is clearly endorsed and reusable, propose it as `settled` or `strong-default`; record it in the domain `current.md` only when the user has explicitly authorized that write.
+- If a thought is plausible but not confirmed, surface it as an `emerging` candidate only when it has likely future value; persist it only after explicit authorization.
 - Do not record one-off moods, transient preferences, ordinary scheduling details, private facts without a reusable rule, or guesses about the user's psychology.
 
 6. Normalize the record.
@@ -120,7 +120,8 @@ Initial domains:
 - Prefer a small number of useful principles and signals over a noisy journal.
 - Keep each record concrete enough to guide action.
 - Separate current rules from provisional signals and historical evolution.
-- If the user is unsure, record the thought as an `emerging` signal only when it has likely future value.
+- Never write any principle, signal, index, or evolution-log change without an explicit current-task request or approval to persist it.
+- If the user is unsure, surface the thought as an `emerging` candidate when it has likely future value and ask before recording it.
 - If a signal becomes confirmed, promote it to `current.md`, remove or mark the old signal as promoted, and explain the change in `evolution-log.md`.
 - If a new statement contradicts an older principle, update the old current entry instead of keeping both active, and explain the shift in `evolution-log.md`.
 - Do not infer personality traits, mental states, relationships, or motives beyond what the user clearly states.
@@ -166,11 +167,12 @@ In `records/evolution-log.md`, append entries in reverse chronological order usi
 ## Guardrails
 
 - Keep this record inside this skill's `records/` directory and outside product repositories unless the user explicitly wants a copy in a repo.
+- Treat implicit invocation as read-only. Do not infer storage authorization from a reusable statement, repeated behavior, or agreement with a proposed principle.
 - Do not fabricate principles that the user did not actually express or clearly imply.
 - Do not store raw conversations, secrets, credentials, or unnecessary third-party personal details.
 - Do not let weighted signals erase the difference between confirmed principles and provisional ideas.
 - Do not let personal principles override safety, law, platform policy, or explicit current instructions.
-- If the stored principles are silent or conflicting, say so plainly and ask the user or record the new clarification if they provide one.
+- If the stored principles are silent or conflicting, say so plainly and ask the user. Record any clarification only if the user explicitly requests or approves that archive update.
 
 ## Verification
 
@@ -180,6 +182,7 @@ In `records/evolution-log.md`, append entries in reverse chronological order usi
 - `records/current-principles.md` remains a compatibility index, not the only source of truth.
 - `records/evolution-log.md` captures historical changes with absolute dates.
 - Future agent work can understand the principle or signal without re-reading the full chat.
+- Every record mutation can be traced to an explicit user request or approval in the current task.
 
 ## Workflow Alignment
 

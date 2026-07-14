@@ -36,7 +36,7 @@ Use this skill when requests indicate autonomous continuation, such as:
 - Run `scripts/collect_repo_signals.sh /path/to/current-repo`.
 - If unavailable, gather equivalent evidence manually inside the current repository only.
 - Consult a local principle archive skill when available when task choice or implementation direction depends on recurring tradeoffs such as maintainability, product priority, workflow philosophy, architecture direction, or quality thresholds.
-- If stored principles point to a maintained platform foundation such as `../MHPlatform` for shared stack, reusable plumbing, or cross-app implementation direction, use that as decision context before looking at a generic sibling reference repository.
+- If stored principles point to a maintained platform foundation such as a resolved local MHPlatform checkout for shared stack, reusable plumbing, or cross-app implementation direction, use that as decision context before looking at a generic sibling reference repository.
 - For Apple-platform UI candidates, use `$apple-hig-ui-guardian` before selecting or implementing the task so HIG drift is considered alongside verification failures, TODOs, tests, and docs.
 - For Swift-language, API, concurrency, or package-boundary candidates, use `$swift-code-guardian` before selecting or implementing the task so Swift drift is considered alongside verification failures, TODOs, tests, and docs.
 - For Apple-platform tasks that proceed to implementation, follow `$apple-ios-dev-flow` routing so native Xcode MCP evidence, HIG, Swift, sample-code evidence, and final repo verification are sequenced consistently. Use an OpenAI Build iOS Apps specialist only when its required tool namespace and exact tools are present in the current inventory.
@@ -74,8 +74,8 @@ Use this skill when requests indicate autonomous continuation, such as:
 - Prefer adjacent tests or docs only when they are part of the same single task.
 - Do not opportunistically fix unrelated issues.
 
-6. Harvest newly explicit durable judgment when appropriate.
-- If the user states or clearly endorses a reusable cross-repository principle during this work, update a local principle archive skill such as `$track-developer-principles` after finishing the selected single task when one is available.
+6. Surface newly explicit durable judgment when appropriate.
+- If the user states or clearly endorses a reusable cross-repository principle during this work, surface the candidate after finishing the selected single task when a local principle archive skill such as `$track-developer-principles` is available. Update the archive only when the user explicitly requests or approves that write.
 - Do not archive tactical one-off choices, temporary workarounds, or principles inferred only from an accidental local implementation.
 
 7. Run final verification before finishing.

@@ -43,6 +43,7 @@ Apply the selected language to:
 - `request_user_input.questions[].options[].label`
 - `request_user_input.questions[].options[].description`
 - user-facing `codex_app.automation_update.name` and `codex_app.automation_update.prompt` values when creating or updating reminders, monitors, heartbeats, or recurring jobs
+- user-facing `title` and `body` values in `::code-comment{...}` directives
 
 ## Do Not Apply To
 
@@ -53,7 +54,7 @@ Do not translate or rewrite these just to match the conversation language:
 - shell commands, CLI flags, environment variables, and file paths
 - YAML, JSON, TOML, and similar keys
 - tool names, function names, namespaces, schema field names, and stable IDs
-- directives such as `::git-stage{...}`, `::git-commit{...}`, `::git-create-pr{...}`, `::code-comment{...}`, and `::archive{...}`
+- directive names and machine-facing attributes such as `::git-stage{...}`, `::git-commit{...}`, `::git-create-pr{...}`, and the `file`, `start`, `end`, and `priority` attributes of `::code-comment{...}`
 - raw schedule strings, branch names, commit hashes, issue keys, and repository identifiers
 - commit messages or other fixed tool-facing strings
 - existing repository documents, comments, localization files, or user-provided artifacts unless the task explicitly asks to change them
@@ -70,7 +71,7 @@ Do not translate or rewrite these just to match the conversation language:
 - Treat all user-visible structured tool text as part of the conversation surface, even when it is passed through tool arguments rather than emitted as plain chat.
 - Do not leave `update_plan.explanation` or `plan[].step` in English when the conversation is clearly Japanese unless the user explicitly asked for English.
 - Do not leave Plan Mode question labels or descriptions in English just because the tool schema, wrapper tags, or stable IDs are English.
-- Keep wrapper names, tool names, schema fields, directives, and stable IDs unchanged while localizing only the user-facing prose fields.
+- Keep wrapper names, tool names, schema fields, directives, and stable IDs unchanged while localizing only the user-facing prose fields. For `::code-comment{...}`, localize `title` and `body`, but preserve the directive name and machine-facing location attributes.
 - For automations, localize the visible `name` and task `prompt` naturally, but keep recurrence rules, destination values, model names, thread IDs, workspace paths, and other machine fields unchanged.
 - When in doubt, prefer matching the most recent substantive user language over inherited defaults from earlier English tool or system text.
 

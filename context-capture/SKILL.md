@@ -1,6 +1,6 @@
 ---
 name: context-capture
-description: Save user-provided conversations, copied threads, transcripts, decisions, or manual notes as near-raw Markdown evidence in a local context archive. Use when the user explicitly invokes $context-capture or asks to capture, archive, preserve, or save pasted material as local evidence for later AI consultation; do not use for ordinary summarization, general note taking, or searching an existing archive.
+description: Save user-provided conversations, copied threads, transcripts, decisions, or manual notes as near-raw Markdown evidence in a local context archive. Use only when the user explicitly invokes $context-capture; do not invoke implicitly for natural-language archive requests, ordinary summarization, general note taking, or searching an existing archive.
 ---
 
 # Context Capture
@@ -13,9 +13,10 @@ Treat every archive record as an observer-perspective trace: useful evidence fro
 
 ## Trigger Policy
 
-Trigger this skill only when the user explicitly invokes `$context-capture` or clearly asks to save, capture, archive, preserve, or store provided material as local evidence.
+Trigger this skill only when the user explicitly invokes `$context-capture`.
+Treat a natural-language request to save, capture, archive, preserve, or store provided material without the skill name as insufficient to invoke this privacy-sensitive workflow.
 Do not trigger automatically from ordinary conversation, from a request for a summary, or merely because a discussion contains useful context.
-Writing archive records requires explicit capture intent, and ambiguous scope, sensitivity, destination, or redaction policy requires confirmation before writing.
+Writing archive records requires both explicit skill invocation and capture intent, and ambiguous scope, sensitivity, destination, or redaction policy requires confirmation before writing.
 
 ## Resources
 
@@ -29,8 +30,8 @@ Writing archive records requires explicit capture intent, and ambiguous scope, s
 
 ## Workflow
 
-1. Confirm the capture intent.
-- Proceed only when the user explicitly wants material saved or archived.
+1. Confirm the invocation and capture intent.
+- Proceed only when the user explicitly invoked `$context-capture` and wants material saved or archived.
 - If the user only asks for a summary, answer normally without writing archive files.
 - If no source material is present, ask the user to provide the pasted text, transcript, copied thread, or manual note.
 
@@ -102,4 +103,4 @@ After saving, report:
 - any unresolved metadata or evidence gaps
 - whether any material was redacted or masked
 
-If nothing was written, say so explicitly and explain the missing confirmation or missing input.
+If nothing was written, say so explicitly and explain the missing explicit invocation, confirmation, or input.

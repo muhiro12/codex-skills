@@ -64,7 +64,7 @@ Use this skill when the user asks for things such as:
 - Prefer native Xcode MCP result paths such as build logs, test summaries, `xcresult` bundles, Preview snapshots, screenshots, hierarchies, and runtime logs as evidence. Use `.build/ci/runs/<RUN_ID>` only when a retained repository script intentionally creates those artifacts.
 - When run artifacts exist, read only the newest `.build/ci/runs/<RUN_ID>` for diagnosis.
 - Do not scan older runs under `.build/ci/runs/`.
-- If the work exposes a clearly reusable cross-repository verification principle and a local principle archive skill such as `$track-developer-principles` is available, harvest it there after stabilizing the repo-level change.
+- If the work exposes a clearly reusable cross-repository verification principle and a local principle archive skill such as `$track-developer-principles` is available, surface the candidate after stabilizing the repo-level change. Persist it only when the user explicitly requests or approves that archive write.
 - Leave post-bootstrap contract auditing and naming-only maintenance to `$verify-contract-maintainer`.
 
 7. Verify and report.

@@ -1,6 +1,6 @@
 prompt,expected,reason
 "Use $context-capture to save this pasted Slack thread as work evidence.",trigger,"Explicit invocation and save intent"
-"Archive this copied GitHub review comment for later AI consultation.",trigger,"Capture/archive intent with copied source material"
+"Archive this copied GitHub review comment for later AI consultation.",do_not_trigger,"Privacy-first policy requires explicit $context-capture invocation"
 "Summarize this conversation for me.",do_not_trigger,"Ordinary summarization without archive write intent"
 "Find what we previously decided about QA ownership.",do_not_trigger,"Consult/search task belongs to context-consult"
 "Remember this as a durable cross-repo principle.",do_not_trigger,"Distilled principle storage belongs to track-developer-principles"

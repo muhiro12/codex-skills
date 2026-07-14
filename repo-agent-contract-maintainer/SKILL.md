@@ -93,10 +93,9 @@ Move information to the narrowest durable layer that can carry it forward:
 5. Apply repository family judgment.
 - Treat Incomes as the frontier app reference for Hiromu's Apple app
   architecture and workflow.
-- Treat Cookle as the next app-repository baseline after Incomes.
-- For Liet, Fluel, and Stally, align where practical with Incomes/Cookle while
-  preserving real repository-specific targets, schemes, surfaces, and
-  architecture boundaries.
+- For Cookle, Liet, Fluel, and Stally, align where practical with Incomes while
+  preserving stronger current-repository evidence and real repository-specific
+  targets, schemes, surfaces, and architecture boundaries.
 - For MHPlatform and MHUI, preserve package/foundation boundary rules more
   strongly than app-repository symmetry.
 

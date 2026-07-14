@@ -1,6 +1,6 @@
 ---
 name: track-developer-principles
-description: "Capture, maintain, harvest, and consult Hiromu's cross-repository developer principles, including product, architecture, implementation, code quality, business heuristics, and workflow judgment. Use when the user explicitly wants to record or revise a durable developer principle; when ordinary repository conversation reveals reusable development judgment, quality bars, tradeoff preferences, architecture heuristics, or workflow rules even without an explicit recording request; when a plausible but not yet settled developer judgment should be kept as a weighted signal; when the user's thinking has changed; or when current work should load stored principles before judgment-heavy repository work."
+description: "Capture, maintain, harvest, and consult Hiromu's cross-repository developer principles, including product, architecture, implementation, code quality, business heuristics, and workflow judgment. Use when the user explicitly wants to record or revise a durable developer principle; when ordinary repository conversation reveals reusable development judgment that should be surfaced as a candidate without being persisted implicitly; when the user's thinking has changed and they ask to update the record; or when current work should load stored principles before judgment-heavy repository work."
 ---
 
 # Track Developer Principles
@@ -9,7 +9,7 @@ description: "Capture, maintain, harvest, and consult Hiromu's cross-repository 
 
 Use this skill as a cross-repository memory for Hiromu's developer judgment.
 This skill is intentionally scoped to development-adjacent judgment: product decisions, architecture, implementation, code quality, business heuristics that affect products, repository workflow, and collaboration with coding agents.
-Do not use it as a general archive for life philosophy, personality modeling, broad communication style, or non-development personal beliefs; those belong in a separate future skill if Hiromu asks for one.
+Do not use it as a general archive for life philosophy, personality modeling, broad communication style, or non-development personal beliefs; route those to `$track-personal-principles` when that skill applies.
 Keep the current stance easy to consult, keep the change history explicit, and avoid polluting product repositories with personal operating notes unless the user asks for a different storage location.
 Treat this skill as a loop between daily repository work and a shared developer-principle archive: harvest reusable thinking from normal work, weight it honestly, then feed the stored judgment back into future repository decisions.
 
@@ -19,9 +19,9 @@ Trigger this skill proactively when development work depends on judgment, tradeo
 Separate read and write behavior:
 
 - `consult`: trigger frequently without explicit user invocation for judgment-heavy repository work; reading relevant current principles is the default.
-- `harvest` / `signal`: trigger during ordinary repository conversation when reusable developer judgment appears; record provisional thoughts as weighted signals when they have likely future value.
-- `capture` / `revise`: write `settled` or `strong-default` current principles only when the user explicitly states or clearly endorses a reusable stance.
-- Do not treat every invocation as permission to write; pure consultation should stay read-only.
+- `harvest` / `signal`: trigger during ordinary repository conversation when reusable developer judgment appears; identify and surface a weighted candidate, but keep the archive read-only unless the user explicitly asks to record it or explicitly approves the proposed write.
+- `capture` / `revise`: write current principles only when the user explicitly asks to record or revise them, or explicitly approves a proposed archive change. Endorsing a stance is evidence for its weight, not by itself authorization to persist it.
+- Implicit invocation permits consultation and candidate detection only. No mode may create, modify, migrate, or delete principle records without an explicit current-task request or approval for that write.
 - Do not trigger for purely mechanical edits, one-off local choices, temporary debugging, or repository facts with no reusable judgment.
 
 ## Storage Files
@@ -47,7 +47,7 @@ Keep `records/` directories owner-only (`0700`) and record files owner-readable 
 Migration check:
 
 - After this skill is installed or updated from GitHub, run `python3 scripts/migrate_skill_data.py --only principles` from the skills root when `records/` is missing or when legacy ignored files may still exist under `references/`.
-- If the dry-run reports copyable legacy files, run `python3 scripts/migrate_skill_data.py --only principles --apply` before reading or writing principle records.
+- If the dry-run reports copyable legacy files, apply `python3 scripts/migrate_skill_data.py --only principles --apply` only when the user explicitly requests or approves the migration. Otherwise keep consultation read-only and report the legacy-data gap.
 - The migration copies only missing targets and never overwrites conflicting files. Resolve conflicts manually before treating `records/` as complete.
 
 Initial domains:
@@ -69,10 +69,10 @@ Initial domains:
 ## Workflow
 
 1. Determine the mode.
-- `capture`: add a settled or strong-default developer principle that the user clearly endorsed.
-- `harvest`: derive a reusable developer-principle candidate from ordinary repository discussion or decision-making.
-- `signal`: record a plausible but not-yet-settled thought with a weight and review trigger.
-- `revise`: update the current stance because the user's thinking changed.
+- `capture`: after explicit write authorization, add a settled or strong-default developer principle that the user clearly endorsed.
+- `harvest`: derive and surface a reusable developer-principle candidate from ordinary repository discussion or decision-making; do not persist it implicitly.
+- `signal`: prepare a plausible but not-yet-settled thought with a weight and review trigger; record it only after explicit write authorization.
+- `revise`: after explicit write authorization, update the current stance because the user's thinking changed.
 - `consult`: read the stored principles and apply them to the current task without modifying the record.
 
 2. Resolve the domain before writing.
@@ -89,8 +89,8 @@ Initial domains:
 4. Harvest aggressively but weight conservatively.
 - During repository-specific work, watch for statements that sound like reusable development judgment rather than local implementation chatter.
 - Good harvest candidates include repeated tradeoff preferences, quality bars, naming or architecture heuristics, product prioritization rules, business reasoning that affects product work, verification expectations, and collaboration rules for agents.
-- If a thought is clearly endorsed and reusable, record it as `settled` or `strong-default` in the domain `current.md`.
-- If a thought is plausible but not confirmed, record it as an `emerging` signal instead of dropping it or promoting it too early.
+- If a thought is clearly endorsed and reusable, propose it as `settled` or `strong-default`; record it in the domain `current.md` only when the user has explicitly authorized that write.
+- If a thought is plausible but not confirmed, surface it as an `emerging` candidate instead of dropping it or promoting it too early; persist it only after explicit authorization.
 - If the user only discussed a local tactical choice, temporary workaround, one-off repository detail, or debugging note, do not lift it into this archive.
 
 5. Normalize the record.
@@ -109,7 +109,7 @@ Initial domains:
 - Before major design or implementation recommendations, read the relevant domain `current.md` if the task depends on judgment, tradeoffs, prioritization, maintainability, UX direction, business intent, architecture, code quality, or workflow.
 - Read the relevant `signals.md` when the decision has no settled principle or the user is exploring a direction that resembles a recorded signal.
 - State explicitly when a proposal follows a recorded principle, stretches it, conflicts with it, or is only informed by an emerging signal.
-- If the current repository task reveals a new reusable developer principle while work is underway, update this archive after the user has clearly stated or endorsed that principle.
+- If the current repository task reveals a new reusable developer principle while work is underway, surface the candidate. Update this archive only if the user explicitly asks for or approves the write.
 
 ## Harvesting From Repository Conversations
 
@@ -117,8 +117,8 @@ Initial domains:
 - Treat repeated choices with consistent rationale as weaker but usable evidence when the cross-repository intent is clear.
 - Treat a single plausible but unconfirmed statement as a signal, not as doctrine.
 - Prefer short durable formulations such as `prefer X because Y` over chat-shaped notes.
-- After harvesting from normal repo work, mention briefly that the archive was updated so the user can correct it if needed.
-- When uncertain, store a compact `emerging` signal or surface the candidate summary instead of silently creating a settled principle.
+- After an authorized archive update, mention it briefly so the user can correct it if needed.
+- When uncertain, surface a compact `emerging` candidate. Ask before storing it, and never silently create a settled principle.
 
 ## Consulting During Repository Work
 
@@ -127,14 +127,15 @@ Initial domains:
 - Use `strong-default` principles as strong guidance, but name material tradeoffs.
 - Use `emerging` signals as context for proposals or clarifying questions only.
 - Ignore `deprecated` and `discarded` records for active guidance except when explaining history.
-- When stored principles are silent or conflicting, say so plainly and ask the user or record the new clarification if they provide one.
+- When stored principles are silent or conflicting, say so plainly and ask the user. Record any clarification only if the user explicitly requests or approves that archive update.
 
 ## Recording Rules
 
 - Prefer a small number of useful principles and signals over a noisy journal.
 - Keep each record concrete enough to guide action.
 - Separate current rules from provisional signals and historical evolution.
-- If the user is unsure, record the thought as an `emerging` signal only when it has likely future value.
+- Never write any principle, signal, index, or evolution-log change without an explicit current-task request or approval to persist it.
+- If the user is unsure, surface the thought as an `emerging` candidate when it has likely future value and ask before recording it.
 - If a signal becomes confirmed, promote it to `current.md`, remove or mark the old signal as promoted, and explain the change in `evolution-log.md`.
 - If a new statement contradicts an older principle, update the old current entry instead of keeping both active, and explain the shift in `evolution-log.md`.
 - Do not convert every preference into doctrine; favor reusable decision criteria.
@@ -180,11 +181,12 @@ In `records/evolution-log.md`, append entries in reverse chronological order usi
 ## Guardrails
 
 - Keep this record inside this skill's `records/` directory and outside product repositories unless the user explicitly wants a copy in a repo.
+- Treat implicit invocation as read-only. Do not infer storage authorization from a reusable statement, repeated behavior, or agreement with a proposed principle.
 - Do not fabricate principles that the user did not actually express or clearly imply.
 - Do not store broad personal philosophy, life policy, personality modeling, or non-development communication preferences in this skill.
 - Do not let weighted signals erase the difference between confirmed principles and provisional ideas.
 - Do not treat context archives as principles; near-raw evidence belongs in context skills, while this archive stores normalized developer judgment.
-- When the stored principles are silent or conflicting, say so plainly and ask the user or record the new clarification if they provide one.
+- When the stored principles are silent or conflicting, say so plainly and ask the user. Record any clarification only if the user explicitly requests or approves that archive update.
 
 ## Verification
 
@@ -194,6 +196,7 @@ In `records/evolution-log.md`, append entries in reverse chronological order usi
 - `records/current-principles.md` remains a compatibility index, not the only source of truth.
 - `records/evolution-log.md` captures historical changes with absolute dates.
 - Future agent work can understand the principle or signal without re-reading the full chat.
+- Every record mutation can be traced to an explicit user request or approval in the current task.
 
 ## Workflow Alignment (skills-batch-auditor)
 

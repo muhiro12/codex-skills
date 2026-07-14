@@ -1,4 +1,4 @@
 interface:
   display_name: "Respect Incomes Architecture"
   short_description: "Align repo architecture with read-only Incomes patterns"
-  default_prompt: "Use $respect-incomes-architecture to review this repository against ../Incomes as a read-only reference, consult stored platform principles first, and avoid copying Incomes patterns when a maintained platform foundation such as ../MHPlatform is the stronger source of truth."
+  default_prompt: "Use $respect-incomes-architecture to resolve a local Incomes checkout safely, review this repository against it as a read-only reference, consult stored platform principles first, and avoid copying Incomes patterns when a maintained platform foundation is the stronger source of truth."

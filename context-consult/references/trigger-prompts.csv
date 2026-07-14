@@ -1,6 +1,6 @@
 prompt,expected,reason
 "Use $context-consult to find evidence about QA ownership in the work archive.",trigger,"Explicit invocation and archive retrieval intent"
-"Search my local context archive for prior comments from Tanaka about review responsibility.",trigger,"Search/retrieve task against the local archive"
+"Search my local context archive for prior comments from Tanaka about review responsibility.",do_not_trigger,"Privacy-first policy requires explicit $context-consult invocation"
 "Capture this Slack thread as raw evidence.",do_not_trigger,"Save/write task belongs to context-capture"
 "Summarize this pasted meeting transcript.",do_not_trigger,"Newly pasted material should be summarized normally or captured explicitly"
 "Update my durable principle about design systems.",do_not_trigger,"Principle maintenance belongs to track-developer-principles"
