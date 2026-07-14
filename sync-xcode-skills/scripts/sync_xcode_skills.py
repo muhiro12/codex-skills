@@ -394,11 +394,12 @@ def write_catalog(
         lines.append("| Installed skill | Original Xcode skill | Summary |")
         lines.append("| --- | --- | --- |")
         for skill in installed:
+            escaped_description = short_text(skill["description"]).replace("|", "\\|")
             lines.append(
                 "| "
                 f"`{skill['installed_name']}` | "
                 f"`{skill['original_name']}` | "
-                f"{short_text(skill['description']).replace('|', '\\|')} |"
+                f"{escaped_description} |"
             )
     else:
         lines.append("No Xcode skills were installed.")
