@@ -409,7 +409,7 @@ print_verification_candidates
 
 section "CI / Script Hints"
 if [[ "$has_rg" -eq 1 ]]; then
-  rg -n --hidden --glob '!.git' --glob 'ci_scripts/**' '(test|build|lint|check|verify)' | head -n 60 || true
+  rg -n --hidden --glob '!.git' --glob 'ci_scripts/**' '(test|build|lint|check|verify)' 2>/dev/null | head -n 60 || true
 else
   find ci_scripts -type f 2>/dev/null | head -n 60 || true
 fi

@@ -29,6 +29,7 @@ When a consistency judgment depends on durable cross-repository preferences rath
 - Prioritize files and directories such as `README*`, `AGENTS.md`, `Package.swift`, `pyproject.toml`, `Cargo.toml`, `package.json`, `.xcodeproj`, `.xcworkspace`, `ci_scripts/`, `.github/workflows/`, hook configs such as `.pre-commit-config.yaml`, `verify.sh`, `.build/`, `docs/`, `adr/`, and architecture overviews.
 - Prefer fast inventory commands such as `rg --files`, shallow `find`, and targeted `rg` searches over loading large trees.
 - Respect `.gitignore` and exclude generated, vendored, cached, private-data, and runtime-owned trees from recursive inventory. Never recursively enumerate `.build`; inspect only its shallow convention and, when the current repository contract explicitly uses `.build/ci/runs/<RUN_ID>`, the newest run needed for the current judgment.
+- Never scan older runs under `.build/ci/runs`; one newest contract-owned run is the maximum evidence scope for a single consistency audit.
 - Use Git metadata when available to confirm tracked structure or recent drift, but keep the audit focused on consistency, not feature review.
 
 4. Evaluate the repository with four consistency lenses.
