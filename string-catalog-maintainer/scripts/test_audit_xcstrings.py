@@ -167,6 +167,52 @@ class AuditXCStringsTests(unittest.TestCase):
             self.assertEqual(unit["value"], "%lld marcas")
             self.assertEqual(len(report["catalogs"][0]["translation_patch"]["applied_entries"]), 1)
 
+    def test_apply_preserves_crlf_tabs_and_trailing_newline(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            catalog_path = root / "Resources/Localizable.xcstrings"
+            patch_path = root / "patch.json"
+            catalog = {
+                "sourceLanguage": "en",
+                "strings": {
+                    "Hello": {
+                        "localizations": {
+                            "en": string_unit("Hello"),
+                            "ja": string_unit("Hello", state="new"),
+                        }
+                    }
+                },
+            }
+            catalog_path.parent.mkdir(parents=True, exist_ok=True)
+            serialized = json.dumps(catalog, ensure_ascii=False, indent="\t")
+            catalog_path.write_bytes((serialized.replace("\n", "\r\n") + "\r\n").encode("utf-8"))
+            write_json(
+                patch_path,
+                {
+                    "translations": [
+                        {
+                            "catalog": "Resources/Localizable.xcstrings",
+                            "key": "Hello",
+                            "locale": "ja",
+                            "path": ["stringUnit"],
+                            "value": "Konnichiwa",
+                        }
+                    ]
+                },
+            )
+
+            self.run_audit(
+                root,
+                "--translation-patch",
+                str(patch_path),
+                "--apply-translations",
+            )
+
+            rewritten = catalog_path.read_bytes()
+            self.assertTrue(rewritten.endswith(b"\r\n"))
+            self.assertIn(b'\r\n\t"sourceLanguage"', rewritten)
+            self.assertNotIn(b"\n", rewritten.replace(b"\r\n", b""))
+
     def test_rejects_placeholder_mismatch(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)

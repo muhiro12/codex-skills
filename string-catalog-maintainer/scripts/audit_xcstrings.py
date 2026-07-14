@@ -169,7 +169,8 @@ def render_report_path(project_root: Path, path: Path) -> str:
 
 
 def read_raw_text(path: Path) -> str:
-    return path.read_text(encoding="utf-8", newline="")
+    with path.open("r", encoding="utf-8", newline="") as file:
+        return file.read()
 
 
 def discover_catalogs(project_root: Path, raw_catalogs: list[str]) -> list[Path]:
@@ -957,7 +958,8 @@ def write_catalog(path: Path, catalog: dict[str, Any]) -> None:
         serialized = serialized.replace("\n", formatting.newline)
     if formatting.trailing_newline:
         serialized += formatting.newline
-    path.write_text(serialized, encoding="utf-8", newline="")
+    with path.open("w", encoding="utf-8", newline="") as file:
+        file.write(serialized)
 
 
 def audit_catalog(
