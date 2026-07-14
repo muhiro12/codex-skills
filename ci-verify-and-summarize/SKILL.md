@@ -30,7 +30,8 @@ Typical phrases include:
 1. Validate prerequisites.
 - Assume the current working directory is the repository root.
 - Resolve the verify-oriented or repository-rule entrypoint from `AGENTS.md` first by reading `bash ci_scripts/...sh` references.
-- If `AGENTS.md` does not define one, fall back to detecting a standard script under `ci_scripts/`, preferring `ci_scripts/tasks/verify_task_completion.sh`, then `ci_scripts/tasks/check_repository_rules.sh`, then `ci_scripts/tasks/verify.sh`, then `ci_scripts/verify.sh`, then `ci_scripts/tasks/verify_repository_state.sh`, then `run_required_builds.sh`, then another detected `.sh`.
+- If `AGENTS.md` does not define one, fall back to detecting a standard script under `ci_scripts/`, preferring `ci_scripts/tasks/verify_task_completion.sh`, then `ci_scripts/tasks/check_repository_rules.sh`, then `ci_scripts/tasks/verify.sh`, then `ci_scripts/verify.sh`, then `ci_scripts/tasks/verify_repository_state.sh`, then `run_required_builds.sh`.
+- Never execute an arbitrary `.sh` merely because it is the first script under `ci_scripts/`; formatting, migration, deployment, or other mutating scripts are not safe substitutes for a verification entrypoint.
 - If the resolved workflow writes artifacts to `.build/ci/runs/`, use only the newest run. If it does not write run artifacts but exits successfully, treat the captured command output as the verification evidence instead of failing solely because artifacts are absent.
 - If the repository does not provide any verification or repository-rule entrypoint, explain that this skill is not applicable and stop.
 
@@ -76,7 +77,7 @@ bash "${CODEX_HOME:-$HOME/.codex}/skills/ci-verify-and-summarize/scripts/run_ver
 - Never recursively scan generated directories outside the newest run scope.
 - Review only the current git diff and staged diff; do not broaden into full-repository archaeology.
 - Do not skip execution only because the current diff is empty when the user explicitly invoked the skill.
-- Treat missing git context, missing latest run, current-change or clearly introduced verify failure, or suspicious `--no-verify` as non-push-ready signals.
+- Treat missing git context, a missing latest run after a failed entrypoint, current-change or clearly introduced verify failure, or suspicious `--no-verify` as non-push-ready signals.
 
 ## Response Contract
 

@@ -75,14 +75,18 @@ detect_verify_entrypoint() {
     fi
   done
 
-  if [ -d "ci_scripts" ]; then
-    find "ci_scripts" -type f -name "*.sh" | sort | head -n 1
-    return 0
+}
+
+verify_output="$(mktemp "${TMPDIR:-/tmp}/ci_verify_and_summarize.XXXXXX")"
+preserve_verify_output="false"
+
+cleanup_verify_output() {
+  if [ "$preserve_verify_output" != "true" ]; then
+    rm -f -- "$verify_output"
   fi
 }
 
-verify_output="/tmp/ci_verify_and_summarize_last.log"
-: > "$verify_output"
+trap cleanup_verify_output EXIT
 
 run_base=".build/ci/runs"
 pre_run="$(latest_run_id "$run_base")"
@@ -125,7 +129,10 @@ if [ -n "$latest_run" ]; then
   run_dir="$run_base/$latest_run"
 fi
 
+set +e
 python3 - "$latest_run" "$run_dir" "$verify_exit" "$verify_command" "$verify_output" "$run_is_new" <<'PY'
+from __future__ import annotations
+
 import json
 import re
 import subprocess
@@ -611,3 +618,11 @@ if verify_failed or risk_level == "high":
     raise SystemExit(1)
 raise SystemExit(0)
 PY
+report_exit=$?
+set -e
+
+if [ "$report_exit" -ne 0 ]; then
+  preserve_verify_output="true"
+fi
+
+exit "$report_exit"

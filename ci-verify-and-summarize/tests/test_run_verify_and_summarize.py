@@ -1,3 +1,4 @@
+import os
 import subprocess
 import tempfile
 import textwrap
@@ -67,10 +68,13 @@ class RunVerifyAndSummarizeTests(unittest.TestCase):
         self._git(repo_root, "commit", "-m", message)
 
     def _run_helper(self, repo_root: Path) -> subprocess.CompletedProcess[str]:
+        environment = os.environ.copy()
+        environment["TMPDIR"] = str(repo_root)
         return subprocess.run(
             ["bash", str(SCRIPT_PATH)],
             capture_output=True,
             cwd=repo_root,
+            env=environment,
             text=True,
         )
 
@@ -85,6 +89,26 @@ class RunVerifyAndSummarizeTests(unittest.TestCase):
         self.assertIn("結果: ❌ failure", completed.stdout)
         self.assertIn("Pushリスク: high", completed.stdout)
         self.assertIn("最終ゲートを開始できません", completed.stdout)
+
+    def test_does_not_run_an_arbitrary_ci_script_as_verification(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            repo_root = Path(temporary_directory)
+            marker_path = repo_root / "format-ran.txt"
+            self._write_executable(
+                repo_root / "ci_scripts" / "tasks" / "format_swift.sh",
+                f"""
+                #!/usr/bin/env bash
+                set -euo pipefail
+                touch "{marker_path}"
+                """,
+            )
+
+            completed = self._run_helper(repo_root)
+            marker_existed = marker_path.exists()
+
+        self.assertEqual(completed.returncode, 1, completed.stdout + completed.stderr)
+        self.assertIn("verify 系CIエントリポイントを解決できず", completed.stdout)
+        self.assertFalse(marker_existed)
 
     def test_low_risk_success_reviews_staged_diff(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
