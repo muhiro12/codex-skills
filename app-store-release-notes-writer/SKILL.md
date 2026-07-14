@@ -60,6 +60,8 @@ Use this skill when the user asks to:
 - Match the emitted locale order to App Store Connect display order instead of source-locale-first ordering.
 - Preserve placeholders and formatting tokens exactly.
 - Preserve proper nouns and established feature names unless an official localized name is known or the user explicitly asks for a translation.
+- Reject malformed locale identifiers before writing per-locale files, and keep every generated locale file directly inside `--output-dir`.
+- Treat `.app-store-release-notes-manifest.json` as the ownership record for per-locale files; remove only files recorded by the previous run and leave unrelated output-directory contents untouched.
 
 ## Response Contract
 

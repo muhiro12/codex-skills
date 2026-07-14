@@ -10,6 +10,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -79,6 +80,8 @@ IGNORED_DISCOVERY_DIRECTORIES = {
     ".swiftpm",
     "node_modules",
 }
+LOCALE_IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$")
+OUTPUT_MANIFEST_NAME = ".app-store-release-notes-manifest.json"
 
 APP_STORE_CONNECT_LOCALE_FAMILY_ORDER = (
     "en",
@@ -438,12 +441,24 @@ def app_store_connect_locale_sort_key(locale: str) -> tuple[int, int, str]:
     return (len(APP_STORE_CONNECT_LOCALE_FAMILY_ORDER), 999, locale)
 
 
+def validate_locale_identifier(locale: str, *, source: str) -> str:
+    normalized = locale.strip()
+    if normalized == "Base" or not LOCALE_IDENTIFIER_PATTERN.fullmatch(normalized):
+        raise RuntimeError(f"Invalid locale identifier from {source}: {locale!r}")
+    return normalized
+
+
 def order_locales_for_app_store_connect(locales: list[str] | set[str]) -> list[str]:
     return sorted(locales, key=app_store_connect_locale_sort_key)
 
 
 def normalize_locale_order(locales: set[str], source_locale: str) -> list[str]:
-    filtered = {locale for locale in locales if locale and locale != "Base"}
+    filtered = {
+        validate_locale_identifier(locale, source="project localization settings")
+        for locale in locales
+        if locale and locale != "Base"
+    }
+    source_locale = validate_locale_identifier(source_locale, source="source locale")
     if not filtered:
         filtered = {source_locale}
 
@@ -461,6 +476,7 @@ def parse_locale_override(raw_locales: str) -> list[str]:
         locale = raw_locale.strip()
         if not locale or locale == "Base":
             continue
+        locale = validate_locale_identifier(locale, source="--locales")
         if locale in seen:
             continue
 
@@ -501,6 +517,7 @@ def parse_translations(path: Path) -> dict[str, LocaleNotes]:
     for locale, value in payload.items():
         if not isinstance(locale, str):
             continue
+        locale = validate_locale_identifier(locale, source="translations JSON")
 
         intro: str | None = None
         outro: str | None = None
@@ -682,12 +699,105 @@ def render_json(
     return json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
 
 
-def write_locale_files(output_dir: Path, localized_notes: dict[str, LocaleNotes]) -> None:
-    output_dir.mkdir(parents=True, exist_ok=True)
+def atomic_write_text(path: Path, content: str) -> None:
+    descriptor, temporary_name = tempfile.mkstemp(
+        dir=path.parent,
+        prefix=f".{path.name}.",
+        suffix=".tmp",
+    )
+    temporary_path = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as file:
+            file.write(content)
+        os.replace(temporary_path, path)
+    finally:
+        temporary_path.unlink(missing_ok=True)
 
-    for locale, notes in localized_notes.items():
-        output_path = output_dir / f"{locale}.txt"
-        output_path.write_text(render_locale_text(notes) + "\n")
+
+def resolve_owned_output_path(output_dir: Path, file_name: str) -> Path:
+    if Path(file_name).name != file_name:
+        raise RuntimeError(f"Unsafe release-note output filename: {file_name!r}")
+
+    output_path = output_dir / file_name
+    if output_path.is_symlink():
+        raise RuntimeError(f"Refusing to replace symlinked release-note output: {output_path}")
+
+    resolved_output = output_path.resolve()
+    if resolved_output.parent != output_dir:
+        raise RuntimeError(f"Release-note output escapes --output-dir: {output_path}")
+    return output_path
+
+
+def load_owned_output_files(output_dir: Path) -> set[str]:
+    manifest_path = output_dir / OUTPUT_MANIFEST_NAME
+    if not manifest_path.exists():
+        return set()
+    if manifest_path.is_symlink() or not manifest_path.is_file():
+        raise RuntimeError(f"Unsafe release-note output manifest: {manifest_path}")
+
+    try:
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as error:
+        raise RuntimeError(f"Failed to parse release-note output manifest: {error}") from error
+
+    raw_files = payload.get("files") if isinstance(payload, dict) else None
+    if not isinstance(raw_files, list) or not all(isinstance(item, str) for item in raw_files):
+        raise RuntimeError("Release-note output manifest must contain a string array named 'files'")
+
+    owned_files: set[str] = set()
+    for file_name in raw_files:
+        if not file_name.endswith(".txt"):
+            raise RuntimeError(f"Unsafe file in release-note output manifest: {file_name!r}")
+        locale = file_name.removesuffix(".txt")
+        validate_locale_identifier(locale, source="output manifest")
+        if file_name != f"{locale}.txt":
+            raise RuntimeError(f"Unsafe file in release-note output manifest: {file_name!r}")
+        resolve_owned_output_path(output_dir, file_name)
+        owned_files.add(file_name)
+    return owned_files
+
+
+def write_locale_files(output_dir: Path, localized_notes: dict[str, LocaleNotes]) -> None:
+    rendered_outputs: dict[str, str] = {}
+    casefolded_names: set[str] = set()
+    for raw_locale, notes in localized_notes.items():
+        locale = validate_locale_identifier(raw_locale, source="localized notes")
+        file_name = f"{locale}.txt"
+        casefolded_name = file_name.casefold()
+        if casefolded_name in casefolded_names:
+            raise RuntimeError(f"Locale output filenames collide: {file_name}")
+        casefolded_names.add(casefolded_name)
+        rendered_outputs[file_name] = render_locale_text(notes) + "\n"
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir = output_dir.resolve()
+
+    desired_outputs: dict[str, tuple[Path, str]] = {}
+    for file_name, content in rendered_outputs.items():
+        output_path = resolve_owned_output_path(output_dir, file_name)
+        desired_outputs[file_name] = (output_path, content)
+
+    previous_owned_files = load_owned_output_files(output_dir)
+    stale_paths = [
+        resolve_owned_output_path(output_dir, file_name)
+        for file_name in sorted(previous_owned_files - set(desired_outputs))
+    ]
+    for stale_path in stale_paths:
+        if stale_path.exists() and not stale_path.is_file():
+            raise RuntimeError(f"Refusing to remove non-file release-note output: {stale_path}")
+
+    for output_path, content in desired_outputs.values():
+        atomic_write_text(output_path, content)
+
+    for stale_path in stale_paths:
+        stale_path.unlink(missing_ok=True)
+
+    manifest_content = json.dumps(
+        {"version": 1, "files": sorted(desired_outputs)},
+        ensure_ascii=False,
+        indent=2,
+    ) + "\n"
+    atomic_write_text(output_dir / OUTPUT_MANIFEST_NAME, manifest_content)
 
 
 def iter_repo_files(repository_path: Path, *, file_name: str | None = None, suffix: str | None = None) -> list[Path]:
@@ -893,9 +1003,10 @@ def main() -> int:
 
         source_locale = detected_source_locale
         if arguments.source_locale:
-            source_locale = arguments.source_locale.strip()
-            if not source_locale or source_locale == "Base":
-                raise RuntimeError("--source-locale must be a valid locale code")
+            source_locale = validate_locale_identifier(
+                arguments.source_locale,
+                source="--source-locale",
+            )
 
         if source_locale not in locales:
             locales = order_locales_for_app_store_connect([*locales, source_locale])
@@ -943,16 +1054,20 @@ def main() -> int:
         print(str(error), file=sys.stderr)
         return 1
 
-    if arguments.output:
-        output_path = Path(arguments.output).resolve()
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_text(output_content)
-    else:
-        print(output_content, end="")
+    try:
+        if arguments.output:
+            output_path = Path(arguments.output).resolve()
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text(output_content)
+        else:
+            print(output_content, end="")
 
-    if arguments.output_dir:
-        output_directory = Path(arguments.output_dir).resolve()
-        write_locale_files(output_directory, localized_notes)
+        if arguments.output_dir:
+            output_directory = Path(arguments.output_dir).resolve()
+            write_locale_files(output_directory, localized_notes)
+    except (OSError, RuntimeError) as error:
+        print(str(error), file=sys.stderr)
+        return 1
 
     return 0
 
