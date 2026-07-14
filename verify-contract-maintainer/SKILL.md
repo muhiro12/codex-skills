@@ -1,13 +1,13 @@
 ---
 name: verify-contract-maintainer
-description: Define, audit, and maintain a minimal verification contract for repositories that already have or are deliberately adopting `ci_scripts`, XcodeBuildMCP-first checks, or retained repository-rule scripts, so verification expectations stay predictable, commit-time hooks stay lightweight, and name drift is reduced without broad rewrites.
+description: Define, audit, and maintain a minimal verification contract for repositories that already have or are deliberately adopting native Xcode MCP-first checks, `ci_scripts`, or retained repository-rule scripts, so verification expectations stay predictable, Xcode selections are restored after checks, commit-time hooks stay lightweight, and name drift is reduced without broad rewrites.
 ---
 
 # Verify Contract Maintainer
 
 ## Overview
 
-Define and enforce a small, practical verification contract for repositories that already have `ci_scripts`, XcodeBuildMCP-first checks, or retained repository-rule scripts.
+Define and enforce a small, practical verification contract for repositories that already have native Xcode MCP-first checks, `ci_scripts`, or retained repository-rule scripts.
 Keep the contract rules in this file portable across agent runtimes where practical; platform-specific metadata can live beside the skill.
 Keep repository behavior stable by preferring low-risk normalization and explicit reporting over broad rewrites.
 Treat this skill as the owner of contract-level maintenance: `AGENTS.md` alignment, entrypoint or MCP-check normalization, push/manual routing for heavy checks, and compatibility-first upkeep.
@@ -15,12 +15,14 @@ Do not use this skill to design first-pass Apple-platform verification scaffoldi
 
 ## Xcode Skill Catalog
 
-When `sync-xcode-skills/state/catalog.md` exists under the active Codex skills root, scan it for task-relevant Xcode-provided `xcode-skill-*` guidance before applying this skill's local XcodeBuildMCP or Apple verification-contract heuristics. Do not hardcode individual Xcode-provided skill names. If the catalog is missing or no listed skill matches, continue with this skill normally.
+When `sync-xcode-skills/state/catalog.md` exists under the active Codex skills root, scan it for task-relevant Xcode-provided `xcode-skill-*` guidance before applying this skill's local native Xcode MCP or Apple verification-contract heuristics. Do not hardcode individual Xcode-provided skill names. If the catalog is missing or no listed skill matches, continue with this skill normally.
 
 ## Trigger Conditions
 
 Use this skill when the user asks for topics such as:
 
+- native Xcode MCP の build/test/run 契約を監査したい
+- `AGENTS.md` の scheme、destination、MCP action 記述を揃えたい
 - `ci_scripts` 採用後の最小契約を整えたい
 - verify系スクリプトの名前揺れを減らしたい
 - `AGENTS.md` の検証入口記述と実体を一致させたい
@@ -35,15 +37,20 @@ For repositories in scope, use this contract:
 1. Required:
 - `AGENTS.md` documents the repository's verification contract.
 - Any documented repository-managed shell command resolves to an executable script.
-- Any documented XcodeBuildMCP check names concrete project/workspace, scheme, simulator, or equivalent session-default expectations.
+- Any documented native Xcode MCP check names the project/workspace, scheme, intended destination family, test plan or test identifiers when relevant, and the concrete action that supplies the evidence.
+- The contract requires an agent to record the original active scheme and destination before switching them, restore the original scheme and then its destination after the check, and report any selection it could not restore.
 - The contract distinguishes concrete verification capabilities, such as
   library/package tests, app or surface builds, retained repository-rule checks,
   and targeted runtime/UI evidence, without turning every repository file into a
   full cross-repository decision playbook.
 
 2. Recommended:
-- `ci_scripts/tasks/check_repository_rules.sh` for retained static rule checks that are not naturally covered by XcodeBuildMCP.
-- XcodeBuildMCP `build_sim`, `test_sim`, `build_run_sim`, `launch_app_sim`, `snapshot_ui`, or `screenshot` for Apple build/test/runtime/UI evidence when the repository is deliberately MCP-first.
+- `ci_scripts/tasks/check_repository_rules.sh` for retained static rule checks that are not naturally covered by native Xcode MCP.
+- `XcodeListWindows`, `XcodeListSchemes`, and `XcodeListRunDestinations` for workspace discovery and original-selection capture.
+- `BuildProject` for surface builds and `RunAllTests` or `RunSomeTests` for the active scheme's test plan.
+- `RunProject`, `GetConsoleOutput`, and `StopProject` for targeted launch and runtime-log evidence.
+- `RenderPreview` for direct SwiftUI Preview evidence.
+- `DeviceInteractionStartSession`, `DeviceInteractionInstallAndRun`, `DeviceInteractionSynthesize`, and `DeviceInteractionEndSession` for live UI hierarchy, screenshot, log, orientation, and interaction evidence.
 - Short risk-based selection guardrails, for example when public APIs, persisted
   schema, wire contracts, package products, lifecycle wiring, or visible UI
   behavior require stronger evidence than the narrowest local check.
@@ -66,7 +73,7 @@ Use one mode per run:
   - Propose a minimal bundle; do not modify files.
 
 - `bootstrap`
-  - Add missing minimal contract pieces only in repositories that already adopted or have explicitly decided to adopt `ci_scripts`.
+  - Add missing documentation or compatibility pieces only when the repository already has a coherent native Xcode MCP or deliberately retained `ci_scripts` direction.
   - Prefer creating only the smallest required set.
   - This is not first-pass Apple build/test surface discovery; hand that to `$apple-repo-verify-bootstrapper`.
 
@@ -85,7 +92,7 @@ Use one mode per run:
 - Map current files to contract roles:
   - aggregate shell gate
   - retained repository-rule check
-  - MCP build/test/runtime evidence
+  - native Xcode MCP build/test/runtime/Preview/device evidence
   - repo-state check
   - optional push wrapper
 - Mark each role as `present`, `missing`, or `non-standard but acceptable`.
@@ -102,7 +109,7 @@ Use one mode per run:
 - Do not expand scope into Apple-specific build surface discovery or sibling-reference-repo alignment.
 
 5. Verify and summarize.
-- Run the documented repository verification command or retained rule check when available. For MCP-first contracts, report the required MCP checks and run them only when the active tool surface is available.
+- Run the documented native Xcode MCP actions and retained rule checks that are available. Record the original active scheme and destination, switch only when required, restore the original scheme and then destination after the checks, and report any unavailable action or failed restoration.
 - Report applied updates, remaining low-risk candidates, and manual-review items separately.
 
 ## Low-Risk Rules
@@ -127,6 +134,7 @@ Treat these as manual review:
 - Do not reintroduce heavy commit-time verification as the default path unless the user explicitly asks for it.
 - Prefer compatibility-first normalization and clear reporting.
 - Do not use this skill for first-time Apple-specific verify scaffolding or mixed app-package bootstrap design.
+- Do not translate a missing third-party MCP namespace by guesswork. Treat a specialist that requires unavailable tools as optional and use the native Xcode MCP actions directly.
 
 ## Response Contract
 

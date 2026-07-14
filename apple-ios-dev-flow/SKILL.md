@@ -1,6 +1,6 @@
 ---
 name: apple-ios-dev-flow
-description: Orchestrate Apple-platform app development in this local Codex/Xcode environment by routing implementation, refactor, UI, Swift, sample-code, simulator, App Intents, performance, leak, preview, smoke, and verification work across Hiromu's custom skills, OpenAI Build iOS Apps skills, XcodeBuildMCP, Apple official guidance, repo-local evidence, and the repository's documented verification contract.
+description: Orchestrate Apple-platform app development in this local Codex/Xcode environment by routing implementation, refactor, UI, Swift, sample-code, simulator, App Intents, performance, leak, preview, smoke, and verification work across Hiromu's custom skills, native Xcode MCP tools, selectively compatible OpenAI Build iOS Apps skills, Apple official guidance, repo-local evidence, and the repository's documented verification contract.
 ---
 
 # Apple iOS Dev Flow
@@ -18,7 +18,7 @@ When a related Apple sample may show the concrete implementation shape for the f
 When implementation affects user interface, navigation, controls, visual hierarchy, accessibility, platform adaptation, or Apple design-system behavior, use `$apple-hig-ui-guardian` before settling or preserving the UI shape.
 When implementation affects Swift APIs, naming, type modeling, concurrency, `Sendable`, actor isolation, package/module boundaries, access control, public documentation, or SwiftPM manifests, use `$swift-code-guardian` before settling or preserving the code shape.
 When Swift implementation or review should preserve Hiromu/MH local source style, use `$mh-swift-style` after repository evidence and Swift correctness constraints are clear.
-When available and relevant, use OpenAI Build iOS Apps skills and XcodeBuildMCP for specialized SwiftUI, App Intents, simulator, profiling, and leak workflows, while still treating the repository's documented verification contract as the final readiness gate.
+Use the native Xcode MCP tool surface for build, test, run, Preview, logs, and device interaction. Use an OpenAI Build iOS Apps skill only when the skill is relevant and every tool namespace it requires is present in the current tool inventory; otherwise keep the native Xcode MCP workflow and report the unavailable specialist as an optional compatibility gap. Treat the repository's documented verification contract as the final readiness gate.
 When `sync-xcode-skills/state/catalog.md` exists under the active Codex skills root, treat it as the local catalog of Xcode-provided Skills. Use it to discover currently installed `xcode-skill-*` guidance instead of hardcoding Xcode-provided skill names.
 
 ## Trigger Conditions
@@ -42,11 +42,11 @@ Prefer specialized skills instead for:
 Assume these surfaces are available in this Codex desktop environment when the active tool and skill lists show them:
 
 - Hiromu custom skills: `$track-developer-principles`, `$apple-hig-ui-guardian`, `$swift-code-guardian`, `$mh-swift-style`, `$apple-sample-code-advisor`, `$xcode-preview-auditor`, `$xcode-ui-smoke-auditor`, `$ci-verify-and-summarize`, and repository workflow skills.
-- OpenAI Build iOS Apps skills: `$build-ios-apps:swiftui-ui-patterns`, `$build-ios-apps:swiftui-view-refactor`, `$build-ios-apps:swiftui-liquid-glass`, `$build-ios-apps:swiftui-performance-audit`, `$build-ios-apps:ios-app-intents`, `$build-ios-apps:ios-debugger-agent`, `$build-ios-apps:ios-ettrace-performance`, and `$build-ios-apps:ios-memgraph-leaks`.
+- OpenAI Build iOS Apps skills: `$build-ios-apps:swiftui-ui-patterns`, `$build-ios-apps:swiftui-view-refactor`, `$build-ios-apps:swiftui-liquid-glass`, `$build-ios-apps:swiftui-performance-audit`, `$build-ios-apps:ios-app-intents`, `$build-ios-apps:ios-debugger-agent`, `$build-ios-apps:ios-ettrace-performance`, `$build-ios-apps:ios-memgraph-leaks`, and `$build-ios-apps:ios-simulator-browser`. Treat a skill that depends on a missing tool namespace as unavailable rather than translating its calls by guesswork.
 - Local Apple sample cache: `~/.codex/skills/apple-sample-code-advisor/cache`, managed through `$apple-sample-code-advisor`.
 - Generated Xcode-provided Skill catalog: `sync-xcode-skills/state/catalog.md` under the active Codex skills root, managed through `$sync-xcode-skills`.
-- XcodeBuildMCP for simulator build, run, logs, UI inspection, screenshots, and profiling support when available.
-- Repository verification contracts, especially `AGENTS.md`, XcodeBuildMCP build/test/run expectations, and retained `ci_scripts` rule checks.
+- Native Xcode MCP tools for workspace discovery and active selection, build, test, run, logs, Preview rendering, and device interaction.
+- Repository verification contracts, especially `AGENTS.md`, native Xcode MCP build/test/run expectations, and retained `ci_scripts` format, lint, static-rule, or otherwise uncovered checks.
 - Local sibling repositories only as read-only fallback evidence after stronger Apple and current-repo sources.
 
 ## Decision Order
@@ -101,13 +101,31 @@ Use this routing before editing when a sidecar skill can narrow the work:
 - SwiftUI view cleanup or body decomposition: use `$build-ios-apps:swiftui-view-refactor`, plus `$swift-code-guardian` for Observation, dependency injection, access control, and concurrency boundaries.
 - Liquid Glass work: use `$apple-hig-ui-guardian`, `$build-ios-apps:swiftui-liquid-glass`, and `$apple-sample-code-advisor` for current Landmarks-style sample evidence when project-level shape matters.
 - App Intents, App Entities, App Shortcuts, Siri, Spotlight, widgets, or controls integration: use `$build-ios-apps:ios-app-intents`, plus `$swift-code-guardian` for API and concurrency quality.
-- Simulator run, UI interaction, runtime logs, screenshots, or live debugging: use `$build-ios-apps:ios-debugger-agent` and XcodeBuildMCP; call the XcodeBuildMCP session-default discovery step before the first build/run/test call in a session.
+- Simulator run, UI interaction, runtime logs, screenshots, or live debugging: use the native Xcode MCP selection and execution contract below. Follow a matching generated Xcode skill discovered from the catalog. Use `$build-ios-apps:ios-debugger-agent` only as an optional fallback when its documented tool namespace and exact tools exist in the current inventory.
+- Browser-visible Simulator mirroring or Swift Package Preview hot reload: use `$build-ios-apps:ios-simulator-browser` when the user asks for that interactive browser workflow and its runtime dependencies are available; do not substitute it for native Preview or UI audit evidence by default.
 - SwiftUI performance diagnosis from code: use `$build-ios-apps:swiftui-performance-audit`; use `$build-ios-apps:ios-ettrace-performance` when runtime trace evidence is required.
-- Memory growth, retain cycles, or leak proof: use `$build-ios-apps:ios-memgraph-leaks`, usually paired with `$build-ios-apps:ios-debugger-agent` for the live simulator flow.
+- Memory growth, retain cycles, or leak proof: use `$build-ios-apps:ios-memgraph-leaks` when its required tools exist, paired with the native Xcode MCP runtime lifecycle for live app setup. Use `$build-ios-apps:ios-debugger-agent` only when its separate required namespace also exists.
 - Preview-based visual audit: use `$xcode-preview-auditor`, then `$apple-hig-ui-guardian` for HIG classification of any issues.
 - Live release UI smoke or screenshot audit: use `$xcode-ui-smoke-auditor`, then `$apple-hig-ui-guardian` for UI/design-system findings.
 - Related Apple sample exists or likely exists for framework adoption, lifecycle, target layout, entitlements, cross-surface features, SwiftUI composition, model/data wiring, or modern app shell decisions: use `$apple-sample-code-advisor` after matching Xcode-provided skill guidance and before relying on prose documentation alone or sibling repository fallback.
 - Final verification and diff summary: use `$ci-verify-and-summarize` when the repository provides a shell or retained repository-rule entrypoint and the user asks for verify/CI/push-readiness summarization; otherwise run the documented MCP checks and retained rule checks directly.
+
+## Native Xcode MCP Selection And Execution Contract
+
+Use this lifecycle for native Xcode MCP work:
+
+1. Call `XcodeListWindows` and choose the workspace `tabIdentifier` that matches the current repository. Do not guess when multiple windows are open.
+2. Call `XcodeListSchemes` and `XcodeListRunDestinations`. Record the original `activeSchemeName`, the active scheme entry's `disambiguatedName` for reliable restoration, and `activeDestinationDisplayTitle` before changing either selection.
+3. Keep the active scheme and destination when they satisfy the repository contract. Otherwise use `XcodeSwitchScheme` with a discovered disambiguated scheme name, then refresh destinations and use `XcodeSwitchRunDestination` with a discovered round-trippable `displayTitle`. Remember that switching schemes may automatically change the destination.
+4. Choose the narrow native action that proves the boundary:
+   - `BuildProject` for an app, extension, or other surface build
+   - `RunAllTests` or `RunSomeTests` for the active test plan
+   - `RunProject`, `GetConsoleOutput`, and `StopProject` for launch and runtime-log evidence without UI interaction
+   - `RenderPreview` for direct SwiftUI Preview evidence
+   - `DeviceInteractionStartSession`, `DeviceInteractionInstallAndRun`, repeatable `DeviceInteractionSynthesize`, and mandatory `DeviceInteractionEndSession` for live screenshot, hierarchy, log, orientation, and interaction evidence
+5. End any device-interaction session and stop a run started solely for verification. If the workflow changed Xcode's active selection, restore the original scheme first, restore its original destination second, and re-list both to confirm. If restoration is unsafe or impossible, report the final active selection explicitly.
+
+Never invent an adapter for a missing third-party MCP namespace. A Build iOS Apps skill that documents a different namespace is optional guidance only when that namespace and its exact tools are actually available.
 
 ## Verification Evidence Selection
 
@@ -140,10 +158,10 @@ fresh clone; this skill should choose among them in Hiromu's local environment.
 
 1. Confirm repository workflow prerequisites.
 - Resolve the repository's documented verification contract from `AGENTS.md` first, then `ci_scripts/**/*.sh`, then repo-native aggregate commands.
-- When `AGENTS.md` specifies XcodeBuildMCP build/test/run expectations, execute those MCP checks directly instead of looking for an equivalent custom shell.
+- When `AGENTS.md` specifies native Xcode MCP build/test/run expectations, execute those actions directly instead of looking for an equivalent custom shell.
 - If the repository provides an explicit repo-managed autofix step for edited files such as `format_swift.sh`, treat it as part of the main implementation flow before the final verification gate.
 - If the repository does not have a coherent verification contract, switch to `$apple-repo-verify-bootstrapper` or tell the user that the repo needs that scaffolding first.
-- For simulator execution or UI/debug validation, prefer XcodeBuildMCP tools when available; call `session_show_defaults` before the first XcodeBuildMCP build/run/test call in a session, and run retained repository rule checks afterward when they are documented.
+- For simulator execution or UI/debug validation, follow the native Xcode MCP selection and execution contract above, including original-selection capture and restoration, then run retained repository rule checks when they are documented.
 
 2. Implement with local evidence first.
 - Inspect the target files, adjacent tests, and current diagnostics before editing.
@@ -172,7 +190,7 @@ fresh clone; this skill should choose among them in Hiromu's local environment.
 5. Run the final gate before replying.
 - If the repository provides an explicit autofix command, run it before the final gate so the last verification pass stays non-destructive.
 - Review the actual diff for regressions, missing tests, architecture drift, HIG drift for UI-affecting changes, and Swift API/concurrency/package drift for Swift-affecting changes.
-- Run the repository's documented verification contract, combining XcodeBuildMCP checks and retained repository scripts when both are part of the contract.
+- Run the repository's documented verification contract, combining native Xcode MCP evidence and retained repository scripts when both are part of the contract.
 - Treat current-change or clearly introduced build/test/lint/warning failures as blocking.
 - If warnings or errors are clearly pre-existing or come from external packages, say so explicitly instead of attributing them to the current change.
 

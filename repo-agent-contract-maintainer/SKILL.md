@@ -107,8 +107,13 @@ Move information to the narrowest durable layer that can carry it forward:
   global contract.
 - Search for repeated meta-rationale that belongs in this skill or developer
   principles instead of the repository file.
-- For MCP-first Apple repositories, confirm `AGENTS.md` names concrete
-  XcodeBuildMCP expectations and retained repository-rule scripts separately.
+- For MCP-first Apple repositories, confirm `AGENTS.md` names the project or
+  workspace, concrete schemes and destination families, native Xcode MCP
+  actions such as `BuildProject`, `RunAllTests`/`RunSomeTests`, `RunProject`,
+  `RenderPreview`, or the `DeviceInteraction*` lifecycle as appropriate, and
+  retained repository-rule scripts separately. Require runtime agents to record
+  the original active scheme and destination, restore the scheme and then its
+  destination after switching, and report failed restoration.
 - Report any global or skill-owned files that are not Git-managed.
 
 ## Editing Guardrails
@@ -124,7 +129,7 @@ Move information to the narrowest durable layer that can carry it forward:
 - Do not replace repository-specific architecture documents with AGENTS.md
   summaries; summarize only the boundary needed for safe agent behavior.
 - Do not treat shell verification scripts as primary for MCP-first Apple
-  repositories when XcodeBuildMCP covers the evidence; retain scripts for
+  repositories when native Xcode MCP covers the evidence; retain scripts for
   SwiftLint, formatting, repository-specific static rules, compatibility, or
   uncovered checks.
 

@@ -1,18 +1,18 @@
 ---
 name: apple-repo-verify-bootstrapper
-description: Bootstrap first-pass Apple-platform repository verification scaffolding by shaping repo-specific `ci_scripts`, `AGENTS.md` entrypoints, and optional repository-local push-hook guidance from actual Xcode or Swift package surfaces while using a locally available sibling reference repository only as a read-only reference.
+description: Bootstrap first-pass Apple-platform repository verification by deriving an `AGENTS.md` native Xcode MCP evidence contract from the real Xcode and Swift package surfaces, then adding repository-local format, lint, static-rule, or otherwise uncovered scripts only when needed. Use sibling repositories only as read-only fallback evidence.
 ---
 
 # Apple Repo Verify Bootstrapper
 
 ## Overview
 
-Use this skill when an Apple-platform repository still needs its first coherent verification foundation, especially when Xcode project structure, `Package.swift`, or mixed app-plus-package surfaces must be turned into an initial `ci_scripts` layout.
+Use this skill when an Apple-platform repository still needs its first coherent verification foundation, especially when Xcode project structure, `Package.swift`, or mixed app-plus-package surfaces must be turned into a native Xcode MCP-first evidence contract.
 Keep the workflow core in this file portable across agent runtimes where practical; platform-specific metadata can live beside the skill.
 Return user-facing explanations in concise, practical Japanese.
 Keep shell scripts, file names, commands, and repository documents in English unless the target repository already uses another convention.
 Treat this skill as the owner of first-pass scaffolding and Apple-repo-specific verification design.
-If the repository already has or is intentionally adopting `ci_scripts` and only needs contract auditing, naming cleanup, `AGENTS.md` alignment, or lightweight maintenance, use `$verify-contract-maintainer` instead.
+If the repository already has a coherent native Xcode MCP or deliberately retained `ci_scripts` contract and only needs auditing, naming cleanup, `AGENTS.md` alignment, or lightweight maintenance, use `$verify-contract-maintainer` instead.
 When the verification philosophy depends on the user's durable cross-repository workflow preferences, consult a local principle archive skill when available (for example `$track-developer-principles`) before deciding the target shape.
 
 ## Xcode Skill Catalog
@@ -24,8 +24,8 @@ When `sync-xcode-skills/state/catalog.md` exists under the active Codex skills r
 Use this skill when the user asks for things such as:
 
 - `Apple repo の verify 基盤を新設して`
-- `Xcode project と Package.swift を見て ci_scripts の土台を作って`
-- `app と package の mixed surface を踏まえて build/test/lint shell を初期整備して`
+- `Xcode project と Package.swift を見て native Xcode MCP の検証契約を作って`
+- `app と package の mixed surface を踏まえて build/test/run の証跡を初期設計して`
 - `参照用の sibling repo を参考に Apple repo の検証 scaffolding を揃えて`
 - `まだ形になっていない verify 導線を Apple 系 repo 向けに整えて`
 
@@ -33,7 +33,7 @@ Use this skill when the user asks for things such as:
 
 1. Inspect the current repository first.
 - Read the current repository's `AGENTS.md`, top-level layout, Xcode project structure, `Package.swift`, `ci_scripts`, hook config when present, and any existing build/test/lint commands.
-- Determine the real Apple-repo verification surfaces the repository needs: app build, package tests, lint, app-only checks, package-only checks, or mixed surfaces.
+- Determine the real Apple-repo verification surfaces the repository needs: app or extension builds, package or test-plan tests, Preview evidence, runtime logs, live UI evidence, retained lint/static rules, app-only checks, package-only checks, or mixed surfaces.
 
 2. Consult a local principle archive skill second when workflow philosophy matters.
 - Use it for recurring preferences around verification entrypoints, non-destructive final gates, documentation expectations in `AGENTS.md`, and the balance between strictness and maintainability.
@@ -43,38 +43,45 @@ Use this skill when the user asks for things such as:
 - If a locally available sibling reference repository is available and relevant, use it as a read-only reference when the current repository lacks a coherent pattern or the user explicitly wants alignment.
 - Learn reusable workflow structure, not finance-specific behavior or app-specific naming.
 
-4. Establish an initial source of truth for verification.
-- Prefer a repo-standard aggregate entrypoint such as `ci_scripts/tasks/verify_task_completion.sh`.
-- Add supporting shell scripts only when they represent real repository surfaces that should stay independently runnable.
-- When the repository benefits from role-based entrypoints, prefer explicit names such as `verify_task_completion.sh`, `verify_repository_state.sh`, and `verify_pre_push.sh`, and keep wrappers optional for compatibility only.
-- Keep repo-managed autofix commands such as `format_swift.sh` explicit and separate from the final non-destructive verification gate.
-- Keep build/test/lint execution repo-specific; do not force `SwiftLint` or any other tool unless the target repository already uses it or the user explicitly asks for it.
-- Prefer shaping the initial scaffold from observed Apple surfaces rather than starting from a generic verify contract template.
+4. Establish the native Xcode MCP evidence contract first.
+- Use `XcodeListWindows` to identify the current repository's workspace tab, then `XcodeListSchemes` and `XcodeListRunDestinations` to discover the real active and available surfaces. Treat the runtime `tabIdentifier` as ephemeral session state; do not write it into repository files.
+- Document concrete project/workspace paths, schemes, destination families, test plans or targeted tests, and the smallest evidence needed for each repository boundary.
+- Map surface builds to `BuildProject`; tests to `RunAllTests` or `RunSomeTests`; launch and runtime logs to `RunProject`, `GetConsoleOutput`, and `StopProject`; direct Preview evidence to `RenderPreview`; and live UI evidence to `DeviceInteractionStartSession`, `DeviceInteractionInstallAndRun`, repeatable `DeviceInteractionSynthesize`, and mandatory `DeviceInteractionEndSession`.
+- Require agents to record the original `activeSchemeName`, the active scheme entry's `disambiguatedName`, and `activeDestinationDisplayTitle` before switching them. When checks finish, restore the original scheme first with its unambiguous handle and its original destination second, then re-list both to confirm. Report any selection that could not be restored.
+- Shape the initial contract from observed Apple surfaces rather than starting from a generic verify template or a shell aggregate.
 
-5. Document and wire the surrounding workflow.
-- Ensure `AGENTS.md` documents the standard verification entrypoint and any important run-artifact conventions.
-- If hook config exists, prefer push-time wrappers for heavy verification and keep commit-time hooks lightweight or absent.
-- If `.pre-commit-config.yaml` already carries heavy verification, migrate that responsibility to direct shell execution or an optional push-time wrapper instead of duplicating logic there.
+5. Add retained shell checks only for uncovered responsibilities.
+- Add or retain shell scripts only for formatting or autofix, lint, repository-specific static/policy rules, temporary compatibility, or evidence the native Xcode MCP surface does not naturally provide.
+- Keep repo-managed autofix commands such as `format_swift.sh` explicit and separate from the final non-destructive verification pass.
+- Do not force `SwiftLint` or any other tool unless the target repository already uses it or the user explicitly asks for it.
+- Add an aggregate shell or push wrapper only when the repository intentionally retains that interface; do not make it the first-pass build/test contract.
+
+6. Document and wire the surrounding workflow.
+- Ensure `AGENTS.md` documents the native Xcode MCP actions and evidence boundaries first, with retained shell commands in a separate role.
+- Keep build/test/run verification in the documented native Xcode MCP contract. If hook config exists, reserve optional push-time wrappers for retained uncovered checks and keep commit-time hooks lightweight or absent.
+- If `.pre-commit-config.yaml` already carries heavy Apple build/test verification, migrate that responsibility to the native Xcode MCP contract. Move only retained format/lint/static/uncovered shell checks to direct execution or an optional push-time wrapper.
 - Do not install user-level hooks or mutate global Git configuration. Keep any hook guidance repository-local and optional unless the user explicitly asks for active hook setup.
-- Prefer `.build/ci/runs/<RUN_ID>` when the repository needs inspectable run artifacts.
+- Prefer native Xcode MCP result paths such as build logs, test summaries, `xcresult` bundles, Preview snapshots, screenshots, hierarchies, and runtime logs as evidence. Use `.build/ci/runs/<RUN_ID>` only when a retained repository script intentionally creates those artifacts.
 - When run artifacts exist, read only the newest `.build/ci/runs/<RUN_ID>` for diagnosis.
 - Do not scan older runs under `.build/ci/runs/`.
 - If the work exposes a clearly reusable cross-repository verification principle and a local principle archive skill such as `$track-developer-principles` is available, harvest it there after stabilizing the repo-level change.
 - Leave post-bootstrap contract auditing and naming-only maintenance to `$verify-contract-maintainer`.
 
-6. Verify and report.
-- Run the repository's new or updated standard verification entrypoint before finishing.
+7. Verify and report.
+- Run the repository's new or updated native Xcode MCP contract before finishing: select the intended scheme/destination only when necessary, execute the smallest documented build/test/run/Preview/device evidence set, and restore the original active selection afterward.
+- Run retained format/lint/static-rule scripts when they are part of the contract.
 - Treat current-change or clearly introduced build/test/lint/warning failures as blocking.
 - If warnings or errors clearly come from pre-existing code or external packages, call them out separately without pretending the current change introduced them.
 
 ## Guardrails
 
 - Never modify a sibling reference repository.
-- Never invent a large CI matrix when one stable repo-standard shell is sufficient.
+- Never invent a large local verification matrix when a small set of native Xcode MCP actions proves the repository boundaries.
 - Never let archived principles override hard repository constraints or direct user instructions.
-- Never make commit-time hooks the primary enforcement path for heavy verification; the repository must remain verifiable by directly running its standard shell scripts.
-- Never present pre-commit wiring as the default setup for newly bootstrapped Apple verification; heavy checks should live behind explicit shell entrypoints and optional push-time routing.
+- Never make commit-time hooks the primary enforcement path for heavy verification; the repository must remain verifiable through its documented native Xcode MCP actions plus any retained rule scripts.
+- Never present pre-commit wiring or an aggregate shell as the default setup for newly bootstrapped Apple verification.
 - Never hard-code a tool such as `SwiftLint` when the target repository's actual workflow does not require it.
+- Never translate a missing third-party MCP namespace by guesswork. Treat a specialist skill that requires unavailable tools as optional and keep the native Xcode MCP contract authoritative.
 - Do not use this skill for repositories that already have a coherent verify scaffold and only need contract-level maintenance or naming cleanup.
 - Ask the user only when the repository surfaces are ambiguous enough that you cannot decide what should be verified.
 

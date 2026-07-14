@@ -1,4 +1,4 @@
 interface:
   display_name: "Repo Agent Contract Maintainer"
   short_description: "Maintain clone-ready AGENTS.md contracts"
-  default_prompt: "Use $repo-agent-contract-maintainer to audit or update AGENTS.md boundaries for this repository."
+  default_prompt: "Use $repo-agent-contract-maintainer to audit or update this repository's clone-ready AGENTS.md boundaries, including concrete native Xcode MCP evidence actions, active scheme/destination restoration, and separately retained format/lint/static-rule scripts for Apple repositories."

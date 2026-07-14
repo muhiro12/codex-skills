@@ -1,4 +1,4 @@
 interface:
   display_name: "Xcode Preview Auditor"
-  short_description: "Audit SwiftUI #Preview with MCP-first coverage reporting"
-  default_prompt: "Use $xcode-preview-auditor to audit SwiftUI #Preview screens by checking available XcodeBuildMCP capture tools first, reporting direct Preview capture gaps as tool-side blockers, using only faithful Simulator fallback, and keeping the run audit-only unless fixes are explicitly requested."
+  short_description: "Audit SwiftUI #Preview with native rendering"
+  default_prompt: "Use $xcode-preview-auditor to audit SwiftUI #Preview screens with native Xcode MCP RenderPreview, preserve a per-preview coverage ledger, use Device Interaction fallback only for exactly reproducible live-app states, restore any changed scheme and destination, and keep the run audit-only unless fixes are explicitly requested."

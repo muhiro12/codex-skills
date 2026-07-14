@@ -1,4 +1,4 @@
 interface:
   display_name: "Apple Repo Verify Bootstrapper"
-  short_description: "Prepare Apple repo verify/build/test/lint shells"
-  default_prompt: "Use $apple-repo-verify-bootstrapper to prepare or repair an Apple-platform repository's first-pass verification scaffolding by establishing repo-specific ci_scripts, AGENTS.md entrypoints, and optional repository-local push-hook guidance, while using a locally available sibling reference repository only as a read-only reference."
+  short_description: "Bootstrap native Apple verification contracts"
+  default_prompt: "Use $apple-repo-verify-bootstrapper to derive an Apple repository's first-pass AGENTS.md verification contract from its real Xcode and Swift package surfaces: define native Xcode MCP build/test/run/Preview/device evidence and active scheme/destination restoration first, then add only necessary format, lint, static-rule, compatibility, or otherwise uncovered scripts."
