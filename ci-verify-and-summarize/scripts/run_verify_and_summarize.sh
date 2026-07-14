@@ -1,18 +1,39 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-latest_run_id() {
+list_run_ids() {
   local run_base="$1"
-  if [ ! -d "$run_base" ]; then
+  local path=""
+  local run_id=""
+
+  if [ ! -d "$run_base" ] || [ -L "$run_base" ]; then
     return 0
   fi
 
   {
     for path in "$run_base"/*; do
       [ -d "$path" ] || continue
-      basename "$path"
+      [ ! -L "$path" ] || continue
+      run_id="$(basename "$path")"
+      case "$run_id" in
+        *[!A-Za-z0-9._-]*) continue ;;
+      esac
+      printf '%s\n' "$run_id"
     done
-  } | sort | tail -n 1
+  } | sort
+}
+
+has_unsafe_run_entry() {
+  local run_base="$1"
+  local path=""
+
+  [ -d "$run_base" ] || return 1
+  for path in "$run_base"/*; do
+    if [ -L "$path" ]; then
+      return 0
+    fi
+  done
+  return 1
 }
 
 extract_agents_entrypoint() {
@@ -78,18 +99,28 @@ detect_verify_entrypoint() {
 }
 
 verify_output="$(mktemp "${TMPDIR:-/tmp}/ci_verify_and_summarize.XXXXXX")"
-preserve_verify_output="false"
 
 cleanup_verify_output() {
-  if [ "$preserve_verify_output" != "true" ]; then
-    rm -f -- "$verify_output"
-  fi
+  rm -f -- "$verify_output"
 }
 
 trap cleanup_verify_output EXIT
 
 run_base=".build/ci/runs"
-pre_run="$(latest_run_id "$run_base")"
+if [ -L "$run_base" ]; then
+  echo "結果: ❌ failure"
+  echo "最新RUN: (なし)"
+  echo "要約:"
+  echo "- .build/ci/runs がsymlinkのため、安全にCI成果物を選択できません。"
+  echo "Pushリスク: high"
+  echo "リスク理由:"
+  echo "- CI成果物rootがrepository外を指し得るため、verifyを実行していません。"
+  echo "次の一手:"
+  echo "- .build/ci/runs を通常directoryへ戻してから再実行してください。"
+  exit 1
+fi
+
+pre_runs="$(list_run_ids "$run_base")"
 verify_entrypoint="$(detect_verify_entrypoint)"
 
 if [ -z "$verify_entrypoint" ]; then
@@ -116,12 +147,26 @@ bash "$verify_entrypoint" >"$verify_output" 2>&1
 verify_exit=$?
 set -e
 
-post_run="$(latest_run_id "$run_base")"
+post_runs="$(list_run_ids "$run_base")"
 latest_run=""
 run_is_new="false"
-if [ -n "$post_run" ] && [ "$pre_run" != "$post_run" ]; then
-  latest_run="$post_run"
+run_selection_error=""
+new_runs="$(comm -13 <(printf '%s\n' "$pre_runs") <(printf '%s\n' "$post_runs"))"
+new_run_count=0
+while IFS= read -r run_id; do
+  [ -n "$run_id" ] || continue
+  latest_run="$run_id"
+  new_run_count=$((new_run_count + 1))
+done < <(printf '%s\n' "$new_runs")
+
+if has_unsafe_run_entry "$run_base"; then
+  latest_run=""
+  run_selection_error="CI成果物rootにsymlink entryがあるため、新しいRUNを安全に選択できません。"
+elif [ "$new_run_count" -eq 1 ]; then
   run_is_new="true"
+elif [ "$new_run_count" -gt 1 ]; then
+  latest_run=""
+  run_selection_error="verify中に複数の新しいRUNが作られ、現在実行の成果物を一意に選択できません。"
 fi
 
 run_dir=""
@@ -130,7 +175,7 @@ if [ -n "$latest_run" ]; then
 fi
 
 set +e
-python3 - "$latest_run" "$run_dir" "$verify_exit" "$verify_command" "$verify_output" "$run_is_new" <<'PY'
+python3 - "$latest_run" "$run_dir" "$verify_exit" "$verify_command" "$verify_output" "$run_is_new" "$run_base" "$run_selection_error" <<'PY'
 from __future__ import annotations
 
 import json
@@ -146,11 +191,57 @@ def read_text(path: Path | None) -> str:
     return path.read_text(encoding="utf-8", errors="replace")
 
 
+def resolve_run_directory(raw_path: str, raw_run_base: str) -> tuple[Path | None, str]:
+    if not raw_path:
+        return None, ""
+
+    run_base = Path(raw_run_base)
+    candidate = Path(raw_path)
+    if run_base.is_symlink() or candidate.is_symlink() or not candidate.is_dir():
+        return None, "選択したCI RUNが通常directoryではありません。"
+
+    resolved_run_base = run_base.resolve()
+    resolved_candidate = candidate.resolve()
+    if resolved_candidate.parent != resolved_run_base:
+        return None, "選択したCI RUNが.build/ci/runsの外を指しています。"
+    return resolved_candidate, ""
+
+
+def resolve_run_artifact(run_dir: Path | None, relative_name: str) -> tuple[Path | None, str]:
+    if run_dir is None:
+        return None, ""
+
+    candidate = run_dir / relative_name
+    if not candidate.exists() and not candidate.is_symlink():
+        return None, ""
+    if candidate.is_symlink() or not candidate.is_file():
+        return None, f"{relative_name}が通常fileではありません。"
+
+    resolved_candidate = candidate.resolve()
+    try:
+        resolved_candidate.relative_to(run_dir)
+    except ValueError:
+        return None, f"{relative_name}が選択RUNの外を指しています。"
+    return resolved_candidate, ""
+
+
 def clean_summary_line(line: str) -> str:
     line = re.sub(r"^#+\s*", "", line.strip())
     line = re.sub(r"^[-*]\s*", "", line)
     line = line.replace("`", "")
     return re.sub(r"\s+", " ", line).strip()
+
+
+def load_verify_output_lines(path: Path, limit: int = 3) -> list[str]:
+    lines: list[str] = []
+    for raw_line in read_text(path).splitlines():
+        cleaned = clean_summary_line(raw_line)
+        if not cleaned:
+            continue
+        lines.append(f"verify出力: {cleaned[:160]}")
+        if len(lines) >= limit:
+            break
+    return lines
 
 
 def load_summary_lines(path: Path | None) -> list[str]:
@@ -184,20 +275,24 @@ def normalize_lower(value: object) -> str:
     return str(value).strip().lower()
 
 
-def resolve_failed_log(run_dir: Path | None, failed_log_value: str) -> Path | None:
-    if not failed_log_value:
-        return None
+def resolve_failed_log(
+    run_dir: Path | None,
+    failed_log_value: str,
+) -> tuple[Path | None, str]:
+    if run_dir is None or not failed_log_value:
+        return None, ""
 
-    direct = Path(failed_log_value)
-    if direct.is_file():
-        return direct
+    raw_path = Path(failed_log_value)
+    candidate = raw_path if raw_path.is_absolute() else run_dir / raw_path
+    if candidate.is_symlink() or not candidate.is_file():
+        return None, "meta.jsonのfailed_logが選択RUN内の通常fileではありません。"
 
-    if run_dir is not None:
-        candidate = run_dir / failed_log_value
-        if candidate.is_file():
-            return candidate
-
-    return None
+    resolved_candidate = candidate.resolve()
+    try:
+        resolved_candidate.relative_to(run_dir)
+    except ValueError:
+        return None, "meta.jsonのfailed_logが選択RUNの外を指しています。"
+    return resolved_candidate, ""
 
 
 def collect_warning_samples(*paths: Path | None) -> list[str]:
@@ -368,16 +463,31 @@ def limit_lines(lines: list[str], limit: int) -> list[str]:
     return dedupe_lines(lines)[:limit]
 
 
-latest_run_arg, run_dir_arg, verify_exit_arg, verify_command, verify_output_arg, run_is_new_arg = sys.argv[1:7]
+(
+    latest_run_arg,
+    run_dir_arg,
+    verify_exit_arg,
+    verify_command,
+    verify_output_arg,
+    run_is_new_arg,
+    run_base_arg,
+    run_selection_error,
+) = sys.argv[1:9]
 latest_run = latest_run_arg or "(なし)"
-run_dir = Path(run_dir_arg) if run_dir_arg else None
+run_dir, run_dir_error = resolve_run_directory(run_dir_arg, run_base_arg)
 verify_exit = int(verify_exit_arg)
 verify_output = Path(verify_output_arg)
 run_is_new = run_is_new_arg == "true"
 
-summary_path = run_dir / "summary.md" if run_dir is not None else None
-meta_path = run_dir / "meta.json" if run_dir is not None else None
-commands_path = run_dir / "commands.txt" if run_dir is not None else None
+artifact_integrity_errors = [
+    error for error in (run_selection_error, run_dir_error) if error
+]
+summary_path, summary_error = resolve_run_artifact(run_dir, "summary.md")
+meta_path, meta_path_error = resolve_run_artifact(run_dir, "meta.json")
+commands_path, commands_error = resolve_run_artifact(run_dir, "commands.txt")
+artifact_integrity_errors.extend(
+    error for error in (summary_error, meta_path_error, commands_error) if error
+)
 
 summary_lines = load_summary_lines(summary_path)
 meta, meta_error = parse_meta(meta_path)
@@ -386,13 +496,17 @@ result_field = str(meta.get("result", ""))
 success_field = meta.get("success", "")
 failed_step = str(meta.get("failed_step", ""))
 failed_log_value = str(meta.get("failed_log", ""))
-resolved_failed_log = resolve_failed_log(run_dir, failed_log_value)
 
 status_lower = normalize_lower(status_field)
 result_lower = normalize_lower(result_field)
 success_lower = normalize_lower(success_field)
 meta_says_failure = success_lower == "false" or status_lower in {"failure", "failed", "error"} or result_lower in {"failure", "failed", "error"}
 verify_failed = verify_exit != 0 or meta_says_failure
+resolved_failed_log: Path | None = None
+if verify_failed:
+    resolved_failed_log, failed_log_error = resolve_failed_log(run_dir, failed_log_value)
+    if failed_log_error:
+        artifact_integrity_errors.append(failed_log_error)
 missing_run = run_dir is None
 
 warning_samples = collect_warning_samples(verify_output, resolved_failed_log)
@@ -419,14 +533,14 @@ if missing_run:
         summary_lines = [
             f"{verify_command} は成功しました。",
             ".build/ci/runs/ のRUNは作られませんでした。",
-            f"verifyログ: {verify_output}",
         ]
+        summary_lines.extend(load_verify_output_lines(verify_output))
     else:
         summary_lines = [
             f"{verify_command} を実行しましたが、.build/ci/runs/ にRUNがありません。",
             f"verify_exit={verify_exit}",
-            f"verifyログ: {verify_output}",
         ]
+        summary_lines.extend(load_verify_output_lines(verify_output))
 else:
     if not summary_lines:
         summary_lines.append("summary.md が見つかりません。")
@@ -470,9 +584,14 @@ combined_patch_lower = str(git_state.get("combined_patch_lower", ""))
 total_files = int(git_state.get("total_files", 0))
 total_lines = int(git_state.get("total_lines", 0))
 
+if artifact_integrity_errors:
+    for error in artifact_integrity_errors[:2]:
+        add_reason("high", f"CI成果物を安全に読めません: {error} 現時点では push 非推奨です。")
+    next_steps.append("CI成果物のpath・symlink・並列RUN状態を修正してから再実行してください。")
+
 if missing_run and verify_exit != 0:
     add_reason("high", "latest run を確認できず、verify 結果を確定できません。現時点では push 非推奨です。")
-    next_steps.append(f"{verify_output} を確認し、RUNが作られる状態にしてから再実行してください。")
+    next_steps.append("verify出力の要約を確認し、RUNが作られる状態にしてから再実行してください。")
 
 if verify_failed:
     failed_step_text = failed_step or f"{verify_command} (exit={verify_exit})"
@@ -485,9 +604,9 @@ if verify_failed:
     else:
         add_reason(
             "high",
-            f"verify が失敗しています ({failed_step_text})。{verify_output} を確認するまで push 非推奨です。",
+            f"verify が失敗しています ({failed_step_text})。verify出力の要約を確認するまで push 非推奨です。",
         )
-        next_steps.append(f"{verify_output} を確認して verify 失敗を解消してください。")
+        next_steps.append("同じverifyコマンドを直接再実行し、失敗を解消してください。")
     if commands_path is not None and commands_path.is_file():
         next_steps.append(f"{commands_path} で失敗コマンドを再確認してください。")
 
@@ -596,7 +715,7 @@ if not next_steps:
         next_steps.append("リスク理由を解消または確認した後に再度このゲートを通してください。")
 
 result_label = "✅ success"
-if verify_failed:
+if verify_failed or artifact_integrity_errors:
     result_label = "❌ failure"
 
 print(f"結果: {result_label}")
@@ -614,15 +733,10 @@ print("次の一手:")
 for line in limit_lines(next_steps, 3):
     print(f"- {line}")
 
-if verify_failed or risk_level == "high":
+if verify_failed or artifact_integrity_errors or risk_level == "high":
     raise SystemExit(1)
 raise SystemExit(0)
 PY
 report_exit=$?
 set -e
-
-if [ "$report_exit" -ne 0 ]; then
-  preserve_verify_output="true"
-fi
-
 exit "$report_exit"

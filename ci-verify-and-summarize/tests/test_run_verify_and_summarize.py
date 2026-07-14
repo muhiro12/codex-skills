@@ -204,6 +204,91 @@ class RunVerifyAndSummarizeTests(unittest.TestCase):
         self.assertNotIn("Old build failed", completed.stdout)
         self.assertNotIn("old build", completed.stdout)
 
+    def test_rejects_multiple_new_run_directories(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            repo_root = Path(temporary_directory)
+            self._init_git_repo(repo_root)
+            self._write_executable(
+                repo_root / "ci_scripts" / "tasks" / "verify.sh",
+                """
+                #!/usr/bin/env bash
+                set -euo pipefail
+                for run_id in 20260310-010203-0000 20260310-010204-0000; do
+                  run_dir=".build/ci/runs/$run_id"
+                  mkdir -p "$run_dir"
+                  echo '{"result":"success","success":true}' > "$run_dir/meta.json"
+                  echo 'Verify completed' > "$run_dir/summary.md"
+                done
+                """,
+            )
+            self._write_text(repo_root / "README.md", "base\n")
+            self._commit_all(repo_root, "Initial")
+
+            completed = self._run_helper(repo_root)
+
+        self.assertEqual(completed.returncode, 1, completed.stdout + completed.stderr)
+        self.assertIn("複数の新しいRUN", completed.stdout)
+        self.assertIn("結果: ❌ failure", completed.stdout)
+        self.assertIn("Pushリスク: high", completed.stdout)
+
+    def test_does_not_read_failed_log_outside_selected_run(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            repo_root = Path(temporary_directory)
+            self._init_git_repo(repo_root)
+            outside_log = repo_root / "outside.log"
+            secret = "OUTSIDE_FAILED_LOG_MUST_NOT_BE_READ"
+            self._write_text(outside_log, f"warning: {secret}\n")
+            self._write_executable(
+                repo_root / "ci_scripts" / "tasks" / "verify.sh",
+                f"""
+                #!/usr/bin/env bash
+                set -euo pipefail
+                run_dir=".build/ci/runs/20260310-010203-0000"
+                mkdir -p "$run_dir"
+                echo 'Verify failed' > "$run_dir/summary.md"
+                cat <<'EOF' > "$run_dir/meta.json"
+                {{"result":"failure","success":false,"failed_log":"{outside_log}"}}
+                EOF
+                """,
+            )
+            self._write_text(repo_root / "README.md", "base\n")
+            self._commit_all(repo_root, "Initial")
+
+            completed = self._run_helper(repo_root)
+
+        self.assertEqual(completed.returncode, 1, completed.stdout + completed.stderr)
+        self.assertIn("failed_logが選択RUNの外", completed.stdout)
+        self.assertNotIn(secret, completed.stdout)
+
+    def test_rejects_symlinked_run_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            repo_root = Path(temporary_directory)
+            self._init_git_repo(repo_root)
+            outside_run = repo_root / "outside-run"
+            secret = "SYMLINKED_RUN_MUST_NOT_BE_READ"
+            self._write_text(outside_run / "summary.md", secret + "\n")
+            self._write_text(
+                outside_run / "meta.json",
+                '{"result":"success","success":true}',
+            )
+            self._write_executable(
+                repo_root / "ci_scripts" / "tasks" / "verify.sh",
+                f"""
+                #!/usr/bin/env bash
+                set -euo pipefail
+                mkdir -p ".build/ci/runs"
+                ln -s "{outside_run}" ".build/ci/runs/20260310-010203-0000"
+                """,
+            )
+            self._write_text(repo_root / "README.md", "base\n")
+            self._commit_all(repo_root, "Initial")
+
+            completed = self._run_helper(repo_root)
+
+        self.assertEqual(completed.returncode, 1, completed.stdout + completed.stderr)
+        self.assertIn("symlink entry", completed.stdout)
+        self.assertNotIn(secret, completed.stdout)
+
     def test_agents_entrypoint_prefers_repository_rules_over_format_script(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             repo_root = Path(temporary_directory)

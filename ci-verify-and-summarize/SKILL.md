@@ -42,7 +42,8 @@ bash "${CODEX_HOME:-$HOME/.codex}/skills/ci-verify-and-summarize/scripts/run_ver
 ```
 
 3. Resolve the newest run when present.
-- Determine the latest run by lexicographically greatest directory name under `.build/ci/runs/`.
+- Compare the direct child RUN set before and after the verify command, and inspect artifacts only when exactly one new non-symlink RUN directory was created by the current execution.
+- If multiple new RUN directories appear, or the RUN root/entry is symlinked, fail closed instead of guessing which artifacts belong to the current execution.
 - Do not inspect older runs.
 - If no run exists and the entrypoint succeeded, report `最新RUN: (なし)` and continue with diff review plus the captured verification output.
 
@@ -75,6 +76,7 @@ bash "${CODEX_HOME:-$HOME/.codex}/skills/ci-verify-and-summarize/scripts/run_ver
 - Resolve the verification entrypoint dynamically from `AGENTS.md` or `ci_scripts/` instead of assuming a single hard-coded script.
 - Read only the newest run directory in `.build/ci/runs/`.
 - Never recursively scan generated directories outside the newest run scope.
+- Read `summary.md`, `meta.json`, `commands.txt`, and `failed_log` only as regular non-symlink files contained by the one selected RUN directory; never follow an absolute or relative artifact path outside it.
 - Review only the current git diff and staged diff; do not broaden into full-repository archaeology.
 - Do not skip execution only because the current diff is empty when the user explicitly invoked the skill.
 - Treat missing git context, a missing latest run after a failed entrypoint, current-change or clearly introduced verify failure, or suspicious `--no-verify` as non-push-ready signals.
