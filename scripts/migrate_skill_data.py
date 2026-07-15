@@ -117,12 +117,18 @@ def load_json_object(path: Path) -> dict:
     return data
 
 
-def write_json_updates_atomically(updates: dict[Path, dict]) -> None:
+def write_json_updates_atomically(
+    updates: dict[Path, dict],
+    *,
+    boundary: Path,
+) -> None:
     staged: dict[Path, Path] = {}
     backups: dict[Path, Path] = {}
     replaced: list[Path] = []
     try:
         for path, payload in sorted(updates.items()):
+            if has_symbolic_link_component(path, boundary):
+                raise ValueError(f"refusing to replace JSON through symbolic link: {path}")
             file_stat = path.lstat()
             if stat.S_ISLNK(file_stat.st_mode) or not stat.S_ISREG(file_stat.st_mode):
                 raise ValueError(f"refusing to replace non-regular JSON file: {path}")
@@ -182,11 +188,27 @@ def rebase_apple_cache_metadata(
     source_root: Path,
     target_root: Path,
     *,
+    target_boundary: Path,
     apply: bool,
     stats: MigrationStats,
 ) -> None:
+    if has_symbolic_link_component(target_root, target_boundary):
+        stats.conflicts += 1
+        print(f"conflict symbolic link in target path: {target_root}")
+        return
+
     inspection_root = target_root if target_root.is_dir() else source_root
+    inspection_boundary = target_boundary if inspection_root == target_root else source_root
     manifest_path = inspection_root / "manifest.json"
+    target_manifest_path = target_root / "manifest.json"
+    if has_symbolic_link_component(manifest_path, inspection_boundary):
+        stats.conflicts += 1
+        print(f"conflict symbolic link in inspection path: {manifest_path}")
+        return
+    if has_symbolic_link_component(target_manifest_path, target_boundary):
+        stats.conflicts += 1
+        print(f"conflict symbolic link in target path: {target_manifest_path}")
+        return
     if not manifest_path.exists():
         return
 
@@ -213,13 +235,32 @@ def rebase_apple_cache_metadata(
             print(f"conflict invalid Apple sample metadata for: {slug}")
             return
 
-        desired_cache_path = str((target_root / "samples" / slug).resolve())
+        inspection_sample_root = inspection_root / "samples" / slug
+        target_sample_root = target_root / "samples" / slug
+        if has_symbolic_link_component(inspection_sample_root, inspection_boundary):
+            stats.conflicts += 1
+            print(f"conflict symbolic link in inspection path: {inspection_sample_root}")
+            return
+        if has_symbolic_link_component(target_sample_root, target_boundary):
+            stats.conflicts += 1
+            print(f"conflict symbolic link in target path: {target_sample_root}")
+            return
+
+        desired_cache_path = str(target_sample_root.resolve())
         if metadata.get("cache_path") != desired_cache_path:
             updated_manifest["samples"][slug]["cache_path"] = desired_cache_path
-            changed_paths.append(target_root / "manifest.json")
+            changed_paths.append(target_manifest_path)
 
-        inspection_metadata_path = inspection_root / "samples" / slug / "metadata.json"
-        target_metadata_path = target_root / "samples" / slug / "metadata.json"
+        inspection_metadata_path = inspection_sample_root / "metadata.json"
+        target_metadata_path = target_sample_root / "metadata.json"
+        if has_symbolic_link_component(inspection_metadata_path, inspection_boundary):
+            stats.conflicts += 1
+            print(f"conflict symbolic link in inspection path: {inspection_metadata_path}")
+            return
+        if has_symbolic_link_component(target_metadata_path, target_boundary):
+            stats.conflicts += 1
+            print(f"conflict symbolic link in target path: {target_metadata_path}")
+            return
         if not inspection_metadata_path.exists():
             continue
         try:
@@ -235,14 +276,14 @@ def rebase_apple_cache_metadata(
             changed_paths.append(target_metadata_path)
 
     if updated_manifest != manifest:
-        updates[target_root / "manifest.json"] = updated_manifest
+        updates[target_manifest_path] = updated_manifest
 
     unique_changed_paths = sorted(set(changed_paths))
     if not unique_changed_paths:
         return
     if apply:
         try:
-            write_json_updates_atomically(updates)
+            write_json_updates_atomically(updates, boundary=target_boundary)
         except (OSError, RuntimeError, ValueError) as error:
             stats.conflicts += 1
             print(f"conflict failed to rebase Apple sample metadata: {error}")
@@ -447,6 +488,7 @@ def normalized_apple_cache_json(
     path: Path,
     relative_path: Path,
     target_root: Path,
+    target_boundary: Path,
 ) -> dict:
     data = load_json_object(path)
     if relative_path == Path("manifest.json"):
@@ -458,13 +500,21 @@ def normalized_apple_cache_json(
                 raise ValueError(f"unsafe Apple sample slug in {path}: {slug!r}")
             if not isinstance(metadata, dict):
                 raise ValueError(f"invalid Apple sample metadata in {path}: {slug!r}")
-            metadata["cache_path"] = str((target_root / "samples" / slug).resolve())
+            target_sample_root = target_root / "samples" / slug
+            if has_symbolic_link_component(target_sample_root, target_boundary):
+                raise ValueError(
+                    f"symbolic link in Apple sample target path: {target_sample_root}"
+                )
+            metadata["cache_path"] = str(target_sample_root.resolve())
         return data
 
     slug = data.get("slug")
     if not isinstance(slug, str) or not SAFE_CACHE_SLUG_PATTERN.fullmatch(slug):
         raise ValueError(f"unsafe Apple sample slug in {path}: {slug!r}")
-    data["cache_path"] = str((target_root / "samples" / slug).resolve())
+    target_sample_root = target_root / "samples" / slug
+    if has_symbolic_link_component(target_sample_root, target_boundary):
+        raise ValueError(f"symbolic link in Apple sample target path: {target_sample_root}")
+    data["cache_path"] = str(target_sample_root.resolve())
     return data
 
 
@@ -472,6 +522,7 @@ def migrate_apple_cache_tree(
     source_root: Path,
     target_root: Path,
     *,
+    target_boundary: Path,
     apply: bool,
     stats: MigrationStats,
 ) -> None:
@@ -487,10 +538,18 @@ def migrate_apple_cache_tree(
         stats.conflicts += 1
         print(f"skip     unsupported source type: {source_root}")
         return
+    if has_symbolic_link_component(target_root, target_boundary):
+        stats.conflicts += 1
+        print(f"conflict symbolic link in target path: {target_root}")
+        return
 
     for source_path in list_files(source_root):
         relative_path = source_path.relative_to(source_root)
         target_path = target_root / relative_path
+        if has_symbolic_link_component(target_path, target_boundary):
+            stats.conflicts += 1
+            print(f"conflict symbolic link in target path: {target_path}")
+            return
         is_cache_json = relative_path == Path("manifest.json") or (
             len(relative_path.parts) == 3
             and relative_path.parts[0] == "samples"
@@ -515,16 +574,18 @@ def migrate_apple_cache_tree(
                 source_path,
                 relative_path,
                 target_root,
+                target_boundary,
             )
             normalized_target = normalized_apple_cache_json(
                 target_path,
                 relative_path,
                 target_root,
+                target_boundary,
             )
-        except (OSError, ValueError, json.JSONDecodeError) as error:
+        except (OSError, RuntimeError, ValueError, json.JSONDecodeError) as error:
             stats.conflicts += 1
             print(f"conflict cannot compare Apple sample metadata: {error}")
-            continue
+            return
         if normalized_source == normalized_target:
             stats.same += 1
             print(f"same     {source_path} -> {target_path}")
@@ -536,15 +597,21 @@ def migrate_apple_cache_tree(
 def migrate_apple_cache(skills_root: Path, home: Path, *, apply: bool, stats: MigrationStats) -> None:
     source_root = home / ".codex" / "cache" / "apple-sample-code"
     target_root = skills_root / "apple-sample-code-advisor" / "cache"
+    conflicts_before = stats.conflicts
     migrate_apple_cache_tree(
         source_root,
         target_root,
+        target_boundary=skills_root,
         apply=apply,
         stats=stats,
     )
+    if stats.conflicts > conflicts_before:
+        print("skip     Apple sample metadata rebase after migration conflict")
+        return
     rebase_apple_cache_metadata(
         source_root,
         target_root,
+        target_boundary=skills_root,
         apply=apply,
         stats=stats,
     )

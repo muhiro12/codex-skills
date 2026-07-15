@@ -18,6 +18,28 @@ sys.modules[SPEC.name] = MODULE
 SPEC.loader.exec_module(MODULE)
 
 
+def write_apple_cache(root: Path, cache_path: str) -> None:
+    sample_root = root / "samples/example-sample"
+    sample_root.mkdir(parents=True)
+    metadata = {
+        "slug": "example-sample",
+        "cache_path": cache_path,
+    }
+    (root / "manifest.json").write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "samples": {"example-sample": metadata},
+            }
+        ),
+        encoding="utf-8",
+    )
+    (sample_root / "metadata.json").write_text(
+        json.dumps(metadata),
+        encoding="utf-8",
+    )
+
+
 class MigrateSkillDataTests(unittest.TestCase):
     def test_list_files_does_not_follow_symbolic_links(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -195,6 +217,197 @@ class MigrateSkillDataTests(unittest.TestCase):
             )
             self.assertEqual(second_run.metadata_rebased, 0)
             self.assertEqual(second_run.conflicts, 0)
+
+    def test_apple_cache_migration_rejects_symbolic_link_target_root(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            base = Path(temporary_directory)
+            skills_root = base / "skills"
+            home = base / "home"
+            source_root = home / ".codex/cache/apple-sample-code"
+            target_root = skills_root / "apple-sample-code-advisor/cache"
+            outside_root = base / "outside-cache"
+            write_apple_cache(source_root, "legacy-source")
+            write_apple_cache(outside_root, "outside-original")
+            target_root.parent.mkdir(parents=True)
+            target_root.symlink_to(outside_root, target_is_directory=True)
+            original_manifest = (outside_root / "manifest.json").read_text(encoding="utf-8")
+            original_metadata = (outside_root / "samples/example-sample/metadata.json").read_text(
+                encoding="utf-8"
+            )
+            stats = MODULE.MigrationStats()
+
+            MODULE.migrate_apple_cache(
+                skills_root,
+                home,
+                apply=True,
+                stats=stats,
+            )
+
+            self.assertEqual(stats.conflicts, 1)
+            self.assertEqual(stats.metadata_rebased, 0)
+            self.assertEqual(
+                (outside_root / "manifest.json").read_text(encoding="utf-8"),
+                original_manifest,
+            )
+            self.assertEqual(
+                (outside_root / "samples/example-sample/metadata.json").read_text(
+                    encoding="utf-8"
+                ),
+                original_metadata,
+            )
+
+    def test_apple_cache_migration_rejects_symbolic_link_sample_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            base = Path(temporary_directory)
+            skills_root = base / "skills"
+            home = base / "home"
+            source_root = home / ".codex/cache/apple-sample-code"
+            target_root = skills_root / "apple-sample-code-advisor/cache"
+            outside_sample = base / "outside-sample"
+            write_apple_cache(source_root, "legacy-source")
+            target_root.joinpath("samples").mkdir(parents=True)
+            outside_sample.mkdir()
+            target_metadata = {
+                "slug": "example-sample",
+                "cache_path": "outside-original",
+            }
+            (target_root / "manifest.json").write_text(
+                json.dumps(
+                    {
+                        "version": 1,
+                        "samples": {"example-sample": target_metadata},
+                    }
+                ),
+                encoding="utf-8",
+            )
+            (outside_sample / "metadata.json").write_text(
+                json.dumps(target_metadata),
+                encoding="utf-8",
+            )
+            (target_root / "samples/example-sample").symlink_to(
+                outside_sample,
+                target_is_directory=True,
+            )
+            original_manifest = (target_root / "manifest.json").read_text(encoding="utf-8")
+            original_metadata = (outside_sample / "metadata.json").read_text(encoding="utf-8")
+            stats = MODULE.MigrationStats()
+
+            MODULE.migrate_apple_cache(
+                skills_root,
+                home,
+                apply=True,
+                stats=stats,
+            )
+
+            self.assertEqual(stats.conflicts, 1)
+            self.assertEqual(stats.metadata_rebased, 0)
+            self.assertEqual(
+                (target_root / "manifest.json").read_text(encoding="utf-8"),
+                original_manifest,
+            )
+            self.assertEqual(
+                (outside_sample / "metadata.json").read_text(encoding="utf-8"),
+                original_metadata,
+            )
+
+    def test_apple_cache_migration_rejects_symbolic_link_sample_loop(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            base = Path(temporary_directory)
+            skills_root = base / "skills"
+            home = base / "home"
+            source_root = home / ".codex/cache/apple-sample-code"
+            target_root = skills_root / "apple-sample-code-advisor/cache"
+            write_apple_cache(source_root, "legacy-source")
+            target_root.joinpath("samples").mkdir(parents=True)
+            target_metadata = {
+                "slug": "example-sample",
+                "cache_path": "target-original",
+            }
+            (target_root / "manifest.json").write_text(
+                json.dumps(
+                    {
+                        "version": 1,
+                        "samples": {"example-sample": target_metadata},
+                    }
+                ),
+                encoding="utf-8",
+            )
+            (target_root / "samples/example-sample").symlink_to(
+                "example-sample",
+                target_is_directory=True,
+            )
+            original_manifest = (target_root / "manifest.json").read_text(encoding="utf-8")
+            stats = MODULE.MigrationStats()
+
+            MODULE.migrate_apple_cache(
+                skills_root,
+                home,
+                apply=True,
+                stats=stats,
+            )
+
+            self.assertEqual(stats.conflicts, 1)
+            self.assertEqual(stats.metadata_rebased, 0)
+            self.assertEqual(
+                (target_root / "manifest.json").read_text(encoding="utf-8"),
+                original_manifest,
+            )
+
+    def test_apple_cache_migration_does_not_rebase_after_copy_conflict(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            base = Path(temporary_directory)
+            skills_root = base / "skills"
+            home = base / "home"
+            source_root = home / ".codex/cache/apple-sample-code"
+            target_root = skills_root / "apple-sample-code-advisor/cache"
+            write_apple_cache(source_root, "legacy-source")
+            write_apple_cache(target_root, "target-original")
+            (source_root / "notes.txt").write_text("source", encoding="utf-8")
+            (target_root / "notes.txt").write_text("target", encoding="utf-8")
+            original_manifest = (target_root / "manifest.json").read_text(encoding="utf-8")
+            original_metadata = (target_root / "samples/example-sample/metadata.json").read_text(
+                encoding="utf-8"
+            )
+            stats = MODULE.MigrationStats()
+
+            MODULE.migrate_apple_cache(
+                skills_root,
+                home,
+                apply=True,
+                stats=stats,
+            )
+
+            self.assertEqual(stats.conflicts, 1)
+            self.assertEqual(stats.metadata_rebased, 0)
+            self.assertEqual(
+                (target_root / "manifest.json").read_text(encoding="utf-8"),
+                original_manifest,
+            )
+            self.assertEqual(
+                (target_root / "samples/example-sample/metadata.json").read_text(
+                    encoding="utf-8"
+                ),
+                original_metadata,
+            )
+
+    def test_apple_cache_migration_ignores_preexisting_conflicts_for_rebase_gate(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            base = Path(temporary_directory)
+            skills_root = base / "skills"
+            home = base / "home"
+            source_root = home / ".codex/cache/apple-sample-code"
+            write_apple_cache(source_root, "legacy-source")
+            stats = MODULE.MigrationStats(conflicts=1)
+
+            MODULE.migrate_apple_cache(
+                skills_root,
+                home,
+                apply=True,
+                stats=stats,
+            )
+
+            self.assertEqual(stats.conflicts, 1)
+            self.assertEqual(stats.metadata_rebased, 2)
 
 
 if __name__ == "__main__":
