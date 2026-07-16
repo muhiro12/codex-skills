@@ -9,9 +9,9 @@ Use these official Apple sources first. Many Apple documentation pages require J
 - Apple Developer Documentation search: https://developer.apple.com/search/
 - Develop in Swift: https://developer.apple.com/tutorials/develop-in-swift
 
-## Frequent Samples
+## Preferred Reference Samples
 
-These are expected to be high-value recurring references. Prefer caching them when work depends on their actual project structure.
+These are intentionally curated samples to consider early when they are relevant to a task. This list expresses a maintained reference preference; it is not derived from observed usage frequency. Prefer using their actual project structure when it can materially clarify an implementation or architecture decision.
 
 ### Wishlist: Planning travel in a SwiftUI app
 
@@ -20,12 +20,12 @@ These are expected to be high-value recurring references. Prefer caching them wh
 - Use when: planning modern SwiftUI app structure, state/data source shape, navigation transitions, activity/trip-style model flow, or sample-backed SwiftUI composition.
 - Stale risk: verify current Apple page before relying on cached source.
 
-### Landmarks: Building an app with Liquid Glass
+### Origami: Crafting a dynamic tutorial for Apple Intelligence
 
-- Apple URL: https://developer.apple.com/documentation/SwiftUI/Landmarks-Building-an-app-with-Liquid-Glass
-- Role: Modern SwiftUI app using Liquid Glass, `NavigationSplitView`, iPhone/iPad/Mac adaptation, search, and content extending behind sidebars/inspectors.
-- Use when: adopting Liquid Glass, shaping multi-platform SwiftUI navigation, reviewing background extension effects, or comparing modern app shell structure.
-- Stale risk: verify current Apple page and SDK requirements before relying on cached source.
+- Apple URL: https://developer.apple.com/documentation/FoundationModels/origami-crafting-a-dynamic-tutorial-for-apple-intelligence
+- Role: Modern Foundation Models sample for multimodal prompting, guided generation, tool calling, shared-session orchestration, and Private Cloud Compute.
+- Use when: designing multi-step intelligent features, coordinating model-driven app states, analyzing user-provided images, generating structured tutorials, or separating model instructions, tools, and UI state.
+- Stale risk: verify the current Apple page, model availability, and SDK requirements before relying on cached source.
 
 ## Search Patterns
 

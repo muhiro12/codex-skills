@@ -62,7 +62,7 @@ Before fetching or replacing a cached sample, state the sample title, Apple docu
 
 Read `references/rubric.md` before applying a sample to a repository decision.
 
-Read `references/source-map.md` when finding samples, resolving frequent samples, or deciding whether a cached sample may be stale.
+Read `references/source-map.md` when finding samples, resolving preferred reference samples, or deciding whether a cached sample may be stale.
 
 ## Workflow Decision Tree
 
@@ -71,7 +71,7 @@ Read `references/source-map.md` when finding samples, resolving frequent samples
 1. Start from the user's framework, feature, platform, or architecture question.
 2. Search Apple Developer Documentation and the Sample Code Library first.
 3. Prefer recent samples tied to current SDKs, WWDC sessions, or current documentation pages.
-4. Check the local cache and `references/source-map.md` for frequent samples such as Wishlist and Landmarks before treating prose documentation as enough.
+4. Check the local cache and `references/source-map.md` for preferred reference samples such as Wishlist and Origami before treating prose documentation as enough.
 5. Report candidate samples with what each can and cannot teach.
 
 ### Inspect Cached Samples
