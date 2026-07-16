@@ -222,6 +222,137 @@ class SampleCacheTests(unittest.TestCase):
                 manifest_before,
             )
 
+    def test_mark_checked_updates_manifest_and_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            cache_root = root / "cache"
+            source = root / "source"
+            source.mkdir()
+            (source / "file.txt").write_text("keep\n", encoding="utf-8")
+            result = self.add_local(cache_root, source)
+            self.assertEqual(result.returncode, 0, result.stderr)
+
+            checked_at = "2099-01-02T03:04:05Z"
+            result = self.run_cache(
+                cache_root,
+                "mark-checked",
+                "example-sample",
+                "--checked-at",
+                checked_at,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn(f"checked\texample-sample\t{checked_at}", result.stdout)
+            manifest = json.loads(
+                (cache_root / "manifest.json").read_text(encoding="utf-8")
+            )
+            metadata = json.loads(
+                (
+                    cache_root
+                    / "samples"
+                    / "example-sample"
+                    / "metadata.json"
+                ).read_text(encoding="utf-8")
+            )
+            self.assertEqual(manifest["samples"]["example-sample"], metadata)
+            self.assertEqual(metadata["checked_at"], checked_at)
+
+    def test_mark_checked_manifest_failure_restores_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            cache_root = root / "cache"
+            source = root / "source"
+            source.mkdir()
+            (source / "file.txt").write_text("keep\n", encoding="utf-8")
+            result = self.add_local(cache_root, source)
+            self.assertEqual(result.returncode, 0, result.stderr)
+
+            manifest_path = cache_root / "manifest.json"
+            metadata_path = (
+                cache_root / "samples" / "example-sample" / "metadata.json"
+            )
+            manifest_before = manifest_path.read_text(encoding="utf-8")
+            metadata_before = metadata_path.read_text(encoding="utf-8")
+
+            with mock.patch.object(
+                MODULE,
+                "save_manifest",
+                side_effect=OSError("simulated manifest failure"),
+            ):
+                with self.assertRaisesRegex(MODULE.CacheError, "record checked_at"):
+                    MODULE.mark_samples_checked(
+                        cache_root,
+                        ["example-sample"],
+                        "2099-01-02T03:04:05Z",
+                    )
+
+            self.assertEqual(manifest_path.read_text(encoding="utf-8"), manifest_before)
+            self.assertEqual(metadata_path.read_text(encoding="utf-8"), metadata_before)
+
+    def test_refresh_plan_prefers_checked_at_and_supports_legacy_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            cache_root = root / "cache"
+            source = root / "source"
+            source.mkdir()
+            (source / "file.txt").write_text("keep\n", encoding="utf-8")
+            result = self.add_local(cache_root, source)
+            self.assertEqual(result.returncode, 0, result.stderr)
+
+            manifest_path = cache_root / "manifest.json"
+            metadata_path = (
+                cache_root / "samples" / "example-sample" / "metadata.json"
+            )
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            metadata = manifest["samples"]["example-sample"]
+            metadata["fetched_at"] = "2000-01-01T00:00:00Z"
+            metadata.pop("checked_at")
+            manifest_path.write_text(
+                json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            metadata_path.write_text(
+                json.dumps(metadata, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+
+            result = self.run_cache(cache_root, "refresh-plan", "--max-age-days", "30")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("example-sample", result.stdout)
+
+            result = self.run_cache(cache_root, "mark-checked", "example-sample")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            result = self.run_cache(cache_root, "refresh-plan", "--max-age-days", "30")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("No samples unchecked for 30 days", result.stdout)
+
+            result = self.run_cache(cache_root, "prune", "--max-age-days", "30")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("dry-run\texample-sample", result.stdout)
+
+    def test_invalid_checked_at_fails_closed_in_refresh_plan(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            cache_root = root / "cache"
+            source = root / "source"
+            source.mkdir()
+            (source / "file.txt").write_text("keep\n", encoding="utf-8")
+            result = self.add_local(cache_root, source)
+            self.assertEqual(result.returncode, 0, result.stderr)
+
+            manifest_path = cache_root / "manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["samples"]["example-sample"]["checked_at"] = "not-a-date"
+            manifest_path.write_text(
+                json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+
+            result = self.run_cache(cache_root, "refresh-plan")
+
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("missing or invalid checked_at", result.stderr)
+
     def test_successful_replace_keeps_manifest_and_metadata_consistent(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
@@ -251,6 +382,7 @@ class SampleCacheTests(unittest.TestCase):
                 (sample_root / "metadata.json").read_text(encoding="utf-8")
             )
             self.assertEqual(manifest["samples"]["example-sample"], metadata)
+            self.assertEqual(metadata["fetched_at"], metadata["checked_at"])
             self.assertEqual(metadata["cache_path"], str(sample_root.resolve()))
             self.assertEqual(
                 [path.name for path in (cache_root / "samples").iterdir()],

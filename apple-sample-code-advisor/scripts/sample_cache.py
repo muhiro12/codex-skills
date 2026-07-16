@@ -58,13 +58,17 @@ class DownloadedSource:
     owned_temp: bool
 
 
-def utc_now() -> str:
+def format_utc(value: dt.datetime) -> str:
     return (
-        dt.datetime.now(dt.timezone.utc)
+        value.astimezone(dt.timezone.utc)
         .replace(microsecond=0)
         .isoformat()
         .replace("+00:00", "Z")
     )
+
+
+def utc_now() -> str:
+    return format_utc(dt.datetime.now(dt.timezone.utc))
 
 
 def slugify(value: str) -> str:
@@ -403,6 +407,7 @@ def metadata_from_args(
     slug: str,
     staged_source: Path,
 ) -> dict:
+    timestamp = utc_now()
     return {
         "slug": slug,
         "title": args.title,
@@ -410,7 +415,8 @@ def metadata_from_args(
         "source_url": getattr(args, "url", "") or str(getattr(args, "source", "")),
         "frameworks": args.frameworks or [],
         "notes": args.notes or "",
-        "fetched_at": utc_now(),
+        "fetched_at": timestamp,
+        "checked_at": timestamp,
         "cache_path": str(sample_dir(root, slug)),
         "size_bytes": path_size(staged_source),
     }
@@ -593,19 +599,116 @@ def parse_time(value: object) -> Optional[dt.datetime]:
     return parsed.astimezone(dt.timezone.utc)
 
 
+def mark_samples_checked(root: Path, slugs: list[str], checked_at: str) -> str:
+    checked_time = parse_time(checked_at)
+    if checked_time is None:
+        raise CacheError(f"--checked-at must be a valid ISO-8601 timestamp: {checked_at!r}")
+    normalized_checked_at = format_utc(checked_time)
+
+    with cache_lock(root):
+        manifest = load_manifest(root)
+        samples = manifest.get("samples", {})
+        missing = [slug for slug in slugs if slug not in samples]
+        if missing:
+            raise CacheError("Sample not found: " + ", ".join(missing))
+
+        originals: dict[str, dict] = {}
+        updates: dict[str, dict] = {}
+        for slug in slugs:
+            path = sample_metadata_path(root, slug)
+            if path.is_symlink() or not path.is_file():
+                raise CacheError(f"Missing or unsafe sample metadata: {path}")
+            try:
+                per_sample = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError) as error:
+                raise CacheError(f"Failed to read sample metadata {path}: {error}") from error
+            if not isinstance(per_sample, dict) or per_sample != samples[slug]:
+                raise CacheError(f"Manifest and sample metadata differ for: {slug}")
+
+            fetched_time = parse_time(per_sample.get("fetched_at"))
+            if fetched_time is None:
+                raise CacheError(f"fetched_at is missing or invalid for: {slug}")
+            previous_checked = per_sample.get("checked_at")
+            previous_checked_time = (
+                parse_time(previous_checked) if previous_checked is not None else fetched_time
+            )
+            if previous_checked_time is None:
+                raise CacheError(f"checked_at is invalid for: {slug}")
+            if checked_time < max(fetched_time, previous_checked_time):
+                raise CacheError(
+                    f"--checked-at must not move freshness backward for: {slug}"
+                )
+
+            originals[slug] = per_sample
+            updated = copy.deepcopy(per_sample)
+            updated["checked_at"] = normalized_checked_at
+            updates[slug] = updated
+
+        written: list[str] = []
+        try:
+            for slug in slugs:
+                save_sample_metadata(sample_metadata_path(root, slug), updates[slug])
+                written.append(slug)
+            updated_manifest = copy.deepcopy(manifest)
+            for slug in slugs:
+                updated_manifest["samples"][slug] = updates[slug]
+            save_manifest(root, updated_manifest)
+        except Exception as error:
+            rollback_errors: list[str] = []
+            for slug in written:
+                try:
+                    save_sample_metadata(sample_metadata_path(root, slug), originals[slug])
+                except Exception as rollback_error:
+                    rollback_errors.append(f"{slug}: {rollback_error}")
+            if rollback_errors:
+                raise CacheError(
+                    "Failed to record checked_at and rollback was incomplete: "
+                    + "; ".join(rollback_errors)
+                ) from error
+            if isinstance(error, CacheError):
+                raise
+            raise CacheError(f"Failed to record checked_at: {error}") from error
+    return normalized_checked_at
+
+
+def cmd_mark_checked(args: argparse.Namespace) -> int:
+    root = cache_root(args)
+    if args.all and args.slugs:
+        raise CacheError("Pass sample slugs or --all, not both")
+    manifest = load_manifest(root)
+    requested = list(manifest.get("samples", {})) if args.all else args.slugs
+    if not requested:
+        raise CacheError("Pass at least one sample slug or --all")
+    slugs = list(dict.fromkeys(validate_slug(slugify(slug)) for slug in requested))
+    checked_at = args.checked_at or utc_now()
+    normalized_checked_at = mark_samples_checked(root, slugs, checked_at)
+    for slug in slugs:
+        print(f"checked\t{slug}\t{normalized_checked_at}")
+    return 0
+
+
 def classify_stale_samples(
     manifest: dict,
     max_age_days: int,
-) -> tuple[list[tuple[str, dict, int]], list[str]]:
+    *,
+    prefer_checked_at: bool = False,
+) -> tuple[list[tuple[str, dict, int]], list[tuple[str, str]]]:
     now = dt.datetime.now(dt.timezone.utc)
     stale: list[tuple[str, dict, int]] = []
-    invalid: list[str] = []
+    invalid: list[tuple[str, str]] = []
     for slug, item in manifest.get("samples", {}).items():
         fetched = parse_time(item.get("fetched_at"))
         if fetched is None:
-            invalid.append(slug)
+            invalid.append((slug, "fetched_at"))
             continue
-        age = (now - fetched).days
+        reference_time = fetched
+        if prefer_checked_at and "checked_at" in item:
+            checked = parse_time(item.get("checked_at"))
+            if checked is None:
+                invalid.append((slug, "checked_at"))
+                continue
+            reference_time = max(fetched, checked)
+        age = (now - reference_time).days
         if age >= max_age_days:
             stale.append((slug, item, age))
     return stale, invalid
@@ -616,14 +719,18 @@ def cmd_refresh_plan(args: argparse.Namespace) -> int:
         raise CacheError("--max-age-days must be non-negative")
     root = cache_root(args)
     manifest = load_manifest(root)
-    stale, invalid = classify_stale_samples(manifest, args.max_age_days)
-    for slug in invalid:
-        print(f"invalid\t{slug}\tmissing or invalid fetched_at", file=sys.stderr)
+    stale, invalid = classify_stale_samples(
+        manifest,
+        args.max_age_days,
+        prefer_checked_at=True,
+    )
+    for slug, field in invalid:
+        print(f"invalid\t{slug}\tmissing or invalid {field}", file=sys.stderr)
     if invalid:
         print("Refusing to classify invalid cache metadata as stale.", file=sys.stderr)
         return 2
     if not stale:
-        print(f"No samples older than {args.max_age_days} days in {root}")
+        print(f"No samples unchecked for {args.max_age_days} days in {root}")
         return 0
     for slug, item, age in stale:
         print(f"{slug}\t{age} days\t{item.get('apple_url', '')}")
@@ -674,7 +781,7 @@ def cmd_prune(args: argparse.Namespace) -> int:
         manifest = load_manifest(root)
         stale, invalid = classify_stale_samples(manifest, args.max_age_days)
         if invalid:
-            names = ", ".join(invalid)
+            names = ", ".join(slug for slug, _ in invalid)
             raise CacheError(
                 "Refusing to prune because fetched_at is missing or invalid for: " + names
             )
@@ -721,6 +828,12 @@ def build_parser() -> argparse.ArgumentParser:
     fetch_parser.add_argument("--notes", default="")
     fetch_parser.add_argument("--replace", action="store_true")
     fetch_parser.set_defaults(func=cmd_fetch_archive)
+
+    mark_checked_parser = subparsers.add_parser("mark-checked")
+    mark_checked_parser.add_argument("slugs", nargs="*")
+    mark_checked_parser.add_argument("--all", action="store_true")
+    mark_checked_parser.add_argument("--checked-at", default="")
+    mark_checked_parser.set_defaults(func=cmd_mark_checked)
 
     refresh_parser = subparsers.add_parser("refresh-plan")
     refresh_parser.add_argument("--max-age-days", type=int, default=30)

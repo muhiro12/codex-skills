@@ -43,17 +43,18 @@ Use `scripts/sample_cache.py` for cache operations:
 - `inspect <slug>`: show metadata and a shallow project tree.
 - `fetch-archive`: download and extract a known archive URL.
 - `add-local`: register an already downloaded archive or directory.
+- `mark-checked`: record a completed official-source check without downloading unchanged source again.
 - `refresh-plan`: identify stale samples that should be rechecked.
 - `prune`: dry-run cache cleanup by default; require `--apply` to delete.
 
-Each cached sample lives under `samples/<slug>/source` with metadata recorded in both the cache manifest and `samples/<slug>/metadata.json`.
+Each cached sample lives under `samples/<slug>/source` with metadata recorded in both the cache manifest and `samples/<slug>/metadata.json`. `fetched_at` records when source was installed, while `checked_at` records the latest successful comparison with the official source. Existing metadata without `checked_at` remains valid and falls back to `fetched_at`.
 
 Cache mutations follow these safety rules:
 
 - Treat local paths as caller-owned input and never delete them. Remove only temporary downloads created by the cache script.
 - Validate and fully stage source before replacement. Reject unsafe ZIP members, keep the previous entry until staging succeeds, and roll it back if the manifest update fails.
 - Write manifest and per-sample metadata atomically, and serialize mutating operations with the cache lock.
-- Fail closed when `fetched_at` is missing or invalid. `prune --apply` must not delete any entry in that state and must verify each requested removal.
+- Fail closed when `fetched_at` is missing or invalid. `refresh-plan` also fails closed when a present `checked_at` is invalid. `prune --apply` continues to use `fetched_at`, must not delete any entry when that value is invalid, and must verify each requested removal.
 
 Before fetching or replacing a cached sample, state the sample title, Apple documentation URL, source/download URL, cache path, and whether this is a refresh. A task may proceed with an on-demand fetch when the sample is clearly needed, but do not silently fetch large archives or replace cached source.
 
@@ -77,14 +78,14 @@ Read `references/source-map.md` when finding samples, resolving frequent samples
 
 1. Run `scripts/sample_cache.py list` when a related sample may exist.
 2. If cached, run `scripts/sample_cache.py inspect <slug>` and read only the relevant files first: app entry point, scene/root view, model/data source, package manifest, entitlements, framework-specific files, tests, and sample fixtures.
-3. If the cached copy is stale or predates the relevant SDK/API, check the Apple page before relying on it.
+3. If the cached copy is stale or predates the relevant SDK/API, check the Apple page before relying on it. If the official source is unchanged, run `scripts/sample_cache.py mark-checked <slug>` to record the completed check without replacing source.
 4. Summarize project-level patterns separately from sample-specific shortcuts.
 
 ### Fetch Or Refresh Samples
 
 1. Resolve the official Apple documentation page and download/archive URL.
 2. Use the cache script to fetch into `cache/samples/<slug>/source` under the loaded skill directory.
-3. Store metadata: title, Apple URL, source URL, fetched time, size, frameworks, and notes.
+3. Store metadata: title, Apple URL, source URL, fetched time, checked time, size, frameworks, and notes.
 4. If an existing cache entry would be replaced, require explicit user approval or an explicit user request.
 5. After fetching, inspect the shallow tree and key files before using the sample as evidence.
 
