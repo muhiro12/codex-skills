@@ -1,6 +1,0 @@
-interface:
-  display_name: "Match User Language"
-  short_description: "Match Codex replies and plans to the user language"
-  default_prompt: "Use $match-user-language to keep Codex replies, planning and question text, automation names/prompts, code-comment titles/bodies, and other user-facing structured UI text aligned with the conversation language while leaving code, directive wrappers, machine fields, and repository artifacts unchanged."
-policy:
-  allow_implicit_invocation: true
