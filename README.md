@@ -20,9 +20,9 @@ System-managed skills, runtime assets, generated artifacts, and private local da
 - `repo-agent-contract-maintainer`: Maintains concise, clone-ready repository `AGENTS.md` contracts and routes longer guidance to the correct durable layer.
 - `repo-and-app-footprint-inspector`: Diagnoses repository and app size, concentration, maintenance burden, and structural hotspots without modifying source code.
 - `repo-consistency-refiner`: Audits one repository at a time for structural, architectural, workflow, and documentation drift, then proposes low-risk refinements.
-- `repo-momentum-driver`: Turns vague "keep going" requests into exactly one bounded next task backed by repository evidence.
+- `repo-momentum-driver`: Continues the agreed repository objective or chooses bounded next work backed by current evidence.
 - `respect-incomes-architecture`: Resolves a local Incomes checkout and uses it as a read-only architectural reference for repository and tooling alignment.
-- `skills-batch-auditor`: Audits multiple custom skills together, scores drift and maintenance burden, and proposes bounded refresh work.
+- `skills-batch-auditor`: Reviews custom skills against current usage and tools, fixes deterministic drift, and applies portfolio changes when authorized.
 - `string-catalog-maintainer`: Audits and repairs Xcode string catalogs such as `Localizable.xcstrings` and related localization assets.
 - `swift-code-guardian`: Audits and repairs Swift code against official Swift guidance, API design conventions, and concurrency safety expectations.
 - `swiftdata-schema-auditor`: Reviews SwiftData schema definitions and explains entities, relationships, persistence, and migration risk.

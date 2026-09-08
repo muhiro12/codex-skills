@@ -1,4 +1,4 @@
 interface:
   display_name: "Skills Batch Auditor"
   short_description: "Maintain or refresh custom skills in batch"
-  default_prompt: "Use $skills-batch-auditor to run either maintenance for deterministic consistency fixes or refresh for proposal-only skill evolution; treat the bundled audit as static-only, classify Git-ignored runtime skills separately, verify current Codex tool/plugin fit from live evidence, and report execution evidence without running arbitrary Skill scripts, then respond in concise polite Japanese."
+  default_prompt: "Use $skills-batch-auditor to review this skill portfolio against current usage and tools, then apply only changes authorized by the request."

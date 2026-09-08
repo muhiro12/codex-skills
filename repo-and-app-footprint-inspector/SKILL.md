@@ -8,7 +8,6 @@ description: Diagnose repository and app footprint without modifying source code
 ## Overview
 
 Use this skill for read-only footprint diagnosis.
-Keep the core instructions in this file portable across agent runtimes where practical; platform-specific metadata can live beside the skill.
 Keep size metrics, but treat them as evidence for maintenance cost, change safety, and structural health.
 Default response language is concise, polite Japanese unless the user asks for another language.
 

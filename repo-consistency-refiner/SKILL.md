@@ -8,7 +8,6 @@ description: Audit internal consistency within a single repository and propose l
 ## Overview
 
 Use this skill as a repository gardener for one repository at a time.
-Keep the core instructions in this file portable across agent runtimes where practical; platform-specific metadata can live beside the skill.
 Default to report-only, return concise polite Japanese, and always cite concrete file paths.
 Never modify files outside the current repository.
 When a consistency judgment depends on durable cross-repository preferences rather than repo-local convention alone, consult a local principle archive skill when available (for example `$track-developer-principles`) before finalizing the report.

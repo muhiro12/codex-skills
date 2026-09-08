@@ -1,304 +1,124 @@
 ---
 name: skills-batch-auditor
-description: Maintain or refresh custom Codex Skills in batch by comparing repository ground truth, current Skill definitions, available tools/plugins, and stored developer principles. Use when you need automatic consistency maintenance or proposal-only evolution review across multiple local Skills.
+description: Review or maintain a custom skill portfolio against current usage, repository contracts, and available tools. Fix deterministic drift or recommend concrete simplification, additions, merges, and retirement.
 ---
 
 # Skills Batch Auditor
 
-## Overview
+Review skills for the work the user actually does. Prefer specific reusable
+knowledge, reliable helpers, and important boundaries over generic prompting,
+fixed report ceremonies, and instructions already supplied by Codex. Return
+concise, practical Japanese.
 
-Use this skill to run one of two modes across custom skills:
+## Scope and Authorization
 
-- `maintenance`: automatically preserve consistency when the correct fix is nearly unique and does not need user judgment.
-- `refresh`: propose how skills should evolve against the current Codex / AI agent environment, available tools/plugins/skills, repository practice, and the user's current development principles.
+Choose the audit mode from the request:
 
-Treat bundled script output as a static-definition baseline. It does not execute discovered tests or arbitrary Skill scripts, and it does not evaluate runtime/tool fit. Add manual fit checks and separately obtained execution evidence when the task depends on current tool availability, plugin overlap, repository changes, or stored cross-repository principles.
-Default explanation language is concise, polite Japanese.
+- `maintenance`: apply small, deterministic consistency fixes that preserve the
+  skill's responsibility and public interface.
+- `refresh`: evaluate roles, invocation, current tool fit, and portfolio changes.
+  Propose changes by default. If the user already asks you to decide and implement
+  the review, that authorizes in-scope edits; use `skill-creator` to apply the
+  selected design and verify it. Do not ask the user to approve the same scope
+  again. The bundled script's refresh mode itself remains read-only.
 
-## Trigger Conditions
+Honor clean-worktree gates in the current task or automation. Do not infer that
+an old automation's gate applies to a separate interactive review. Inventory and
+preserve existing tracked and untracked changes; do not stash, commit, or discard
+work merely to pass a gate. A request for proposals alone remains read-only.
 
-Use this skill when the user asks to:
+Read the repository `AGENTS.md` and selected skills' full `SKILL.md` before
+judging or editing them. Consult only relevant developer-principle domains when
+user-specific tradeoffs matter. Current instructions override older preferences.
 
-- run recurring weekly custom skill maintenance
-- repair broken references, renamed paths, stale file names, or obvious consistency drift across skills
-- check multiple custom skills against `AGENTS.md`, repository contracts, and `agents/openai.yaml` structure
-- refresh one or more skills for current Codex / AI agent capabilities and current repository operations
-- propose portfolio-level role adjustments, merges, separations, or retirement candidates across skills
-- review only a named subset of skills without broad rewrites
+## Ownership
 
-## Mode Selection
+Separate maintained custom skills from other installed material:
 
-Choose exactly one mode per run.
+- Tracked top-level skills are repository-owned custom definitions.
+- Untracked custom drafts may be reviewed when the task includes them; identify
+  them separately and preserve pre-existing work.
+- Git-ignored runtime/workspace skills and `.system` are outside normal custom
+  maintenance. Report ownership without rewriting provider-managed content.
+- Xcode-managed skills are identified by `.xcode-skill-sync.json`; inspect only
+  sync integrity and route changes through `sync-xcode-skills` or upstream Xcode.
+- An unmarked `xcode-skill-*` directory is a reserved-prefix conflict.
+- Exclude this auditor from its own script targets unless explicitly selected.
 
-### maintenance
+Do not scan private `records/`, `archives/`, sample caches, or generated build
+history as part of definition review. Usage evidence can come from bounded
+recent task summaries and selected skill-read/tool events. Distinguish an
+available skill, an actual read, and a successfully completed workflow. A few
+recent tasks are not a complete usage census; absence alone does not justify
+retirement.
 
-Use `maintenance` when the requested work is consistency preservation and every applied fix can be made without user judgment.
+## Static Baseline
 
-Allowed maintenance fixes include:
-
-- broken references
-- references to nonexistent skills, files, or paths
-- following already-decided name or path changes
-- obvious typos
-- clear contradictions inside one Skill
-- clear mismatch with `AGENTS.md` or repository contracts
-- structural or formatting inconsistencies in files such as `agents/openai.yaml`
-- minor consistency edits that do not change a Skill's philosophy, role, or external interface
-
-In `maintenance`:
-
-- apply eligible fixes automatically
-- make only existing-file edits unless a missing file's exact contents are mechanically derivable from existing canonical metadata
-- preserve skill names, folder names, trigger phrases, CLI flags, default scope, and external behavior unless a safety issue requires otherwise
-- rerun the audit after edits and report what was applied
-- move anything ambiguous or judgment-heavy to `refresh`
-
-### refresh
-
-Use `refresh` when the requested work is a proposal about how skills should evolve.
-
-Review each target against:
-
-- the current Codex / AI agent environment
-- currently available tools, plugins, and skills
-- the user's current developer principles and operating policy
-- changes in repository contracts or global `AGENTS.md`
-- whether the Skill's old assumptions are still good mature design or have become stale ceremony
-- whether neighboring skills should be merged, split, narrowed, or left intentionally separate
-
-In `refresh`:
-
-- do not apply changes automatically
-- provide proposals only, but do not be neutral or passive
-- provide a clear primary recommendation for each target: keep, modernize, narrow, split, merge, or retire
-- state "if this Skill were designed today, I would..." when enough evidence exists
-- make clear that more than one valid answer may exist, then choose the best default for the user's current operating model
-- respect the intent and background of each target Skill
-- avoid uniform standardization when local variation is intentional
-- provide priority, rationale, confidence, adoption trigger, and tradeoffs
-
-## Workflow
-
-1. Extract repository ground truth.
-- Read `AGENTS.md` first and resolve canonical Build/Test entrypoints dynamically.
-- Fall back to existing `ci_scripts/**/*.sh` paths when AGENTS guidance is absent.
-- Read `.pre-commit-config.yaml` when present.
-- Read a current overview doc such as `docs/current-overview.md` only when doc-related checks require it.
-- When skill quality depends on user-specific development philosophy, consult a local principle archive skill such as `$track-developer-principles`.
-- When skill quality depends on current tool availability, use the current runtime-provided capability and skill discovery surfaces before relying on remembered tool names. Treat the specific discovery mechanism as a replaceable adapter, record which evidence source was used, and lower confidence when discovery is unavailable.
-
-2. Discover audit targets.
-- Classify each skill directory under the local skills root:
-  - `custom`: ordinary user-managed skills
-  - `workspace-local`: Git-ignored runtime/workspace-owned skills that are present locally but are not tracked as custom-skill source
-  - `managed-external`: Xcode-provided skills with `.xcode-skill-sync.json`
-  - `unmanaged-xcode-prefix`: `xcode-skill-*` directories without `.xcode-skill-sync.json`
-  - `system`: skills under `.system`
-- Audit `custom` skills under the local skills root.
-- Report `workspace-local` skills separately and exclude them from normal custom drift checks, maintenance edits, refresh proposals, and portfolio decisions.
-- Exclude `.system` by default.
-- Exclude `managed-external` from normal custom skill drift checks, maintenance edits, and refresh proposals.
-- Check `managed-external` only for sync integrity: readable `.xcode-skill-sync.json`, consistency with `sync-xcode-skills/state/catalog.json` or `catalog.md`, and actual directory presence.
-- Report `unmanaged-xcode-prefix` as risky because `xcode-skill-*` is reserved for Xcode-provided managed skills.
-- Exclude `skills-batch-auditor` itself from batch targets by default.
-- If the user explicitly names one or more skills, limit the report, maintenance edits, and refresh proposals to that subset.
-- If the user explicitly names a `workspace-local` skill, report its ownership classification without treating its runtime-provided definition as tracked custom drift.
-- If the user explicitly names a `managed-external` Xcode skill, inspect it read-only and route findings to sync integrity or upstream Xcode/sync updates; never auto-edit it.
-- If the user explicitly names `skills-batch-auditor` or passes `--include-self`, treat that as target selection only; do not introduce a separate self-audit mode.
-
-3. Run the bundled audit script.
+Run the bundled script from this skill directory:
 
 ```bash
 python3 scripts/audit_skills_batch.py \
   --repo-root /path/to/repository \
   --skills-root /path/to/skills \
-  --scope custom \
-  --mode maintenance \
-  --format markdown
+  --scope custom --mode refresh --format json
 ```
 
-Use `--mode refresh` for proposal-only runs.
-Use `--include-self` only when the user explicitly asks to include `skills-batch-auditor` itself.
+Use `--skill NAME` for a selected subset, `--format markdown` for a human-readable
+baseline, and `--mode maintenance` only for deterministic automatic corrections.
+Inspect the script's selected repository entrypoint before trusting CI findings.
 
-The bundled script only reads definitions and safely lists conventional test-file paths. It must not execute discovered tests, Skill scripts, or runtime capability probes. Treat `static-aligned` as a statement about the implemented static checks only, never as proof of runtime/tool compatibility or successful execution.
+The baseline analyzes definitions and lists conventional test paths. It does
+not execute those tests, arbitrary skill scripts, or runtime capability probes.
+`static-aligned` means only its static checks passed; runtime fit and execution
+remain unverified. Heuristic scores and recommendations need human/agent judgment.
+Do not add boilerplate merely to silence a keyword-based finding.
 
-4. Analyze drift, consistency, and evolution needs.
-- Check workflow contract alignment, generated-directory scan safety, and CI artifact handling.
-- Check public skill `agents/openai.yaml` quality:
-  - human-readable `display_name`
-  - `short_description` length (25-64)
-  - `default_prompt` includes `$<skill-name>`
-- Treat skills with `metadata.visibility: internal` as intentionally UI-hidden and allow them to omit `agents/openai.yaml`.
-- Check current Codex environment fit:
-  - tool and namespace names still match the active environment
-  - plugin-provided skills have not replaced or narrowed the custom skill's role
-  - UI directives and structured tool fields are current
-  - MCP or simulator workflow assumptions name available capabilities accurately
-  - local sibling-repository assumptions still match the user's current platform principles
-- Perform these environment-fit checks manually from current runtime discovery evidence. Record the evidence source and do not copy the bundled script's `not-evaluated` runtime/tool status into a stronger claim.
-- Distinguish true merge candidates from intentionally split neighboring skills.
-- Do not recommend `merge with another skill` when overlap is mostly broad repository-workflow vocabulary such as `ci_scripts`, `AGENTS.md`, `verify`, `hook`, or `entrypoint`.
-- Score every skill explicitly on these four dimensions:
-  - `reuse value`
-  - `clarity of invocation`
-  - `safety`
-  - `maintenance burden`
-- Use a simple 1-5 scale and keep the scale direction explicit:
-  - `reuse value`, `clarity of invocation`, `safety`: higher is better
-  - `maintenance burden`: higher means heavier maintenance cost
+## Review What Changes Decisions
 
-5. Classify portfolio position and next action.
-- Keep invocation phrases and external interface behavior unless safety requires change.
-- Prefer practical, implementation-ready recommendations over vague suggestions.
-- In `refresh`, do not end at "consider improving"; recommend a specific target design or explicitly recommend keeping the current design with a concrete reason and review horizon.
-- Classify every skill into exactly one portfolio class:
-  - `core`
-  - `useful`
-  - `optional`
-  - `retire candidate`
-- For batch decisions, assign exactly one next action per skill:
-  - `keep as-is`
-  - `improve next`
-  - `merge with another skill`
-  - `retire`
-- Use the four scores plus detected drift/risk to make ordering stronger than a simple issue-count sort.
-- Do not rely on the script's `static-aligned` result alone when manual environment fit shows stale tool names, outdated directives, or superseded local-reference assumptions.
+Compare each relevant skill against:
 
-6. Execute the selected mode.
-- In `maintenance`, apply only deterministic consistency fixes, rerun the audit, and summarize applied edits plus anything moved to `refresh`.
-- In `refresh`, do not mutate files; provide assertive prioritized evolution proposals, adoption criteria, and the strongest default recommendation supported by current evidence.
-- In either mode, do not apply local custom-skill quality rules such as `missing_japanese_output_rule` or `agents/openai.yaml` wording checks to `managed-external` Xcode skills.
+- Its distinct purpose and whether the description selects the right requests.
+- Actual recent use, costly repetition, stalls, and recurring missing knowledge.
+- Current official capabilities and installed specialist tools/skills. Resolve
+  volatile action names from the active inventory, not remembered namespaces.
+- Instructions that unnecessarily halt authorized work, force new scaffolding,
+  repeat global rules, or demand unrelated audits.
+- Detail that belongs in a reference loaded only for a particular mode.
+- Scripts and data invariants whose reliability justifies precise procedures.
 
-## Maintenance Eligibility
+Do not merge skills solely because they share words such as verify, CI, HIG, or
+repository. A live UI audit, Preview capture, static risk scan, and distribution
+check prove different things. Keep useful boundaries; remove duplicated
+routing. Do not build cross-agent compatibility layers without a concrete current
+consumer. Portable English definitions and Git history can remain useful alone.
 
-Treat a fix as maintenance only when all of the following are true:
+Create a new skill only for a repeated workflow with non-obvious knowledge or a
+useful deterministic helper that existing capabilities do not cover. Retire a
+skill only after checking callers, unique resources, invocation policy, and data
+ownership. Never delete its ignored user data as part of definition retirement.
 
-- the correction has a nearly unique answer from existing files, repository contracts, or active tool context
-- the edit preserves the Skill's purpose, role, trigger surface, and external behavior
-- the edit is small enough to review as a consistency correction
-- no new dependency, directory move, rename, or broad script behavior change is required
-- the target is an existing custom skill file, or a missing metadata file whose exact contents are mechanically derivable
-- `.system` skills are untouched unless the user explicitly names the target
-- `managed-external` Xcode skills are never maintenance targets; resolve their content through `sync-xcode-skills` or upstream Apple/Xcode updates
+## Decisions and Verification
 
-Move these to `refresh` by default:
+Choose a clear recommendation: keep, modernize, narrow, merge, split, or retire.
+For a portfolio report, a compact table can record reuse, invocation clarity,
+safety, and maintenance burden on a 1–5 scale; higher burden is worse, higher
+other scores are better. Treat these as qualitative judgments, not measurements.
+Classify roles as core, useful, optional, or retirement candidate when useful.
+State confidence, the concrete reason, and any adoption condition for deferred
+changes. Do not require a large per-skill template in every user response.
 
-- changing a Skill's philosophy, responsibility, or target audience
-- changing public naming, trigger wording, default scope, CLI flags, or external invocation semantics
-- adding new workflows, new dependencies, or new broad script behavior
-- deciding whether to merge, split, retire, or substantially narrow a Skill
-- rewriting `short_description`, documentation tone, or portfolio positioning when multiple valid outcomes exist
-- any change where the main question is "should we?" rather than "what is the correct current reference?"
+When editing, preserve names and CLI compatibility unless the chosen change
+requires otherwise. Keep `SKILL.md`, `agents/openai.yaml`, referenced resources,
+callers, and README inventory consistent. Do not reset unrelated policy or tool
+dependencies when editing UI metadata.
 
-## Safety / Guardrails
+Re-run static checks after edits and run the repository's documented verification
+command. Test changed scripts against meaningful behavior. For a substantial
+instruction change, use a realistic independent forward test when available and
+authorized, following `skill-creator`; do not test wording alone.
 
-- Never create a separate read-only audit mode; use `refresh` for proposal-only review.
-- Never auto-apply `refresh` proposals.
-- Never treat `proposal-only` as permission to be vague; refresh recommendations should be explicit even when adoption stays user-controlled.
-- Never invent repository architecture or product features.
-- Never claim a skill is fully current solely because the bundled audit script passed; its machine-readable `status: aligned` is scoped by `audit_evidence.scope: static-definition-only` and its user-facing label is `static-aligned`.
-- Never present discovered test files as executed evidence. Preserve `execution_evidence: not-run` until a separate, explicitly selected verification command has actually completed.
-- Never execute discovered tests or arbitrary Skill scripts as part of the bundled static audit.
-- Never include Git-ignored `workspace-local` runtime skills in tracked custom drift or portfolio decisions.
-- Never recursively scan generated directories except explicitly scoped newest run artifacts.
-- Keep skill names, folder names, CLI flags, and default scope unchanged unless safety requires change.
-- Keep `xcode-skill-*` reserved for `sync-xcode-skills` managed external skills; report unmanaged prefix collisions instead of silently auditing them as custom skills.
-- Keep output concise, polite Japanese.
-
-## Response Contract
-
-Always return concise Japanese.
-
-For `maintenance`, use:
-
-1. `1) maintenance 実施結果`
-2. `2) 自動適用した整合性修正`
-3. `3) refresh に回した判断事項`
-
-For `refresh`, use:
-
-1. `1) refresh 提案（優先順）`
-2. `2) 採用判断材料`
-3. `3) maintenance に回せる整合性候補`
-
-For each reported skill, include:
-
-- name
-- intent
-- static status: `✅ static-aligned` / `⚠ static-drift` / `❌ static-risky`
-- assurance scope: `static-definition-only`
-- runtime/tool fit: `not-evaluated` unless current runtime evidence was checked separately
-- execution evidence: `not-run` plus discovered conventional test-file coverage; never imply those files were executed
-- mode disposition: `maintenance` / `refresh` / `no action`
-- scores:
-  - `reuse value`
-  - `clarity of invocation`
-  - `safety`
-  - `maintenance burden`
-- portfolio classification: `core` / `useful` / `optional` / `retire candidate`
-- recommended action: `keep as-is` / `improve next` / `merge with another skill` / `retire`
-- primary recommendation
-- target design if built today
-- confidence
-- adoption trigger
-- what not to change
-- issues or proposal reasons, using short Japanese labels
-- recommended fix or proposal, using short Japanese labels
-
-For Xcode-derived skills, report sync integrity separately from normal skill drift:
-
-- managed external count
-- unmanaged `xcode-skill-*` prefix collision count
-- marker readability and key mismatches
-- catalog source and catalog/directory mismatches
-- fixes that point to `sync-xcode-skills` or upstream Apple/Xcode updates, not local custom-skill edits
-
-For `maintenance`, explicitly separate:
-
-- automatically applied fixes
-- eligible fixes not applied and why
-- items moved to `refresh` because they need user judgment
-
-For `refresh`, explicitly separate:
-
-- proposal priority
-- rationale
-- primary recommendation
-- target design if built today
-- confidence
-- adoption trigger
-- adoption tradeoffs
-- what not to change
-- maintenance-only consistency fixes that can be handled separately
-
-When the user requested a named subset, include only that subset.
-Use patch mode only when explicitly requested.
-
-## Verification
-
-- Confirm script output is valid in both `--format markdown` and `--format json`.
-- Confirm `--mode maintenance` uses maintenance terminology, applies only deterministic consistency fixes, and reruns the audit afterward.
-- Confirm `--mode refresh` uses refresh terminology and does not produce automatic application output.
-- Confirm `--mode refresh` gives explicit primary recommendations instead of ending with passive observations.
-- Confirm named-skill requests are reported only for the requested subset.
-- Confirm custom-scope runs exclude `skills-batch-auditor` itself by default.
-- Confirm `--include-self` includes `skills-batch-auditor` when explicitly requested and does not create a separate self-audit mode.
-- Confirm managed external `xcode-skill-*` skills with `.xcode-skill-sync.json` are excluded from normal `drift_report` and appear only in Xcode sync integrity reporting.
-- Confirm unmanaged `xcode-skill-*` directories without `.xcode-skill-sync.json` are reported as risky reserved-prefix collisions.
-- Confirm recommendations are bounded and implementation-oriented.
-- Confirm `agents/openai.yaml` parsing works with double-quoted, single-quoted, and bare scalar values.
-- Confirm Skill frontmatter descriptions and `agents/openai.yaml` interface fields parse YAML literal and folded block scalars without returning the raw `|` or `>` indicator.
-- Confirm Git-ignored runtime/workspace-owned Skill directories appear only in `workspace_local_report` and not in `drift_report` or portfolio decisions.
-- Confirm JSON and Markdown output label findings as static-only, report runtime/tool fit as `not-evaluated`, and report test execution as `not-run`.
-- Confirm conventional test files are listed as coverage without importing or executing them.
-- Confirm `metadata.visibility: internal` allows missing `agents/openai.yaml` without drift.
-- Confirm post-maintenance reruns report remaining `refresh` items clearly.
-
-## Access Fallback
-
-If current skill definitions are inaccessible, ask the user once for:
-
-1. all skill names
-2. each skill's current config/instructions
-
-Do not request additional inputs in fallback mode.
+Report the important decisions, applied changes, deliberately retained roles,
+and completed versus missing evidence. Put detailed inventory in a reviewable
+local artifact when it would overwhelm the answer. Report Xcode sync integrity
+separately: managed count, marker/catalog errors, and prefix conflicts. Never
+claim current upstream synchronization from local marker consistency alone.

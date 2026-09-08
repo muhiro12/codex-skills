@@ -1,4 +1,4 @@
 interface:
   display_name: "Repo Momentum Driver"
-  short_description: "Pick one safe next repo task per turn"
-  default_prompt: "Use $repo-momentum-driver to inspect the current repository, choose exactly one low-risk next task, prefer current-repo evidence first plus stored platform principles when relevant, route Apple-platform implementation through $apple-ios-dev-flow including HIG/Swift/sample-code and Xcode-native evidence resolved from the current tool inventory, invoke Build iOS Apps specialists only when their required tools exist, implement it, and finish with the repo's documented verification contract."
+  short_description: "Continue evidence-backed repository work"
+  default_prompt: "Use $repo-momentum-driver to continue the agreed repository work or choose the next evidence-backed task and verify it."
