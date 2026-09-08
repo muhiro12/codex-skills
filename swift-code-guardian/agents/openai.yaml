@@ -1,4 +1,4 @@
 interface:
   display_name: "Swift Code Guardian"
   short_description: "Build, audit, and fix idiomatic Swift code"
-  default_prompt: "Use $swift-code-guardian to create, audit, or fix Swift code so it follows official Swift documentation and API design guidance."
+  default_prompt: "Use $swift-code-guardian to review or improve Swift correctness, API clarity, and concurrency in the requested scope."

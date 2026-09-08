@@ -8,7 +8,6 @@ description: Inspect SwiftData schema definitions in the current repository and 
 ## Overview
 
 Use this skill for read-only inspection and design review of SwiftData model code.
-Keep the core instructions in this file portable across agent runtimes where practical; platform-specific metadata can live beside the skill.
 Default explanation language is concise, practical Japanese. Keep code identifiers, type names, attributes, and file names in English.
 
 ## Xcode Skill Catalog

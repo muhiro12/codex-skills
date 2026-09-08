@@ -1,6 +1,6 @@
 interface:
   display_name: "Apple iOS Dev Flow"
   short_description: "Orchestrate local iOS development workflows"
-  default_prompt: "Use $apple-ios-dev-flow as the local Apple-platform development orchestrator: start from current repository evidence, consult stored principles when judgment matters, apply HIG/Swift/sample-code gates, resolve Xcode-native build/test/run/Preview/device capabilities from the current tool inventory, invoke Build iOS Apps specialists only when their required tools exist, use sibling repositories only as read-only fallback evidence, then run the repository's documented verification contract before replying."
+  default_prompt: "Use $apple-ios-dev-flow to complete this Apple-platform change with relevant official guidance and proportionate verification."
 policy:
   allow_implicit_invocation: true

@@ -1,4 +1,4 @@
 interface:
   display_name: "Apple Sample Code Advisor"
   short_description: "Use Apple sample projects as concrete implementation guidance"
-  default_prompt: "Use $apple-sample-code-advisor to find, cache, inspect, and apply related Apple sample code as concrete implementation guidance for an Apple-platform task."
+  default_prompt: "Use $apple-sample-code-advisor to find and inspect an official Apple sample that clarifies this implementation question."

@@ -1,6 +1,6 @@
 ---
 name: respect-incomes-architecture
-description: Develop, review, refactor, or add repository/tooling structure in the current repository while using a resolved local Incomes checkout as a read-only architectural reference and checking stored cross-repository platform principles before copying patterns. Use when requests mention aligning with Incomes for repository structure, package and app boundaries, shared-library-first design, adapter boundaries, `ci_scripts`, `verify.sh`, hook strategy or build/test entrypoints, `.build` run artifacts, `AGENTS.md`, overview or ADR documentation, or maintainability-oriented outer architecture review.
+description: Compare the current repository's architecture with a resolved read-only Incomes checkout when that comparison is requested or materially useful. Preserve app-local behavior and avoid copying incidental tooling or product complexity.
 ---
 
 # Respect Incomes Architecture
@@ -28,7 +28,7 @@ Focus on reusable outer-architecture patterns such as:
 
 - Repository structure
 - Package, library, and app boundary design
-- Shared-library-first extraction strategy
+- Shared-library boundaries justified by demonstrated reuse
 - App-side adapter boundaries
 - `ci_scripts` organization
 - `verify.sh`, hook strategy, and build/test entrypoint philosophy
@@ -100,7 +100,7 @@ Do not copy blindly:
 Use `<incomes-root>` mainly to learn patterns like:
 
 - How reusable logic is extracted into shared libraries without premature abstraction
-- How app targets stay thin and depend on adapters instead of owning core logic
+- Which stable shared behavior belongs behind adapters and which product behavior remains app-local
 - How `ci_scripts` provide stable entrypoints for humans and automation
 - How `.build` artifacts and CI outputs are organized for inspection
 - How `AGENTS.md` communicates repo-specific expectations

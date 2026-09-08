@@ -1,4 +1,4 @@
 interface:
   display_name: "Xcode UI Smoke Auditor"
   short_description: "Audit live Simulator UI safely"
-  default_prompt: "Use $xcode-ui-smoke-auditor to run a diff-focused release smoke audit with the active Xcode-native live UI capability: preserve the active scheme and destination, inventory affected screens, build/install/run, capture hierarchy/log/screenshot evidence, end the interaction session, restore the original selection, and report findings and coverage gaps without changing code or release configuration."
+  default_prompt: "Use $xcode-ui-smoke-auditor to inspect the requested live app screens and provide reviewable captures and coverage limits."

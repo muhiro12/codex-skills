@@ -8,7 +8,6 @@ description: Define, audit, and maintain a minimal verification contract for rep
 ## Overview
 
 Define and enforce a small, practical verification contract for repositories that already have Xcode-native checks, `ci_scripts`, or retained repository-rule scripts.
-Keep the contract rules in this file portable across agent runtimes where practical; platform-specific metadata can live beside the skill.
 Keep repository behavior stable by preferring low-risk normalization and explicit reporting over broad rewrites.
 Treat this skill as the owner of contract-level maintenance: `AGENTS.md` alignment, entrypoint or MCP-check normalization, push/manual routing for heavy checks, and compatibility-first upkeep.
 Do not use this skill to design first-pass Apple-platform verification scaffolding from Xcode project layout, `Package.swift`, or sibling reference repositories. Use `$apple-repo-verify-bootstrapper` for that initial bootstrap work.

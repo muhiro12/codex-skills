@@ -1,107 +1,54 @@
 ---
 name: swift-code-guardian
-description: Create, audit, and fix Swift code so it follows official Swift documentation, Swift API Design Guidelines, Swift language semantics, Swift 6 concurrency and data-race safety guidance, SwiftPM package conventions, DocC documentation practices, and idiomatic standard-library usage. Use when building, refactoring, reviewing, or repairing Swift source, public APIs, package manifests, async/await or actor code, Sendable boundaries, value/reference type choices, generics, protocols, error handling, testing seams, or Swift package/module boundaries.
+description: Create, review, or fix Swift APIs, concurrency, ownership, type modeling, and package boundaries using official Swift guidance. Focus on substantive correctness and clarity decisions.
 ---
 
 # Swift Code Guardian
 
-## Overview
+Use official Swift documentation and API Design Guidelines as the platform baseline for
+Swift APIs, concurrency, ownership, type modeling, and package boundaries. Preserve the user's product intent and stronger
+repository evidence; explain an intentional departure when it matters. Return
+concise Japanese, with code and repository artifacts in their required language.
 
-Use this skill as an active Swift-language quality gate. Treat official Swift documentation and Swift.org guidance as the first external authority for Swift semantics, API shape, concurrency, packages, and documentation, while still respecting the repository's established conventions when they do not conflict with Swift guidance.
+## Scope the Guidance
 
-Prefer current Swift official material over memory. Swift language features, concurrency checking, package tools, and recommended idioms evolve, so verify relevant guidance before making or judging decisions that depend on current Swift behavior.
+Start with affected files, call sites, tests, diagnostics, and available runtime
+or visual evidence. Read the relevant portions of
+[references/rubric.md](references/rubric.md); a focused change does not require
+reviewing every rubric category. For an explicit broad audit, use the full rubric.
 
-## Xcode Skill Catalog
+Prefer matching Xcode-provided guidance from the active skill inventory or its
+generated catalog when available. Reuse task-relevant guidance already read.
+Use [references/source-map.md](references/source-map.md) to find official pages
+when a specific rule or version-sensitive behavior needs verification. Do not
+invent rules, rely on outdated samples, or repeatedly fetch the same source.
 
-When `sync-xcode-skills/state/catalog.md` exists under the active Codex skills root, scan it for task-relevant Xcode-provided `xcode-skill-*` guidance before applying this skill's local Swift heuristics. Do not hardcode individual Xcode-provided skill names. If the catalog is missing or no listed skill matches, continue with this skill normally.
+## Apply and Review
 
-## Source Order
+Design APIs at their call sites, keep public surfaces deliberate, and preserve
+source compatibility unless changing it is part of the task. Respect actor
+isolation, Sendable boundaries, task lifetime/cancellation, and mutable-state
+ownership. Address diagnostics without hiding unsafe behavior behind unchecked
+annotations. Check the actual toolchain before adopting version-specific idioms.
 
-Use this decision order:
+Prefer standard library constructs and clear types over unnecessary helper
+layers. Documentation should clarify behavior, preconditions, errors, or
+concurrency, not restate the declaration. Apply `mh-swift-style` when local source
+style matters, subject to language correctness and repository rules.
 
-1. Explicit user intent, repository architecture, existing tests, diagnostics, and local style.
-2. Matching Xcode-provided Skill guidance from the generated catalog, when available.
-3. Current official Swift sources: Swift.org documentation, The Swift Programming Language, API Design Guidelines, Swift Package Manager docs, standard library docs, Swift Evolution, and official migration guides.
-4. Apple platform documentation when the Swift code depends on Apple frameworks or platform annotations.
-5. Existing repository conventions, only when they remain compatible with current Swift guidance.
-6. Local sibling repositories as read-only examples, only after official Swift guidance and current-repo evidence are not enough.
+Distinguish confirmed bugs, official-guidance conflicts, local style choices,
+and uncertainty. Tie findings to concrete files, diagnostics, or inspected UI.
+Do not manufacture findings from a checklist or widen a local fix into an
+unrequested redesign or architecture migration.
 
-If local style conflicts with Swift API design, concurrency safety, or language semantics, identify the conflict and propose a Swift-aligned correction instead of preserving the local pattern by default.
+For an audit-only request, report findings without changing code. For creation or
+fixes, complete the authorized change, update affected call sites and meaningful
+behavioral checks, and use the repository's verification contract. Separate
+static, build/test, and runtime/visual evidence. A passing compiler alone does not
+prove every quality claim, and missing runtime evidence is not itself a code bug.
 
-## Required References
+## Report
 
-Read `references/rubric.md` for every create, audit, or fix task.
-
-Read `references/source-map.md` when choosing which Swift official pages to verify or cite. If a page requires JavaScript, use web search restricted to `swift.org` or `docs.swift.org` and rely on official Swift sources.
-
-## Workflow Decision Tree
-
-### Create Idiomatic Swift
-
-1. Identify the target surface: app code, shared library, public API, package manifest, test helper, concurrency boundary, persistence model, or interop layer.
-2. Read the Swift rubric and verify the relevant official Swift source pages before settling the design.
-3. Choose value types, reference types, protocols, generics, async boundaries, and error surfaces deliberately.
-4. Design APIs at the call site first. Prefer clarity, role-based names, natural argument labels, and small public surfaces.
-5. Prefer standard library and Swift-native constructs over ad hoc helper layers unless the helper removes real repetition or expresses domain meaning.
-6. Keep concurrency safe by default: isolate mutable shared state, respect actor boundaries, and address `Sendable` requirements intentionally.
-7. Add documentation comments for public or reusable declarations when the summary would clarify behavior, complexity, preconditions, errors, or concurrency expectations.
-8. Run the repository's normal formatting, build, test, and verification flow when code changes are made.
-
-### Audit Existing Swift
-
-1. Inspect source, call sites, tests, diagnostics, package manifests, and public API use.
-2. Use the rubric to classify issues as `blocking`, `warning`, or `note`.
-3. Tie each finding to concrete evidence: file path, call site, compiler diagnostic, test gap, package boundary, or public API surface.
-4. Cite the relevant official Swift page when the finding depends on language semantics, API design, concurrency safety, package behavior, or migration guidance.
-5. Distinguish Swift issues from app architecture choices, platform UI/HIG issues, repository-local style, and unrelated product decisions.
-
-### Fix Swift Issues
-
-1. Start from the highest-impact Swift issue that is safe to correct within scope.
-2. Prefer small corrections that improve type safety, API clarity, concurrency safety, package boundaries, or testability without broad rewrites.
-3. Preserve behavior, public API compatibility, persistence schema, localization keys, and app-facing semantics unless the fix explicitly requires changing them.
-4. When public API changes are necessary, update call sites, docs, and tests together.
-5. Verify with the narrowest useful build/test command first, then the repository's standard verification gate when available.
-
-## Rubric Summary
-
-Use the detailed rubric in `references/rubric.md`. At minimum, check:
-
-- API clarity at the call site and Swift API Design Guidelines
-- naming, argument labels, mutating/nonmutating pairs, and terminology
-- value/reference semantics, ownership, identity, and mutation
-- Swift 6 concurrency, actor isolation, `Sendable`, task lifetime, and cancellation
-- error handling, optionality, result modeling, and invalid-state prevention
-- generics, protocols, existentials, type erasure, and associated types
-- standard library, Foundation/Core Libraries, and platform API fit
-- SwiftPM targets, package boundaries, access control, and module layering
-- DocC/documentation comments, complexity notes, and public API summaries
-- source compatibility, migration risk, tests, and verification coverage
-
-## Guardrails
-
-- Do not invent Swift rules. If official guidance is ambiguous, say so and present the tradeoff.
-- Do not copy long Swift documentation passages into the response or repository. Summarize and cite official Swift pages.
-- Do not use blog posts, Stack Overflow, or package-specific opinions as primary authority when Swift official guidance exists.
-- Do not rewrite a stable repository style merely for aesthetic preference; require a concrete Swift clarity, safety, maintainability, or correctness reason.
-- Do not treat compiler success as enough when API clarity, concurrency safety, or package boundaries are weak.
-- Do not broaden a local Swift fix into a package architecture rewrite unless the user explicitly asks.
-
-## Output Contract
-
-For creation or fixes, return concise Japanese with:
-
-1. `Swift方針`
-2. `変更内容`
-3. `検証`
-4. `残る判断`
-
-For audits or reviews, lead with findings:
-
-1. `blocking`
-2. `warnings`
-3. `notes`
-4. `coverage`
-5. `recommended fixes`
-
-When official Swift guidance materially affects a decision, include the source URL.
+Lead with important findings or the implemented result. Give the evidence,
+completed checks, and material limitations; skip empty report sections. Cite the
+relevant official URL when a specific official rule decides the finding.

@@ -11,7 +11,6 @@ Use this skill when an Apple-platform repository still needs its first coherent
 verification foundation, especially when Xcode project structure,
 `Package.swift`, or mixed app-plus-package surfaces must be turned into an
 Xcode-native evidence contract.
-Keep the workflow core in this file portable across agent runtimes where practical; platform-specific metadata can live beside the skill.
 Return user-facing explanations in concise, practical Japanese.
 Keep shell scripts, file names, commands, and repository documents in English unless the target repository already uses another convention.
 Treat this skill as the owner of first-pass scaffolding and Apple-repo-specific verification design.

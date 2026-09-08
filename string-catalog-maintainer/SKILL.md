@@ -8,7 +8,6 @@ description: Audit, clean up, and repair Xcode string catalogs (.xcstrings) acro
 ## Overview
 
 Use this skill to keep `.xcstrings` catalogs aligned with the current source tree.
-Keep the core instructions in this file portable across agent runtimes where practical; platform-specific metadata can live beside the skill.
 Default operating mode is catalog-only maintenance: audit catalogs, extract translation tasks, apply safe reviewed `.xcstrings` fixes during the skill run, and leave source-code fixes for a separate follow-up unless the user explicitly expands scope.
 Default explanation language is concise, polite Japanese.
 When translating user-facing strings, consult a local principle archive skill when available for durable localization rules such as preserving proper nouns or official platform feature names.

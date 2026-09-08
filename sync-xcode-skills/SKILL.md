@@ -28,6 +28,7 @@ In this Codex environment, `xcrun mcpbridge ...` must be executed as its own top
 
 1. Confirm the selected Xcode with `xcode-select -p` and `xcodebuild -version` when the user cares which Xcode is used.
 2. Run `xcrun mcpbridge run-agent skills export --output-dir /tmp/xcode-exported-skills --replace-existing` as a standalone command.
+- If export cannot find a running Xcode while the native integration can list its workspaces, distinguish the shell access boundary from an application failure. Use the current approval mechanism for the same standalone export when additional access is required; do not invent wrappers or persistent permission exceptions. Do not install from an incomplete or failed export.
 3. Run `python3 scripts/sync_xcode_skills.py --install-only --export-dir /tmp/xcode-exported-skills` from the `sync-xcode-skills` directory.
 4. Report the exported and installed skill names, then mention the catalog path when surrounding Apple skills may need to route to the generated Xcode-provided skills.
 

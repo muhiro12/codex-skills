@@ -8,7 +8,6 @@ description: Assess scored release-blocking risk between the latest reachable re
 ## Overview
 
 Use this skill to turn `<latest-tag>..HEAD` into a scored release-blocking risk assessment.
-Keep the core review logic in this file portable across agent runtimes where practical; platform-specific metadata can live beside the skill.
 Default explanation language is concise, polite Japanese, and the report must lead with the release decision before detailed summaries.
 
 ## Trigger Conditions
@@ -50,7 +49,7 @@ python3 scripts/review_release_risk.py   --repo /path/to/repository   --format m
 6. Explain the score.
 - Report the total as `risk_score/risk_score_max`.
 - Show the highest-scoring findings first.
-- Treat the score as an absolute risk estimate: `0` means no meaningful release risk was found, and `100` means the release would likely cause a major product problem if shipped as-is.
+- Treat the score as a heuristic review-priority scale, not a calibrated probability of failure. `0` means no signal was detected by the available rules; it does not prove safety. Inspect concrete findings before deciding actual release readiness.
 - Do not describe score items as additive points. Use the strongest signal per independent risk category, suppress weaker path-only signals already covered by concrete findings on the same files, and only apply small breadth modifiers for independent secondary risks.
 - Mention that ordinary heuristic matches are capped below `100`; reserve `100` for evidence strong enough to say a major release problem is highly likely, not merely possible.
 - Explain the risk axis behind each score contribution, not only the matched framework, file type, or key name.
@@ -60,7 +59,7 @@ python3 scripts/review_release_risk.py   --repo /path/to/repository   --format m
 ## Safety / Guardrails
 
 - Never bury blocking findings under verbose diff summaries.
-- Never claim safety without stating the inspected range and confidence level.
+- Never claim safety without stating the inspected range and confidence level. Separate heuristic matches, confirmed defects, completed verification, and unverified release gates. A score or clean diff does not prove purchase/restore behavior, privacy declarations, device coverage, or distribution approval.
 - Keep rule reasoning concrete and actionable.
 - Prefer false positives on irreversible-risk surfaces over false negatives, especially durable state, unique identifiers, externally registered IDs, and long-lived configuration values.
 - Do not down-rank a durable setting or identifier change only because it appears in a plist, project file, generated schema, or config file rather than application code.

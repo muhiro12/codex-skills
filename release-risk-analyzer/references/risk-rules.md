@@ -17,14 +17,14 @@
 - `mode = "any"` は「このどれかが変わったら止めたい」に使う。
 - `mode = "all"` は「この範囲だけなら比較的安全」に使う。
 - `category` は独立したリスク面を表す。同一カテゴリでは最も強い根拠だけをスコアに入れる。
-- `score` は加点材料ではなく絶対リスク値として扱う。`0` は意味のあるリリースリスクなし、`100` はそのまま出すと大きな問題につながる可能性が非常に高い状態。
+- `score` is a heuristic review-priority scale, not a calibrated failure probability. Zero means no rule detected a signal; it does not establish release safety. Keep confirmed defects and unverified release gates separate from the score.
 - 総合スコアは単純合計しない。最も高いカテゴリスコアを基準にし、独立した追加リスクだけを小さく補正する。
 - 通常のヒューリスティック検出は `95` 点を上限にし、`100` 点は既知の破壊的根拠がある場合にだけ使う。
 - `80-100` は `Block`、`60-79` は `Hold for review`、`40-59` は `Proceed with caution`、`20-39` は `Review recommended`、`0-19` は `Proceed`。
 - `critical` は、不可逆または外部登録済みのID/設定値、永続状態の互換性破壊、起動不能、データ破損、不要権限追加のような後戻りしづらい変更に使う。
 - `high` は、配布物や永続設定に影響しうるが、追加確認で止血可能な変更に使う。
 - `low` の safe-only ルールは狭く保つ。ロジックが混ざるディレクトリを入れない。
-- 具体検出 (`ReviewFinding`) はパス一致 (`RiskSignal`) より強い根拠として高めの絶対リスク値にする。
+- Concrete findings (`ReviewFinding`) carry stronger evidence than path matches (`RiskSignal`) and can receive a higher review-priority score.
 - 単一ファイルの重複検出や複数カテゴリの存在だけで `100` 点にしない。
 - SwiftData、Bundle ID、App Group などの固有名は検出アンカーの例に留める。スコアの根拠は「永続状態の互換性」「外部固定ID/設定値」「権限・Capability」などのリスク軸で説明する。
 - リスクありの具体検出と medium+ のパス一致には、レビューしやすい短い `diff` 抜粋を付ける。抜粋は根拠確認用であり、完全な差分一覧の代替にはしない。

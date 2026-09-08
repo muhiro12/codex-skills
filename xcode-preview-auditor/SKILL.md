@@ -1,226 +1,93 @@
 ---
 name: xcode-preview-auditor
-description: Audit SwiftUI `#Preview` screens in Apple app repositories by discovering previews, grouping them by screen and source file, capturing them with the active Xcode-native Preview capability, explicitly reporting Preview or faithful live-app fallback failures and blocker ownership, and returning a concise Japanese audit report without auto-fixing by default. Use for audit-first requests such as `#Previewをキャプチャして`, `Preview を見て UI 崩れを監査して`, `画面プレビューを一覧で確認したい`, and `コンポーネントではなく 1 画面単位で見てほしい`.
+description: Capture and review SwiftUI Preview screens with explicit per-preview coverage and blocker ownership. Prefer screen-level previews and preserve failures when using a faithful live-app fallback.
 ---
 
 # Xcode Preview Auditor
 
-Audit SwiftUI `#Preview` in Apple app repositories. Discover previews, prefer
-screen-level captures, use the active Xcode-native Preview rendering capability
-as the direct capture surface, make capture coverage explicit by file and
-screen, show captured images back to the user, and return a concise Japanese
-audit report instead of defaulting to fixes.
-For screen-level Apple UI previews, use `$apple-hig-ui-guardian` after capture so the audit covers HIG alignment, not only render correctness.
+Audit SwiftUI `#Preview` without changing app or preview code unless fixes are
+requested. Prefer screen-level captures and return concise Japanese with images
+that the user can inspect. Use `xcode-ui-smoke-auditor` for a live-app audit.
 
-## Xcode Skill Catalog
+## Discover and Select
 
-When `sync-xcode-skills/state/catalog.md` exists under the active Codex skills root, scan it for task-relevant Xcode-provided `xcode-skill-*` guidance before applying this skill's local Preview capture or audit heuristics. Do not hardcode individual Xcode-provided skill names. If the catalog is missing or no listed skill matches, continue with this skill normally.
+Read repository instructions and discover previews in the requested source scope.
+Record source file, label/identifier, preview definition, likely screen, and target.
+Separate screens from isolated rows, buttons, cards, and component matrices.
+Exclude obvious components by default, but retain them as not attempted with a
+reason. Respect named screens, width/device constraints, and requested variants.
 
-## Workflow
+Maintain one ledger entry per discovered preview:
 
-1. Discover `#Preview` definitions from source and note source file, preview identifier, preview label, and likely target surface.
-2. Build a coverage ledger grouped by likely screen and source file. Every discovered preview must end in exactly one state:
-   - `captured`
-   - `failed`
-   - `not attempted`
-3. Separate likely screen previews from likely component previews before capture. Keep excluded components in the ledger as `not attempted` with a reason instead of dropping them silently.
-4. Audit render prerequisites for each candidate:
-   - missing environment objects, model containers, dependencies, or sample data
-   - preview-only crashes or compile errors
-   - unsupported services or platform/tooling blockers
-5. Establish the Xcode-native workspace selection before capture.
-   - Inspect the current tool inventory and resolve workspace/project, scheme,
-     destination, and Preview capabilities from their schemas and descriptions;
-     do not assume concrete action names.
-   - Discover the Xcode context that matches the repository plus the active and
-     available schemes and destinations. Record the original scheme and
-     destination with the current integration's unambiguous restoration
-     handles.
-   - Keep the current scheme and destination when they can render the
-     candidate. Otherwise switch only to discovered, eligible values.
-6. Use the direct Preview rendering capability with the source file path and
-   zero-based preview definition index. Treat the first visible viewport as the
-   default audit scope. Record the returned artifact path, errors, and rendered
-   destination without assuming stable response-field names.
-7. Use returned localizations, variants, timeline indexes, or toggle states only when the requested coverage needs them. Run localization overrides sequentially rather than in parallel.
-8. If direct Preview rendering fails or is unavailable, record an explicit
-   failure entry before any fallback:
-   - what was attempted
-   - why it failed
-   - whether the blocker is `app-side`, `preview-side`, or `tool-side`
-   - whether a faithful fallback exists
-9. Use live-app fallback only when the exact same screen state can be reproduced
-   through an existing deep link, seeded route, or normal navigation already
-   present in the repository. Start a bounded live UI session only after
-   deciding fallback is faithful, install and run through that lifecycle,
-   capture the initial screenshot and hierarchy without an interaction, use
-   current hierarchy coordinates when interaction is needed, and always end
-   the session.
-10. If fallback succeeds after direct Preview rendering fails or is
-    unavailable, keep the preview as `captured`, but note
-    `direct Preview failed/unavailable -> live-app fallback` and preserve the
-    original failure summary.
-11. When capture work finishes, end any device-interaction session. If the workflow changed Xcode's active selection, restore the original scheme first, restore its original destination second, and re-list both to confirm. Report any selection that could not be restored.
-12. Show each obtained capture to the user, not just an inventory line. When local image rendering is supported, embed the image inline with a short caption.
-13. Review captures at screen level. For likely screen previews, apply `$apple-hig-ui-guardian` and classify both visible UI breakage and HIG drift.
-14. Classify each problem as:
-   - app-side UI issue
-   - design-system / shared UI foundation issue
-   - HIG / Apple platform guidance issue
-   - data/setup issue
-   - tooling blocker
-15. Report findings in concise, polite Japanese.
-16. Do not implement fixes unless the user explicitly asks.
+- `captured`: an inspectable artifact exists; record direct Preview or faithful
+  live-app fallback as the mechanism.
+- `failed`: attempted but no trustworthy artifact exists; record the action,
+  symptom, and blocker owner.
+- `not attempted`: scope exclusion or unsupported/unreachable state, with a reason.
 
-## Coverage Ledger
+This is discovered-source coverage, not proof that all app states exist as previews.
 
-Maintain one coverage entry per discovered preview, grouped by likely screen and source file.
+## Capture
 
-`captured`
+Read relevant generated Xcode guidance when available. Resolve workspace, scheme,
+destination, and Preview rendering actions from the active tool inventory and
+schemas, including how the current renderer identifies a definition or variant.
 
-- an inspectable artifact exists and is exposed to the user
-- note the mechanism: `direct Preview` or `live-app fallback`
+Match the workspace to the repository. Record original scheme, destination, and
+test plan if changing it. Switch only to discovered eligible values and recheck
+destinations after a scheme change. Keep shared Xcode stateful operations serial;
+independent source analysis can proceed alongside them.
 
-`failed`
+Use direct native Preview rendering first. Record the requested definition and
+actual returned destination, variants, errors, and artifact path. Inspect the
+returned image. Default to the first viewport; request additional states or
+localizations only when they serve the user's coverage. Run state overrides
+sequentially.
 
-- a capture attempt was made but no trustworthy artifact was obtained
-- include the attempted action, failure reason, and blocker ownership
+When rendering fails, preserve the attempt and classify the owner:
 
-`not attempted`
+- `app-side`: product code, build, or runtime dependency prevents capture.
+- `preview-side`: fixture, environment, or preview-only setup fails.
+- `tool-side`: integration, renderer, transport, or missing capability blocks it.
 
-- no capture was attempted because of scope choice, component filtering, duplicate surface coverage, or lack of a faithful fallback path
-- include the concrete reason so coverage gaps stay auditable
+Do not diagnose an app defect from a tool timeout alone. Inspect available state
+and logs; retry only after a relevant change rather than repeating identical
+attempts indefinitely.
 
-## Screen Selection
+## Faithful Fallback
 
-Default to excluding obvious components unless the user explicitly asks to include them.
+After recording direct rendering failure or unavailability, a live capture may
+stand in only if an existing route, deep link, or fixture reproduces the same
+screen state. During capture-only work, do not add seed code, change product data,
+or use merely similar screens as substitutes. If fixes are already requested,
+repair a confirmed preview/setup defect in the implementation phase and recapture
+it; the original failure remains part of the evidence. New persistent live-app
+data or destructive setup still needs its own authorized safe path.
+Follow the active live-session lifecycle and its input
+rules, inspect the screenshot and hierarchy, and always end the session.
 
-Likely screen previews:
+A successful fallback can be `captured` in the ledger, but retain the original
+direct Preview failure and label the mechanism. Count direct and fallback captures
+separately. Preview-only states without a faithful route remain failed or not
+attempted; they do not become verified by association.
 
-- names or files that suggest app surfaces such as Home, Settings, Detail, List, Editor, Onboarding, Dashboard, or similar
-- previews wrapped in `NavigationStack`, `TabView`, split view, or other screen-level containers
-- device-sized layouts with multiple content regions or realistic end-user state
+Restore changed scheme, its test plan, then destination, and confirm restoration.
+Avoid overwriting a later user selection; report any unresolved final state.
 
-Likely component previews:
+## Review and Report
 
-- isolated rows, cells, buttons, cards, charts, badges, pickers, or small layout experiments
-- preview matrices for style variants, color states, or single control permutations
-- small fixed frames that do not represent a full user-visible screen
+Show each useful capture inline with an absolute path or in a linked gallery.
+Verify the exact report images; blank, wrong-state, or inaccessible images do not
+support coverage. Do not use generative edits or mockups as captured evidence.
 
-When ambiguous, include the preview only if it reasonably represents one screen the user could recognize as a product surface.
+Apply relevant `apple-hig-ui-guardian` guidance to screen findings. Separate
+app-specific UI, shared UI foundation, HIG, fixture/setup, and tooling issues.
+Tie findings to visible evidence and files, citing a specific Apple rule when it
+determines the finding. Do not infer runtime, accessibility, or release acceptance
+beyond what the capture proves.
 
-## Native Preview-First Capture Policy
-
-`#Preview` is the canonical source of truth.
-
-Use the active Xcode-native Preview rendering capability as the first-choice
-mechanism for every eligible preview. It must build and render the selected
-Preview definition and return an inspectable artifact plus render errors and
-the actual rendered destination.
-
-If direct Preview rendering is absent from the current tool inventory, rejects
-the source/index, or returns no inspectable snapshot, record the direct capture
-as a blocker before considering fallback. Do not replace it silently with a
-screenshot of a merely similar app state.
-
-Use live-app interaction fallback only after direct Preview rendering fails or
-is recorded as unavailable, and only when the exact same screen state can be
-reproduced through existing app flows such as deep links, seeded routes, or
-normal navigation already present in the repository.
-
-Do not claim equivalence for preview-only states that cannot be reproduced faithfully. Keep them in the `failed` or `not attempted` part of `プレビューカバレッジ要約` with a concrete reason.
-
-Do not silently skip missing captures. If capture fails, record:
-
-- what was attempted
-- the observable failure or error symptom
-- whether the blocker is `app-side`, `preview-side`, or `tool-side`
-- whether a faithful fallback was unavailable, attempted, or succeeded
-
-Do not default to stitched or full-scroll capture. Audit only the first visible viewport unless the user explicitly asks for more.
-
-## Blocker Ownership
-
-Use this ownership only for capture failures and blockers.
-
-`app-side`
-
-- app build or runtime behavior prevents rendering even though the preview mechanism itself is behaving as expected
-- examples: shared code crash, compile failure from app code, broken app-level dependency wiring
-
-`preview-side`
-
-- the issue is isolated to preview definitions or preview-only setup
-- examples: missing preview fixtures, missing environment injection, unsupported preview macro composition, preview-only sample data problems
-
-`tool-side`
-
-- the failure is attributable to Xcode, MCP transport, preview renderer instability, or capture tooling rather than product code
-- examples: Xcode-native integration timeout, renderer session crash without
-  app-side evidence, direct Preview rendering cannot resolve a preview that
-  otherwise looks correctly defined, or the current tool surface lacks a
-  Preview rendering capability
-
-## Triage Rules
-
-Classify findings conservatively.
-
-`app-side UI issue`
-
-- layout breakage, clipping, overlap, truncation, unsafe-area mistakes, navigation or title issues, wrong conditional rendering, or state handling specific to that screen
-
-`HIG / Apple platform guidance issue`
-
-- non-native navigation, unclear hierarchy or primary action, custom controls that duplicate standard controls poorly, weak Dynamic Type or accessibility behavior, poor contrast, small hit targets, gesture-only interaction, platform adaptation gaps, or other findings from `$apple-hig-ui-guardian`
-- cite the relevant Apple official URL when the finding depends on a specific HIG rule or platform convention
-
-`design-system / shared UI foundation issue`
-
-- the same spacing, typography, control, token, container, or reusable component problem appears likely to affect multiple screens
-
-`data/setup issue`
-
-- placeholder data, missing fixture wiring, incomplete environment injection, or unrealistic preview state prevents reliable audit
-
-`tooling blocker`
-
-- direct Xcode-native Preview failure, unsupported preview dependency,
-  live-app fallback limitation, or another non-product blocker prevents
-  trustworthy capture
-
-## Output Contract
-
-Return concise, polite Japanese with these sections in this order:
-
-- `プレビューカバレッジ要約`
-- `主要な UI 問題`
-- `主要なブロッカー`
-
-In `プレビューカバレッジ要約`, include:
-
-- total counts for `captured`, `failed`, and `not attempted`
-- grouping by likely screen and source file
-- for `captured`: preview identifier, mechanism, artifact path, and the image itself whenever the environment supports local image display
-- for `failed`: what was attempted, why it failed, and whether the blocker is `app-side`, `preview-side`, or `tool-side`
-- for `not attempted`: the concrete reason
-
-Do not report a capture as obtained unless the user can inspect the artifact from the response.
-
-If local images can be rendered, prefer inline display with absolute filesystem paths. If inline display is not available, still expose the capture path and state that the image could not be rendered inline.
-
-In `主要な UI 問題`, rank only the most important user-visible problems seen in trustworthy captures. Keep it concise and tie each item to the affected screen or file.
-Mark HIG-specific findings as `HIG / Apple platform guidance issue` when they come from `$apple-hig-ui-guardian`.
-
-In `主要なブロッカー`, rank the main reasons coverage was limited. Summarize the affected preview or screen, attempted action, failure reason, blocker ownership, and whether fallback was possible.
-
-End with one short line that the run was audit-only and no fixes were applied by default.
-
-## Notes
-
-If the user narrows scope, prioritize the named screens, device class, or width constraint first.
-
-If the user asks for compact-width issues, prefer previews or preview variants that already express compact layouts before using any fallback.
-
-If the user later asks for fixes, treat the audit report as the handoff and only then move into implementation.
-
-Do not auto-fix preview code, app code, or shared UI code during the audit unless the user explicitly changes the task from auditing to implementation.
+Report captured/failed/not-attempted counts, direct-versus-fallback mechanisms,
+important findings, and concrete blockers with their attempted actions and owners.
+Include coverage exclusions and selection restoration. Keep output concise and
+avoid a long inventory without inspectable images. Fixes require an implementation
+request, which may already be present in the current task.
