@@ -1,106 +1,76 @@
 ---
 name: ci-verify-and-summarize
-description: Run the repository's final verification gate by executing its standard verify-oriented shell or retained repository rule check, summarizing the newest `.build/ci/runs/<RUN_ID>` artifacts when they exist, reviewing the current git diff, and separating current-change issues from clearly external or pre-existing ones in concise polite Japanese. Use for requests such as "verifyして", "CIガード通して", "コミット前チェックして", "push前に見て", and explicit `$ci-verify-and-summarize` invocations even when there are no current diffs.
+description: Run the repository's documented verification checks and review the current diff. Summarize actual shell or Xcode-native evidence, current-run artifacts, and remaining readiness risks, including on a clean worktree.
 ---
 
 # CI Verify and Summarize
 
-## Overview
+Run the current repository's verification contract and review staged and unstaged
+diffs. Explicit invocation applies even when the worktree is clean. Return concise,
+polite Japanese. Verification readiness does not authorize a commit or push.
 
-Use this skill as the repository's final verification gate before treating implementation work as ready.
-Keep the review logic in this file portable across agent runtimes where practical; the helper invocation below is simply the local installation adapter for this machine.
-Run the standard verify-oriented entrypoint or retained repository rule check, inspect the newest CI artifacts when the repository produces them, perform a focused diff review, and classify push readiness from build/test/lint/warning signals plus the current git diff.
-When the user explicitly invokes this skill, including `$ci-verify-and-summarize` in runtimes that support that syntax, still run the workflow even if staged and unstaged diffs are both empty, and report that the worktree is clean instead of treating the skill as not applicable.
-Keep execution thin and deterministic by delegating CI execution to the bundled helper script.
+## Resolve the Real Contract
 
-## Trigger Conditions
+Read `AGENTS.md`, actual build/test configuration, and relevant repository CI.
+Resolve the repository root from Git rather than assuming the current directory.
+Prefer the documented checks over filename conventions or obsolete wrappers.
+Do not require `ci_scripts`, an aggregate shell, or `.build/ci/runs` when the
+repository's current contract uses another coherent workflow.
 
-Use this skill when the user asks to run CI verification and judge whether the current branch looks safe to commit or push.
-Typical phrases include:
+For Xcode-native contracts, resolve the actual capabilities and required evidence
+from the runtime inventory. Follow the repository's project/scheme/destination/
+test-plan contract; preserve and restore changed Xcode selection. Use
+`apple-ios-dev-flow` when Apple evidence selection needs guidance. A retained
+static-rule script is only one part of a mixed contract.
 
-- `verifyして`
-- `CIガード通して`
-- `コミット前チェックして`
-- `push前に見て`
-- `最後に危ない差分がないか見て`
-- explicit invocation of this skill, including `$ci-verify-and-summarize` where that syntax is supported, to run the final gate even on a clean worktree
-
-## Workflow
-
-1. Validate prerequisites.
-- Assume the current working directory is the repository root.
-- Resolve the verify-oriented or repository-rule entrypoint from `AGENTS.md` first by reading `bash ci_scripts/...sh` references.
-- If `AGENTS.md` does not define one, fall back to detecting a standard script under `ci_scripts/`, preferring `ci_scripts/tasks/verify_task_completion.sh`, then `ci_scripts/tasks/check_repository_rules.sh`, then `ci_scripts/tasks/verify.sh`, then `ci_scripts/verify.sh`, then `ci_scripts/tasks/verify_repository_state.sh`, then `run_required_builds.sh`.
-- Never execute an arbitrary `.sh` merely because it is the first script under `ci_scripts/`; formatting, migration, deployment, or other mutating scripts are not safe substitutes for a verification entrypoint.
-- If the resolved workflow writes artifacts to `.build/ci/runs/`, use only the newest run. If it does not write run artifacts but exits successfully, treat the captured command output as the verification evidence instead of failing solely because artifacts are absent.
-- If the repository does not provide any verification or repository-rule entrypoint, explain that this skill is not applicable and stop.
-
-2. Run the helper script.
+For a supported shell contract, run the bundled helper from the target repository:
 
 ```bash
-bash "${CODEX_HOME:-$HOME/.codex}/skills/ci-verify-and-summarize/scripts/run_verify_and_summarize.sh"
+bash /path/to/ci-verify-and-summarize/scripts/run_verify_and_summarize.sh
 ```
 
-3. Resolve the newest run when present.
-- Compare the direct child RUN set before and after the verify command, and inspect artifacts only when exactly one new non-symlink RUN directory was created by the current execution.
-- If multiple new RUN directories appear, or the RUN root/entry is symlinked, fail closed instead of guessing which artifacts belong to the current execution.
-- Do not inspect older runs.
-- If no run exists and the entrypoint succeeded, report `最新RUN: (なし)` and continue with diff review plus the captured verification output.
+Resolve the helper relative to the loaded skill rather than assuming the default
+Codex home. It recognizes documented repository-relative `bash` scripts with
+verify/check names, including `scripts/verify_repository.sh`, and falls back to
+known `ci_scripts` verification names. It never treats an arbitrary migration,
+formatter, or deployment script as a verification command. A broken documented
+entrypoint is a failure, not permission to silently choose a different check.
 
-4. Read artifacts in strict order.
-- `summary.md`
-- `meta.json`
-- `failed_log` only when verify failed
-- `commands.txt` only when needed for diagnosis
+If the repository uses another command form, run the documented command directly
+and perform the same evidence/diff review. Do not create a compatibility wrapper
+just for this skill. If no reliable verification can be derived, report that
+limit and continue the useful diff review instead of inventing a gate.
 
-5. Review the current git diff after verify.
-- Inspect both `git diff --stat` / patch and `git diff --cached --stat` / patch.
-- Treat this as a lightweight code review of the current diff, not only as a category scan.
-- Stay inside current diffs only; do not inspect unrelated history or recursively scan the whole repository.
-- If both diffs are empty, treat that as a valid clean-worktree review and state it explicitly in the report.
-- Focus on practical push-risk categories such as entitlements, persistence or migration, notifications or background behavior, remote config or force update, monetization, widgets or app intents or watch or deeplinks, warnings still present, suspicious `--no-verify`, unexpectedly broad file changes, and missing tests near behavior changes.
-- Treat current-change or clearly introduced build/test/lint/warning failures as non-ready.
-- If warnings or errors clearly come from external packages or pre-existing unrelated issues, call that out separately instead of automatically attributing them to the current change.
+## Current Execution Evidence
 
-6. Build the final report.
-- Use concise, polite Japanese for the agent explanation.
-- Keep the report short and practical; do not append raw command output or verbose diagnostics.
-- If verify fails, report that first and do not treat the branch as push-ready.
-- If current-change or clearly introduced warnings remain, do not treat the branch as push-ready.
-- If push risk is `high`, clearly say that pushing is not recommended yet.
+Keep shell exit status/output, Xcode build/test results, and runtime/UI evidence
+separate. Report only checks that actually ran; prior results need their exact
+revision and context before reuse.
 
-## Safety / Guardrails
+The shell helper compares direct child RUN directories before and after execution.
+Only one new regular directory may supply current-run artifacts. Do not select
+an old successful run when the current command failed or produced no artifacts.
+Multiple new runs or symlinked roots/entries are ambiguous and must be reported.
 
-- Do not edit repository files.
-- Do not re-implement CI logic in ad-hoc commands.
-- Resolve the verification entrypoint dynamically from `AGENTS.md` or `ci_scripts/` instead of assuming a single hard-coded script.
-- Read only the newest run directory in `.build/ci/runs/`.
-- Never recursively scan generated directories outside the newest run scope.
-- Read `summary.md`, `meta.json`, `commands.txt`, and `failed_log` only as regular non-symlink files contained by the one selected RUN directory; never follow an absolute or relative artifact path outside it.
-- Review only the current git diff and staged diff; do not broaden into full-repository archaeology.
-- Do not skip execution only because the current diff is empty when the user explicitly invoked the skill.
-- Treat missing git context, a missing latest run after a failed entrypoint, current-change or clearly introduced verify failure, or suspicious `--no-verify` as non-push-ready signals.
+For a valid current run, read `summary.md`, `meta.json`, the failed log only when
+needed, and `commands.txt` only for diagnosis. Artifacts must be regular,
+non-symlink files contained in that run. Never follow an artifact path outside it
+or scan older `.build/ci/runs/<RUN_ID>` directories. Successful checks need no
+artifact directory when output is the contract's evidence.
 
-## Response Contract
+## Review and Report
 
-Return a short, polite report in Japanese with this structure:
+Review both current diff and staged diff for introduced failures, unintended
+behavior, persistence/identifier changes, missing behavioral checks, and scope
+creep. Preserve unrelated edits. The helper's category scan supplements this
+review; it does not perform a complete semantic code review.
 
-- `結果`
-- `最新RUN: <RUN_ID>`
-- `要約:` 3〜6行
-- `Pushリスク: low / medium / high`
-- `リスク理由:` 2〜4行
-- `次の一手:` 1〜3 concrete actions
+Report the actual commands/capabilities and result, important diff findings,
+current-change versus pre-existing failures, and remaining limitations. Include
+current-run paths only when such artifacts exist. A clean worktree is valid
+context, not a reason to skip requested verification. Do not claim readiness
+while an introduced failure or required unverified boundary remains.
 
-When there is no current diff, still return the full structure and explicitly note that the worktree is clean.
-
-## Verification
-
-- Confirm the helper script completed and returned an exit code.
-- Confirm newest run resolution succeeded.
-- Confirm both unstaged diff and staged diff were reviewed.
-- Confirm explicit invocation on a clean worktree still returns a full report.
-- If current-change or clearly introduced warnings remain, ensure the final judgment is non-ready.
-- If warnings look external or pre-existing, ensure the report says so explicitly instead of blaming the current change.
-- If artifacts are incomplete, clearly mark the report as non-push-ready and continue with available evidence.
-- If `.build/ci/runs/` has no run and the entrypoint failed, report artifact-not-found explicitly and keep push risk high.
+Do not edit source/configuration or run formatting as a side effect of this
+verification-only workflow. If a user also asked for fixes, perform that authorized
+implementation separately and verify the resulting change.

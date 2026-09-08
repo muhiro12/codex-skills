@@ -48,26 +48,16 @@ if not agents_path.is_file():
     raise SystemExit(0)
 
 text = agents_path.read_text(encoding="utf-8")
-commands = re.findall(r"bash\s+(ci_scripts/[A-Za-z0-9_./-]+\.sh)", text)
-if not commands:
-    raise SystemExit(0)
-
-priority = [
-    "ci_scripts/tasks/verify_task_completion.sh",
-    "ci_scripts/tasks/check_repository_rules.sh",
-    "ci_scripts/tasks/verify.sh",
-    "ci_scripts/verify.sh",
-    "ci_scripts/tasks/verify_repository_state.sh",
-    "ci_scripts/tasks/run_required_builds.sh",
-    "ci_scripts/run_required_builds.sh",
-]
-
-for preferred in priority:
-    if preferred in commands:
-        print(preferred)
-        raise SystemExit(0)
-
-print(commands[0])
+commands = re.findall(r"\bbash[ \t]+([A-Za-z0-9_./-]+\.sh)(?=[`\s]|$)", text)
+for command in commands:
+    path = Path(command)
+    if path.is_absolute() or ".." in path.parts:
+        continue
+    if not (re.fullmatch(r"(?:verify|check)(?:[_-][A-Za-z0-9_-]+)?\.sh", path.name)
+            or path.name == "run_required_builds.sh"):
+        continue
+    print(command)
+    break
 PY
 }
 
@@ -76,7 +66,7 @@ detect_verify_entrypoint() {
   local rel_path=""
 
   agents_entrypoint="$(extract_agents_entrypoint "AGENTS.md")"
-  if [ -n "$agents_entrypoint" ] && [ -f "$agents_entrypoint" ]; then
+  if [ -n "$agents_entrypoint" ]; then
     printf '%s\n' "$agents_entrypoint"
     return 0
   fi
@@ -128,7 +118,7 @@ if [ -z "$verify_entrypoint" ]; then
   echo "最新RUN: (なし)"
   echo "要約:"
   echo "- このリポジトリでは verify 系CIエントリポイントを解決できず、最終ゲートを開始できません。"
-  echo "- AGENTS.md の \`bash ci_scripts/...sh\` 記述、または ci_scripts 配下の標準 verify スクリプトが必要です。"
+  echo "- AGENTS.md の repository 内 verify/check shell、または ci_scripts 配下の標準 verify スクリプトが必要です。"
   echo "- git diff / staged diff レビューも未実施です。"
   echo "Pushリスク: high"
   echo "リスク理由:"
@@ -143,8 +133,26 @@ fi
 verify_command="bash $verify_entrypoint"
 
 set +e
-bash "$verify_entrypoint" >"$verify_output" 2>&1
+python3 - "$verify_entrypoint" >"$verify_output" 2>&1 <<'PY'
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+if (path.is_absolute() or ".." in path.parts or not path.is_file()
+        or any(part.is_symlink() for part in (path, *path.parents))):
+    print(f"Verification script is missing or is not a regular repository file: {path}")
+    raise SystemExit(1)
+try:
+    path.resolve().relative_to(Path.cwd().resolve())
+except ValueError:
+    print(f"Verification script escapes the repository: {path}")
+    raise SystemExit(1)
+PY
 verify_exit=$?
+if [ "$verify_exit" -eq 0 ]; then
+  bash "$verify_entrypoint" >>"$verify_output" 2>&1
+  verify_exit=$?
+fi
 set -e
 
 post_runs="$(list_run_ids "$run_base")"

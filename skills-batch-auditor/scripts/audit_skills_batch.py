@@ -900,21 +900,22 @@ def discover_skill_records(
 
 
 def choose_canonical_entrypoint(agents_text: str, ci_script_rel_paths: list[str]) -> str | None:
-    agents_commands = re.findall(r"bash\s+ci_scripts/[A-Za-z0-9_./-]+\.sh", agents_text)
-    if agents_commands:
-        for command in agents_commands:
-            if command.endswith("verify_task_completion.sh"):
-                return command
-        for command in agents_commands:
-            if command.endswith("verify.sh"):
-                return command
-        for command in agents_commands:
-            if command.endswith("verify_repository_state.sh"):
-                return command
-        return agents_commands[0]
+    # Honor documented repository commands before legacy directory conventions.
+    agents_paths = re.findall(r"\bbash[ \t]+([A-Za-z0-9_./-]+\.sh)(?=[`\s]|$)", agents_text)
+    for path in agents_paths:
+        parts = Path(path).parts
+        name = Path(path).name
+        if (
+            not Path(path).is_absolute()
+            and ".." not in parts
+            and (re.fullmatch(r"(?:verify|check)(?:[_-][A-Za-z0-9_-]+)?\.sh", name)
+                 or name == "run_required_builds.sh")
+        ):
+            return f"bash {path}"
 
     priority_rel_paths = [
         "ci_scripts/tasks/verify_task_completion.sh",
+        "ci_scripts/tasks/check_repository_rules.sh",
         "ci_scripts/tasks/verify.sh",
         "ci_scripts/verify.sh",
         "ci_scripts/tasks/verify_repository_state.sh",
@@ -924,9 +925,6 @@ def choose_canonical_entrypoint(agents_text: str, ci_script_rel_paths: list[str]
     for rel_path in priority_rel_paths:
         if rel_path in ci_script_rel_paths:
             return f"bash {rel_path}"
-
-    if ci_script_rel_paths:
-        return f"bash {sorted(ci_script_rel_paths)[0]}"
 
     return None
 
@@ -973,7 +971,11 @@ def extract_ground_truth(repo_root: Path, include_doc_source: bool) -> dict[str,
 
     ci_script_files: list[Path] = []
     ci_root = repo_root / "ci_scripts"
-    if not ci_root.is_symlink() and ci_root.exists() and ci_root.is_dir():
+    if (
+        not ci_root.is_symlink()
+        and ci_root.is_dir()
+        and not is_gitignored_path(ci_root, repo_root)
+    ):
         ci_script_files = sorted(
             path
             for path in ci_root.rglob("*.sh")
@@ -1819,6 +1821,7 @@ def analyze_skill(skill: SkillRecord, ground_truth: dict[str, Any]) -> dict[str,
         "AGENTS.md" in combined_text
         and (
             "entrypoint" in lower_text
+            or "verification contract" in lower_text
             or "build and test entry point" in lower_text
             or "標準エントリポイント" in lower_text
             or "fallback" in lower_text
@@ -1834,7 +1837,11 @@ def analyze_skill(skill: SkillRecord, ground_truth: dict[str, Any]) -> dict[str,
     artifact_root = ground_truth.get("artifact_root", "")
     expected_artifact_prefix = artifact_root.replace("/<RUN_ID>/", "").rstrip("/")
     if skill.name != "ci-verify-and-summarize" and hardcoded_ci_commands and ci_ground_truth_available:
-        if canonical_entrypoint and canonical_entrypoint not in hardcoded_ci_commands:
+        if (
+            canonical_entrypoint
+            and canonical_entrypoint not in hardcoded_ci_commands
+            and not mentions_dynamic_ci_policy
+        ):
             add_issue(
                 issues,
                 code="ci_entrypoint_not_aligned",
@@ -1891,7 +1898,13 @@ def analyze_skill(skill: SkillRecord, ground_truth: dict[str, Any]) -> dict[str,
             )
 
         has_no_old_scan_rule = bool(
-            re.search(r"do not scan older|do not inspect older|no older runs|older runs|古いrun.*参照しない", lower_text)
+            re.search(
+                r"do not scan older|do not inspect older|no older runs|older runs|"
+                r"(?:never|do not)[^.]{0,100}scan older|"
+                r"(?:read|inspect) only the (?:newest|latest) (?:relevant )?run|"
+                r"古いrun.*参照しない",
+                re.sub(r"\s+", " ", lower_text),
+            )
         )
         if not has_no_old_scan_rule:
             add_issue(

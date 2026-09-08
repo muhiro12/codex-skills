@@ -12,6 +12,72 @@ SCRIPT_PATH = Path(__file__).resolve().parents[1] / "scripts" / "run_verify_and_
 class RunVerifyAndSummarizeTests(unittest.TestCase):
     maxDiff = None
 
+    def test_documented_repository_verify_precedes_legacy_delegate(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            repo_root = Path(temporary_directory)
+            self._init_git_repo(repo_root)
+            self._write_text(repo_root / "AGENTS.md", """
+                Standard verification:
+                ```sh
+                bash scripts/verify_repository.sh
+                ```
+                Optional delegate: `bash ci_scripts/tasks/verify.sh`.
+            """)
+            self._write_executable(repo_root / "scripts/verify_repository.sh",
+                                   "#!/bin/bash\necho Repository verification completed\n")
+            self._write_executable(repo_root / "ci_scripts/tasks/verify.sh",
+                                   "#!/bin/bash\necho WRONG_DELEGATE\nexit 99\n")
+            self._commit_all(repo_root, "Add verification fixture")
+            completed = self._run_helper(repo_root)
+
+        self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+        self.assertIn("bash scripts/verify_repository.sh", completed.stdout)
+        self.assertNotIn("WRONG_DELEGATE", completed.stdout)
+
+    def test_missing_documented_verify_does_not_fall_back_silently(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            repo_root = Path(temporary_directory)
+            self._init_git_repo(repo_root)
+            self._write_text(repo_root / "AGENTS.md", "`bash scripts/verify_repository.sh`\n")
+            self._write_executable(repo_root / "ci_scripts/tasks/verify.sh",
+                                   "#!/bin/bash\necho WRONG_DELEGATE\n")
+            self._commit_all(repo_root, "Add broken verification fixture")
+            completed = self._run_helper(repo_root)
+
+        self.assertNotEqual(completed.returncode, 0)
+        self.assertIn("bash scripts/verify_repository.sh", completed.stdout)
+        self.assertNotIn("WRONG_DELEGATE", completed.stdout)
+
+    def test_documented_migration_is_not_executed_as_verification(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            repo_root = Path(temporary_directory)
+            self._write_text(repo_root / "AGENTS.md", "`bash ci_scripts/migrate.sh`\n")
+            marker = repo_root / "mutation.txt"
+            self._write_executable(repo_root / "ci_scripts/migrate.sh",
+                                   "#!/bin/bash\ntouch mutation.txt\n")
+            completed = self._run_helper(repo_root)
+            mutated = marker.exists()
+
+        self.assertNotEqual(completed.returncode, 0)
+        self.assertFalse(mutated)
+
+    def test_documented_verify_cannot_follow_an_external_directory_link(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            repo_root = root / "repo"
+            repo_root.mkdir()
+            self._init_git_repo(repo_root)
+            self._write_text(repo_root / "AGENTS.md", "`bash checks/verify.sh`\n")
+            self._write_executable(root / "external/verify.sh",
+                                   "#!/bin/bash\ntouch mutation.txt\n")
+            (repo_root / "checks").symlink_to(root / "external", target_is_directory=True)
+            self._commit_all(repo_root, "Add linked verification fixture")
+            completed = self._run_helper(repo_root)
+            mutated = (repo_root / "mutation.txt").exists()
+
+        self.assertNotEqual(completed.returncode, 0)
+        self.assertFalse(mutated)
+
     def _write_text(self, path: Path, content: str) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(textwrap.dedent(content).lstrip(), encoding="utf-8")

@@ -15,6 +15,46 @@ FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
 class AuditSkillsBatchCLITests(unittest.TestCase):
     maxDiff = None
 
+    def test_documented_verify_outside_ci_scripts_takes_precedence(self) -> None:
+        module = self._load_script_module()
+        selected = module.choose_canonical_entrypoint(
+            "Standard verification:\n```sh\nbash scripts/verify_repository.sh\n```\n"
+            "Optional compatibility delegate: `bash ci_scripts/tasks/verify.sh`.",
+            ["ci_scripts/tasks/verify.sh"],
+        )
+        self.assertEqual(selected, "bash scripts/verify_repository.sh")
+
+    def test_unrelated_scripts_are_not_verification_candidates(self) -> None:
+        module = self._load_script_module()
+        self.assertIsNone(module.choose_canonical_entrypoint(
+            "Maintenance: `bash ci_scripts/migrate.sh`.",
+            ["ci_scripts/migrate.sh", "ci_scripts/format.sh"],
+        ))
+        self.assertIsNone(module.choose_canonical_entrypoint(
+            "`bash ../external/verify.sh` and `bash /tmp/check.sh`", [],
+        ))
+
+    def test_portable_contract_does_not_require_the_audited_repos_command(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            repo = root / "repo"
+            repo.mkdir()
+            (repo / "AGENTS.md").write_text("`bash scripts/verify_repository.sh`\n")
+            skills = root / "skills"
+            skill = self._write_minimal_skill(skills, "portable-verifier")
+            with (skill / "SKILL.md").open("a") as handle:
+                handle.write(
+                    "\nResolve the verification contract from AGENTS.md.\n"
+                    "A fallback example is `bash ci_scripts/tasks/verify.sh`.\n"
+                    "For .build/ci/runs/<RUN_ID>, inspect only the newest\n"
+                    "relevant run.\n"
+                )
+            payload = self._run_json_with_roots(repo, skills)
+            item = self._find_report_item(payload, "portable-verifier")
+
+        self.assertNotIn("ci_entrypoint_not_aligned", item["issue_codes"])
+        self.assertNotIn("ci_artifacts_no_old_scan_rule_missing", item["issue_codes"])
+
     def _materialize_fixture_skill_files(self, destination: Path) -> None:
         for fixture_path in destination.rglob("SKILL.fixture.md"):
             shutil.copyfile(fixture_path, fixture_path.with_name("SKILL.md"))
