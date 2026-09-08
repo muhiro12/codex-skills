@@ -1,6 +1,6 @@
 interface:
   display_name: "Developer Principles"
   short_description: "Capture weighted cross-repo developer principles"
-  default_prompt: "Use $track-developer-principles to consult my weighted developer principles, surface reusable candidates without persisting them implicitly, and write only when I explicitly request or approve the archive change."
+  default_prompt: "Use $track-developer-principles to consult relevant developer judgment, or update records when explicitly requested."
 policy:
   allow_implicit_invocation: true

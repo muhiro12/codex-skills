@@ -42,27 +42,12 @@ Each skill lives in its own directory and typically includes:
 - optional `scripts/` or `references/` directories when the skill needs helpers or supporting guidance
 - optional ignored data directories such as `records/`, `archives/`, or `cache/` when a skill owns mutable local state
 
-After pulling updates on another machine, run `python3 scripts/migrate_skill_data.py`
-from this repository to check whether legacy ignored local data should be copied
-into the new skill-owned data directories. The script is dry-run by default and
-uses `--apply` only to copy missing targets without overwriting conflicts.
-It is also the stable entrypoint for future local data migrations: add new
-migration ids there instead of creating separate one-off migration commands.
-Run `python3 scripts/migrate_skill_data.py --list` to see registered migrations.
-
-Local data layout migrations are a linear version chain. The current layout is
-reported by `--list`, and running the script without `--migration` executes every
-registered migration in order. Each migration should be idempotent and should
-detect its own source and target paths, so a v1 machine can move through later
-versions by running the same entrypoint, while an already migrated machine sees
-earlier steps as `same`, `missing`, or no-op rather than corruption.
-The script does not mark migrations as applied; filesystem state is the source
-of truth. If a migration reports conflicts, later migrations are not run until
-the conflict is resolved.
-
-General helper scripts can still live under `scripts/` when they are not data
-migrations, but local data path or schema changes should go through the migration
-entrypoint.
+Local data migrations are explicit maintenance operations. Run
+`python3 scripts/migrate_skill_data.py --list` to inspect available migrations
+when a known legacy layout needs updating. Select the relevant scope, review the
+dry run, and use `--apply` only for an authorized migration. The helper copies
+missing targets, preserves conflicts, and stops the version chain on conflict;
+it is not a required step after every pull or on a fresh installation.
 
 ## Verification
 
