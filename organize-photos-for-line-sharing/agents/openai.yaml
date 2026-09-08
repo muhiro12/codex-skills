@@ -1,0 +1,4 @@
+interface:
+  display_name: "LINE Sharing Photos Organizer"
+  short_description: "Organize source-aware LINE-sharing Photos and report it"
+  default_prompt: "Use $organize-photos-for-line-sharing to safely build monthly albums from self-captured originals, preserve their dates, actively correct their orientation, normalize dates only for confirmed LINE downloads, rotate LINE media conservatively, never delete media, and create a visual HTML report."

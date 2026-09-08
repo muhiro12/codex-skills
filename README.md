@@ -1,7 +1,7 @@
 # Curated Codex Skills
 
-This repository contains custom Codex skills from my local development environment.
-It intentionally excludes system-managed skills, runtime/vendor-managed assets, and a small amount of private local state.
+This repository contains curated Codex skills for development and personal workflows.
+System-managed skills, runtime assets, generated artifacts, and private local data are excluded.
 
 ## Included Skills
 
@@ -14,6 +14,7 @@ It intentionally excludes system-managed skills, runtime/vendor-managed assets, 
 - `context-capture`: On explicit `$context-capture` invocation, saves user-provided material as near-raw local Markdown evidence.
 - `context-consult`: On explicit `$context-consult` invocation, searches local context archives and returns cited context packs.
 - `mh-swift-style`: Applies this repository owner's established Swift formatting and code-organization preferences to Apple-platform code.
+- `organize-photos-for-line-sharing`: Safely builds outbound LINE-sharing albums from self-captured originals, preserves their dates, actively corrects their orientation, normalizes dates only for confirmed LINE downloads, rotates LINE media conservatively, never deletes media, and produces a visual HTML report.
 - `product-overview-syncer`: Conservatively syncs an existing product or architecture overview Markdown document with the current codebase reality.
 - `release-risk-analyzer`: Assesses whether the range from the latest release tag to `HEAD` contains release-blocking changes on durable-risk surfaces.
 - `repo-agent-contract-maintainer`: Maintains concise, clone-ready repository `AGENTS.md` contracts and routes longer guidance to the correct durable layer.
@@ -85,4 +86,5 @@ are not traversed.
 - `track-developer-principles/records/` and `track-personal-principles/records/` are kept out of git because they hold private local principle history.
 - `context-capture/archives/` is kept out of git because it holds private or work-local evidence captures.
 - `apple-sample-code-advisor/cache/` is kept out of git because cached Apple sample projects are disposable local evidence.
+- `organize-photos-for-line-sharing/work/` is kept out of git because inventories, media exports, contact sheets, and run reports are private task artifacts.
 - `xcode-skill-*` and `sync-xcode-skills/state/` are generated locally by `sync-xcode-skills`; never edit or commit them directly.
