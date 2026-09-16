@@ -2,10 +2,10 @@
 
 ## Choose a capability for the product task
 
-Use the requested processing boundary. Evaluate an existing on-device path before
-replacing it solely because a newer or larger model exists. A feature explicitly
-intended for recent Apple devices need not introduce an external provider just
-to widen compatibility. Conversely, preserve a requested broader-device strategy.
+Compare supported models against the feature's required capabilities, deployment
+targets, latency, data destination, and cost. The following are integration
+checks, not a preference for on-device processing, newer devices, or a particular
+provider. Follow the product's chosen processing and automation requirements.
 
 | Capability | Decision to verify |
 | --- | --- |
@@ -36,8 +36,9 @@ Check availability before offering or starting an operation, then handle errors
 during execution because state may change. A type's existence or an `available`
 result alone does not establish all five layers. Use the relevant framework's
 check; one Foundation Models result does not describe all Apple Intelligence
-features. For each unsupported or unavailable state, retain a useful manual path
-or explain the recovery that applies to that state.
+features. Choose recovery for each unavailable state according to the feature:
+deferred execution, another supported model, an unavailable state, or a non-AI
+path may fit. A manual-entry fallback is not a framework requirement.
 
 ## Private Cloud Compute
 
@@ -47,13 +48,15 @@ Developer eligibility, the managed `com.apple.developer.private-cloud-compute`
 entitlement, the signed app's provisioning, and user availability are independent
 checks. Adding an entitlement key locally is not evidence of a grant. A command
 line probe can have different authorization from the signed app; test the actual
-supported app/distribution path before declaring PCC unusable.
+supported app/distribution path before declaring PCC unusable. The
+[development case](development-cases.md#pcc-availability-without-execution-entitlement)
+records a failed probe, not a successful entitlement workaround.
 
 Keep developer API cost, user daily limits, and third-party provider billing
-separate. Query supported runtime quota information and preserve useful drafts
-when limits are reached. Do not loop retries at quota exhaustion. An alternative
-model can change quality, privacy, and cost; switch only within the product's
-approved behavior and explain any meaningful change to the user.
+separate. Query supported quota information and handle exhaustion under the
+feature's recovery policy. Retrying an exhausted quota cannot supply new
+capacity. A model switch may change quality, data destination, or cost; verify
+those differences against the requested behavior.
 
 Apple's [WWDC26 PCC session](https://developer.apple.com/videos/play/wwdc2026/319/)
 also describes debugging approaching and exhausted limits. Use the available
@@ -70,6 +73,6 @@ version prompts only when results justify the added maintenance. See
 
 Dynamic profiles can change instructions, tools, and the model within a session.
 Before a local-to-server transition, inspect which source content and transcript
-would cross that boundary. Keep confirmed application state independent of the
-transcript and expose only the tools needed for the current stage. See
+would cross that boundary. Inspect what transcript transitions and tool changes
+mean for in-progress calls and externally applied effects. See
 [dynamic sessions and profiles](https://developer.apple.com/documentation/foundationmodels/composing-dynamic-sessions-with-instructions-and-profiles).

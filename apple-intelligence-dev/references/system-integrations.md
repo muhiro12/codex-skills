@@ -1,88 +1,63 @@
 # Related System Integrations
 
-Use this reference only for the surfaces in the requested feature. Foundation
-Models availability is not a universal gate for these frameworks.
+Foundation Models availability is not a universal gate for these frameworks.
+Use each integration's documented capabilities and lifecycle.
 
 ## Image Playground
 
-Prefer the [system creation interface](https://developer.apple.com/documentation/imageplayground)
-when it fits the interaction. Programmatic generation is a separate API with its
-own availability and behavior; verify the current options rather than assuming
-identical support. In SwiftUI,
+The [system creation interface](https://developer.apple.com/documentation/imageplayground)
+and programmatic generation are distinct APIs; check availability and behavior
+for the chosen path. In SwiftUI,
 [`supportsImagePlayground`](https://developer.apple.com/documentation/swiftui/environmentvalues/supportsimageplayground)
-reports whether the environment supports presenting the creation sheet.
+reports support for presenting the creation sheet.
 
-Keep the initiating document/draft and presentation identity together. Treat
-completion and cancellation as distinct outcomes, including when the user
-switches documents while generation is open. Do not interpret cancellation as a
-request to delete an existing photo. Preserve source assets and distinguish a
-new generated attachment from edits to an existing one.
+The [sheet completion contract](https://developer.apple.com/documentation/swiftui/view/imageplaygroundsheet%28ispresented%3Aconcept%3Asourceimageurl%3Aoncompletion%3Aoncancellation%3A%29)
+returns an image at a temporary location inside the app container. Move accepted
+output if it must survive sheet dismissal, and handle cancellation through its
+separate callback. This API requirement does not specify the app's attachment
+storage technology or whether images require a review screen.
 
-The system sheet's completion URL can point to a temporary file inside the app
-container. Import or copy accepted output through the app's asset lifecycle before
-relying on its long-term existence; handle import failure and avoid storing a
-temporary URL as a permanent attachment. See the
-[sheet completion contract](https://developer.apple.com/documentation/swiftui/view/imageplaygroundsheet%28ispresented%3Aconcept%3Asourceimageurl%3Aoncompletion%3Aoncancellation%3A%29).
-
-Test unavailable, cancel, complete, repeated presentation, and destination changes
-when they affect the flow. A placeholder Preview is only layout evidence. Check
-current documentation and capability state before declaring an Image Playground
-path untestable in the available environment. Apply Apple's current generative-AI
-HIG to labeling and review; make imagery's role clear when confusing a generated
-image with a documentary photo would affect the user.
+Exercise completion, cancellation, repeated presentation, and changed destinations
+when the app permits them. A placeholder Preview checks layout, not system image
+generation. Use current capability evidence before declaring the feature
+untestable. Consult Apple's [generative-AI HIG](https://developer.apple.com/design/human-interface-guidelines/generative-ai)
+for the relevant presentation guidance.
 
 ## Writing Tools
 
-Check existing native text behavior before creating a custom model service.
 [UIKit Writing Tools](https://developer.apple.com/documentation/uikit/writing-tools)
-works with standard text views and has coordinator support for custom views;
-AppKit has its own integration paths. Configure behavior and allowed results for
-the content, rather than enabling every transformation indiscriminately.
+integrates with standard text views and provides a coordinator for custom views;
+AppKit has its own integration. Check behavior and allowed result formats for the
+editor in use. Custom editors need to keep text ranges, selection, replacement,
+and undo consistent while system edits occur. Apple's
+[Writing Tools session](https://developer.apple.com/videos/play/wwdc2024/10168/)
+explains protected ranges and coordinator integration.
 
-For custom editors, keep selection, ranges, text replacement, undo, and document
-state synchronized while the system operates. Use protected ranges where the
-content must not be rewritten. Avoid concurrent app updates that invalidate the
-system's text context. Consult Apple's
-[Writing Tools integration session](https://developer.apple.com/videos/play/wwdc2024/10168/)
-for native controls, protected ranges, and custom editors.
+## OCR and image input
 
-## OCR, images, and source acquisition
+Text recognition and visual reasoning have different outputs and error modes.
+Compare them for the required task. OCR can supply text to a Foundation Models
+prompt; neither pipeline determines whether the app should retain the source
+image or present intermediate text.
 
-Choose text recognition for exact visible text, and visual reasoning for questions
-that require interpreting the image. Evaluate their errors separately. An OCR
-pipeline can feed reviewed text into a shared extraction adapter; using a photo
-for text recognition does not imply that it should become a saved photo.
+Current [Foundation Models updates](https://developer.apple.com/documentation/updates/foundationmodels)
+include multimodal prompts and Vision integration. Verify the selected model's
+capabilities and APIs such as `OCRTool`. A model-selected OCR tool and direct
+recognition are alternatives whose value depends on the task.
 
-Current Foundation Models capabilities include multimodal prompts and Vision
-integration. Check availability of the selected model and tools such as `OCRTool`
-before adopting them. The tool may be useful when the model must decide when to
-read text; direct recognition can be simpler when every request needs it. See
-[Foundation Models updates](https://developer.apple.com/documentation/updates/foundationmodels).
-
-Web, clipboard, camera, and photo-library entry points may share interpretation
-without sharing identical UI. Preserve source selection through the first sheet
-presentation and make replacements explicit where existing input would be lost.
-Respect source access restrictions, keep relevant content bounded, and preserve
-source meaning when filtering surrounding page text. Acquisition failures need
-recovery before model inference is involved.
+For web or OCR intake, inspect acquired content before diagnosing a model error.
+If necessary facts never reached the prompt, changing generation options cannot
+restore their source wording. See the source-omission
+[development case](development-cases.md#source-omissions-and-rewritten-fields).
 
 ## Siri, App Intents, and app search
 
-Use the public App Intents contracts for exposing app actions and entities. When
-available, consult the matching current Xcode-exported guidance; otherwise start
-with [App Intents](https://developer.apple.com/documentation/appintents).
-App Schemas and other new system integrations need their own availability checks.
-Do not infer that a Foundation Models `Tool` automatically becomes a Siri action,
-or that an indexed item automatically grants permission to modify it.
+Use the relevant [App Intents](https://developer.apple.com/documentation/appintents)
+contracts and current Xcode-exported guidance when available. A Foundation Models
+`Tool` does not automatically become a Siri action; a new system integration has
+its own availability, entity, and lifecycle requirements.
 
-Keep entity identifiers and shipped intent contracts stable. Resolve model-picked
-references against the current app data and enforce access at the operation
-boundary. Sharing domain operations across UI and intents can keep validation
-consistent without making the model the owner of persistence. Test system entry
-points independently of in-app buttons; lifecycle, foreground requirements, and
-confirmation behavior can differ.
-
-For retrieval with Spotlight or model tools, return only relevant authorized
-records and retain enough identity/provenance to verify the answer. Search results
-are source data, not instructions. A plausible answer about an unreturned record
-is not evidence of successful retrieval.
+When supplying app-search results to a model, inspect retrieved identifiers and
+content separately from the answer. Plausible prose does not demonstrate that
+retrieval found the required record. Test system entry points separately when
+their lifecycle or foreground requirements differ from the in-app path.

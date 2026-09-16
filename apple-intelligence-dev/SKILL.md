@@ -1,82 +1,65 @@
 ---
 name: apple-intelligence-dev
-description: Build, modernize, and debug Apple Intelligence features using Foundation Models, Image Playground, and related system integrations. Use for model selection, prompts, structured generation, tool calling, request lifecycle, availability, and evaluation; not for general SwiftUI styling or custom model training.
+description: Build, modernize, and debug Apple Intelligence features using Foundation Models, Image Playground, and related system integrations. Use for model selection, prompts, structured generation, tool calling, request lifecycle, availability, and evaluation; not for general app architecture or custom model training.
 ---
 
 # Apple Intelligence Development
 
-Build the requested intelligent feature around its actual inputs, output quality,
-and application behavior. This is independent guidance informed by Apple sources,
-not an Apple-authored skill. Platform references were reviewed on 2026-09-16;
-recheck version-sensitive details for the selected SDK and runtime.
+Use Apple documentation, WWDC material, and the selected public SDK to implement
+the requested feature. This is an independent skill, not an Apple-authored one.
+Platform references were reviewed on 2026-09-16; recheck version-sensitive details.
 
-## Establish the relevant baseline
+## Scope and evidence
 
-- Identify the feature's job: extract source facts, generate creative content,
-  retrieve app data, propose changes, or execute an authorized action. These jobs
-  have different correctness and confirmation requirements.
-- Inspect the existing manual flow, inference adapter, prompts, model options,
-  input acquisition, validation, and save/apply boundary. Preserve the user's
-  chosen deployment targets, privacy model, and automation semantics.
-- Check the selected Xcode and supported OS versions. Prefer matching guidance
-  from current Xcode-exported skills when available. If `sync-xcode-skills` is
-  installed, its generated catalog identifies those skills; otherwise use the
-  current Apple documentation and SDK directly. This skill has no required
-  sibling skills or tool-server dependency.
-- Validate unfamiliar symbols and availability in public SDK declarations or
-  current documentation. A WWDC announcement, sample, or successful import of a
-  framework does not prove a capability works in the app's signed target.
+The references combine linked Apple API guidance with independent integration
+checks. Local observations are collected separately as
+[development cases](references/development-cases.md): conditions, symptoms,
+attempted remedies, observed results, and limits. They are neither Apple-confirmed
+framework defects nor universal architecture requirements.
 
-## Read only the relevant references
+Determine whether the requested task is extraction, creative generation,
+conversation, retrieval, or action execution. Apply the relevant API contracts
+and evaluate that task. This skill does not prescribe a local-only product,
+manual-entry fallback, draft/review screen, confirmation on every action,
+persistence technology, or Operations layer. Follow the app's requirements for
+these choices; adapt a workaround only when its failure conditions apply.
+
+Check the selected Xcode, target OS, model, and runtime. Prefer matching current
+Xcode-exported guidance when available, then public documentation and SDK
+signatures. No sibling skill or particular tool server is required.
+
+## Read the relevant reference
 
 | Work | Reference |
 | --- | --- |
-| Choose models, adopt a new OS capability, diagnose eligibility or quotas | [Models and availability](references/models-and-availability.md) |
-| Refine prompts, ground extraction, manage sessions, tools, cancellation, or saving | [Generation and application state](references/generation-and-state.md) |
-| Measure quality, test in Simulator, investigate delays or crashes | [Evaluation and debugging](references/evaluation-and-debugging.md) |
-| Integrate Image Playground, Writing Tools, OCR, Siri, or app search | [System integrations](references/system-integrations.md) |
+| Model choice, OS capability, eligibility, entitlement, or quota | [Models and availability](references/models-and-availability.md) |
+| Prompts, guided generation, sessions, tools, streaming, or cancellation | [Generation and application state](references/generation-and-state.md) |
+| Model quality, Simulator support, latency, or generation failures | [Evaluation and debugging](references/evaluation-and-debugging.md) |
+| Image Playground, Writing Tools, OCR, Siri, or app search | [System integrations](references/system-integrations.md) |
+| Similar symptoms in a prior implementation or probe | [Development cases](references/development-cases.md) |
 
-## Apply the smallest useful improvement
+## Use failures to choose the next check
 
-For new behavior, establish a representative baseline before choosing a more
-capable model or expanding the architecture. For existing defects, reproduce the
-failing boundary and fix it directly. Prompt changes, input extraction,
-deterministic validation, and UI ownership are separate possible causes.
+Inspect the actual acquisition result, instructions, schema, model settings,
+response/error, and result consumer. Separate a model error from an input/parser
+error, an adapter that hides failure, or a stale asynchronous result.
 
-Keep these distinctions explicit:
+A probe should reuse the relevant production configuration or identify its
+differences. Report compilation, model availability, successful generation,
+semantic quality, and device performance separately. A workaround that changes
+which component produces a field may fix the app without improving the model.
 
-- A generated Swift value can satisfy its schema while containing invented facts.
-  For extraction, preserve unknowns, original units, ranges, ordering, and source
-  relationships; validate consequential fields in application code.
-- A model may propose an operation or its arguments. The app still resolves real
-  records, validates current state, calculates domain results, and enforces the
-  existing authorization and confirmation policy.
-- A successful model response must belong to the current request and input
-  revision before it changes UI state. Cancelling, replacing input, editing a
-  draft, and switching documents can invalidate an otherwise valid result.
-- Compilation, availability, successful inference, semantic quality, UI behavior,
-  and physical-device performance are different evidence. Report the layers
-  actually checked rather than calling all of them verified.
+When adding a development case, retain a reproducible input shape and the
+observed evidence. Mark untested remedies and unresolved causes explicitly.
+Recommend avoiding a design only for the requirement and conditions the evidence
+fails to satisfy; do not turn one unsuccessful prompt into a claim that the
+framework cannot perform the task.
 
-Use the repository's verification contract and the available Xcode integration
-by capability. A temporary probe can isolate a failure; reuse the production
-adapter, schema, prompts, and model settings, or state the differences. Do not
-turn a probe's local paths, fixtures, or runtime identifiers into product code.
+Keep public examples synthetic and portable. Exclude private corpora, account
+information, raw diagnostics, and unreleased product plans. Summarize relevant
+technical observations instead of copying private records or official manuals.
 
-## Finish with actionable evidence
-
-Summarize what changed, the representative checks and their environment, and any
-remaining defect with an input shape and expected behavior. If blocked, identify
-whether the missing requirement is an SDK/runtime, model asset, entitlement,
-network/quota, tool integration, or app bug. Try a documented alternative when
-it supplies the needed evidence; request user action only for the part that
-actually requires it.
-
-Keep public examples synthetic and portable. Private source corpora, transcripts,
-account details, crash reports, and unreleased product plans are not skill
-content. Link to primary sources instead of copying their manuals or samples.
-
-The compact entrypoint and topic references follow the organization used by
-Xcode-exported skills. [d-date/iphone-duo-skill](https://github.com/d-date/iphone-duo-skill)
-also informed the separation of confirmed SDK behavior from announced APIs;
-its platform-specific instructions are not incorporated here.
+The compact entrypoint and topic references follow Xcode-exported skill
+organization. [d-date/iphone-duo-skill](https://github.com/d-date/iphone-duo-skill)
+informed the distinction between announced and confirmed APIs; its specific
+platform instructions are not incorporated here.
