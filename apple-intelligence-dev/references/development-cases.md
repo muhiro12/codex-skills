@@ -117,12 +117,21 @@ copy, a manual workflow, or a ban on automatic fallback.
 
 ## Whole-page input and context overflow
 
-**Historical evidence:** A June 2025 Cookle prototype appended the complete GET
-HTML response to a guided-generation prompt and retained one session across
+**Historical evidence:** A June 14, 2025 Cookle prototype appended the complete
+GET HTML response to a guided-generation prompt and retained one session across
 requests. The developer recalls errors. The implementation confirms those input
 and session conditions; the original failing page/error was not recovered, so
 context overflow remains an explanation consistent with the evidence rather
-than a proven diagnosis of that exact incident.
+than a proven diagnosis of that exact incident. No historical input-reduction
+workaround or result was recovered.
+
+**Apple guidance and timing:** [WWDC25's deep dive](https://developer.apple.com/videos/play/wwdc2025/301/)
+already explained that long input, output, or accumulated history can exceed the
+context limit, and demonstrated carrying selected history into a new session.
+Current [context recovery guidance](context-and-language.md#reduce-or-partition-the-actual-source)
+also covers oversized individual sources. A fresh session cannot fit a source
+that is too large by itself. TN3193's revision history dates its first publication
+to October 6, 2025; its current detail should not be attributed to June 2025.
 
 **Current check:** On 2026-09-16, Xcode 27/macOS 27, the system model reported an
 8,192-token context. Apple's `fm` counted a synthetic HTML page with 1,000
@@ -140,18 +149,34 @@ from accumulated history; their recovery differs. See
 
 ## Locale-based output language
 
-**Historical evidence:** Cookle's [June 17, 2025 change](https://github.com/muhiro12/Cookle/commit/2589635f145c102843bcad6020d3af9cab1409d3)
+**Historical symptom and remedy:** The developer reports difficulty obtaining
+user-facing output in the intended language during early Foundation Models
+integration. Cookle's [June 17, 2025 change](https://github.com/muhiro12/Cookle/commit/2589635f145c102843bcad6020d3af9cab1409d3)
 read the locale's language and interpolated a requested response language into
 the prompt. Incomes also uses locale/language information in inference prompts.
-The code establishes the technique, not its historical success rate.
 
-**External reports:** A [July 2025 developer experiment](https://qiita.com/mjnfhbuvwebwfiejcnw/items/937f4e3bc924e4f80b1d)
-compared English and Japanese generated-type names and observed output-language
-influence. That is a bounded observation, not evidence that every Swift type or
-tool must be renamed. An [independent app's published prompt](https://derk.squarespace.com/blog/aximtalk-version-26dot2-system-prompt-transparency-update)
-also combines locale and explicit language; it supplies implementation evidence,
-not a controlled test or an Apple-confirmed fix. Current Apple guidance is the
-basis for the [language recommendations](context-and-language.md#output-language).
+**Reported result:** The developer confirms that this resolved the language
+problem at the time. The commit verifies the technique and date; historical
+before/after outputs and a success-rate evaluation were not recovered. Record
+this as a reported successful workaround, not an untested idea or an independently
+reproduced guarantee.
+
+**Apple guidance and timing:** Current [language guidance](context-and-language.md#output-language)
+provides locale context and explicit output-language instructions. Use that guide
+for new work rather than freezing the old prompt wording. A participant-published
+[WWDC25 Group Lab transcript](https://gist.github.com/samhenrigold/3aad01b762ccc87e34e6115055daac2f)
+already described obtaining a language code with Foundation's locale API and
+including it in instructions. The June 12, 2025 UTC initial revision contains
+that passage, before the Cookle change. This is a contemporaneous participant
+transcription, not an Apple-published verbatim record; its accompanying AI summary
+is not the evidence. The technique aligns with that account; the record does not
+establish that the developer followed the advice or preceded its publication.
+The initial publication date of the current language guide was not established.
+
+**External reports:** A [July 21, 2025 developer experiment](https://qiita.com/mjnfhbuvwebwfiejcnw/items/937f4e3bc924e4f80b1d)
+reported unexpected response languages and compared English and Japanese
+generated-type names. That corroborates similar developer difficulties, not an
+Apple-confirmed defect or a requirement to rename Swift types or tools.
 
 **Current check:** On 2026-09-16, macOS 27 with the system model, separate fresh,
 greedy CLI requests produced English for an English control, Japanese with

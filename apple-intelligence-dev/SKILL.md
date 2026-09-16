@@ -50,11 +50,14 @@ differences. Report compilation, model availability, successful generation,
 semantic quality, and device performance separately. A workaround that changes
 which component produces a field may fix the app without improving the model.
 
-When adding a development case, retain a reproducible input shape and the
-observed evidence. Mark untested remedies and unresolved causes explicitly.
-Recommend avoiding a design only for the requirement and conditions the evidence
-fails to satisfy; do not turn one unsuccessful prompt into a claim that the
-framework cannot perform the task.
+For a development case, retain the input shape and separate the symptom, confirmed
+cause, attempted remedy, and outcome. Distinguish a developer's report of
+resolution from independently reproduced results. Link applicable current Apple guidance and state which part
+of the failure it addresses. General guidance is not a confirmed fix for a
+specific incident. When it leaves the problem unresolved, evaluate the recorded
+workaround under its original conditions and current requirements. Recheck after
+model/OS changes; historical success alone does not make it the preferred method.
+Recommend avoiding a design only for the requirements the evidence fails to meet.
 
 Keep public examples synthetic and portable. Exclude private corpora, account
 information, raw diagnostics, and unreleased product plans. Summarize relevant
