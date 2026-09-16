@@ -33,6 +33,7 @@ signatures. No sibling skill or particular tool server is required.
 | Work | Reference |
 | --- | --- |
 | Model choice, OS capability, eligibility, entitlement, or quota | [Models and availability](references/models-and-availability.md) |
+| Input limits, oversized pages, output language, or per-app locale | [Context and language](references/context-and-language.md) |
 | Prompts, guided generation, sessions, tools, streaming, or cancellation | [Generation and application state](references/generation-and-state.md) |
 | Model quality, Simulator support, latency, or generation failures | [Evaluation and debugging](references/evaluation-and-debugging.md) |
 | Image Playground, Writing Tools, OCR, Siri, or app search | [System integrations](references/system-integrations.md) |

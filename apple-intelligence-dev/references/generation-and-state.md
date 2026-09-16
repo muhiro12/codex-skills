@@ -23,7 +23,8 @@ a factuality guarantee. Evaluate schema, instructions, examples, and sampling
 changes against the same inputs. When exact extraction still fails, compare
 source-based validation or direct field extraction with further prompt tuning.
 The [development cases](development-cases.md) distinguish a successful source
-workaround from unresolved model errors.
+workaround from unresolved model errors. For multilingual prompts and generated
+text, use [context and language](context-and-language.md#output-language).
 
 ## Session lifetime and cancellation
 
@@ -65,12 +66,9 @@ call through a confirmation UI or a specific domain-layer architecture.
 
 ## Context and latency
 
-Context includes instructions, prompts, schemas, history, tool definitions and
-results, and generated output. Use current token/context APIs rather than
-assuming a character limit measures model capacity. Compare shorter relevant
-input, fresh sessions, structured chunking, or another supported model against
-the feature's accuracy and latency requirements. See
-[context management](https://developer.apple.com/documentation/foundationmodels/managing-the-context-window).
+For token accounting, SDK differences, oversized source text, and recovery, read
+[context limits](context-and-language.md#context-limits). A larger model context
+and a faster response are separate properties; measure the relevant one.
 
 Profile before selecting optimizations. Prewarming can reduce asset-loading
 latency; excluding schema text can reduce prompt size but requires adequate

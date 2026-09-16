@@ -114,3 +114,55 @@ correction, not recovery from every live model service or guardrail error.
 remain. Preserve enough outcome information to diagnose the original failure
 and evaluate fallback quality independently. This case does not prescribe error
 copy, a manual workflow, or a ban on automatic fallback.
+
+## Whole-page input and context overflow
+
+**Historical evidence:** A June 2025 Cookle prototype appended the complete GET
+HTML response to a guided-generation prompt and retained one session across
+requests. The developer recalls errors. The implementation confirms those input
+and session conditions; the original failing page/error was not recovered, so
+context overflow remains an explanation consistent with the evidence rather
+than a proven diagnosis of that exact incident.
+
+**Current check:** On 2026-09-16, Xcode 27/macOS 27, the system model reported an
+8,192-token context. Apple's `fm` counted a synthetic HTML page with 1,000
+navigation rows at 17,817 tokens; a fresh greedy request failed with a context-size
+error. Its relevant text alone counted 24 tokens and generated a response. Those
+counts cover source text, not every request token. This demonstrates a reduction
+remedy for this synthetic input, not universal HTML extraction quality.
+
+**Classification and limits:** A finite context is documented behavior, not by
+itself a framework defect. The earlier 4,096 figure is not the current value for
+this tested model. No historical false-positive bug or its fix was established.
+Count the full session and distinguish a source that is individually too large
+from accumulated history; their recovery differs. See
+[context limits](context-and-language.md#context-limits) for official evidence.
+
+## Locale-based output language
+
+**Historical evidence:** Cookle's [June 17, 2025 change](https://github.com/muhiro12/Cookle/commit/2589635f145c102843bcad6020d3af9cab1409d3)
+read the locale's language and interpolated a requested response language into
+the prompt. Incomes also uses locale/language information in inference prompts.
+The code establishes the technique, not its historical success rate.
+
+**External reports:** A [July 2025 developer experiment](https://qiita.com/mjnfhbuvwebwfiejcnw/items/937f4e3bc924e4f80b1d)
+compared English and Japanese generated-type names and observed output-language
+influence. That is a bounded observation, not evidence that every Swift type or
+tool must be renamed. An [independent app's published prompt](https://derk.squarespace.com/blog/aximtalk-version-26dot2-system-prompt-transparency-update)
+also combines locale and explicit language; it supplies implementation evidence,
+not a controlled test or an Apple-confirmed fix. Current Apple guidance is the
+basis for the [language recommendations](context-and-language.md#output-language).
+
+**Current check:** On 2026-09-16, macOS 27 with the system model, separate fresh,
+greedy CLI requests produced English for an English control, Japanese with
+Japanese locale context, Japanese with an explicit language instruction, and
+French when explicitly requested despite Japanese locale context. A separate
+Swift `@Generable` probe with English type/property/guide text returned Japanese
+under explicit Japanese instructions.
+
+**Classification and limits:** Locale/language prompting agrees with current
+Apple guidance. Neither this small sample nor general instruction-following
+improvements establishes that all earlier failures were fixed. No need to
+translate Swift identifiers was demonstrated. Do not impose device language on
+a feature with a different output-language requirement, and do not treat language
+support checks as output configuration or guaranteed language compliance.
