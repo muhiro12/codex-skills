@@ -20,7 +20,8 @@ reviewing every rubric category. For an explicit broad audit, use the full rubri
 Prefer matching Xcode-provided guidance from the active skill inventory or its
 generated catalog when available. Reuse task-relevant guidance already read.
 Use [references/source-map.md](references/source-map.md) to find official pages
-when a specific rule or version-sensitive behavior needs verification. Do not
+and their Markdown retrieval path when a specific rule or version-sensitive
+behavior needs verification. Do not
 invent rules, rely on outdated samples, or repeatedly fetch the same source.
 
 ## Apply and Review

@@ -1,6 +1,29 @@
 # Apple HIG Source Map
 
-Use these official Apple sources as entry points. Prefer current pages from `developer.apple.com`; if a page requires JavaScript, use web search restricted to `developer.apple.com` and cite the official URL.
+Use these official Apple sources as entry points. Prefer current pages from
+`developer.apple.com` and retrieve only guidance relevant to the task.
+
+## Retrieve HIG Text
+
+For HIG prose, try Apple's Markdown representation: insert `/tutorials/data`
+before `/design` and append `.md` to the page path. Remove query parameters,
+fragments, and a trailing slash before transforming the URL. For example:
+
+- Page: https://developer.apple.com/design/human-interface-guidelines/buttons
+- Markdown: https://developer.apple.com/tutorials/data/design/human-interface-guidelines/buttons.md
+
+If the web reader rejects `text/markdown`, use an available HTTP client such as
+`curl --fail --location --max-time 30` to retrieve that official URL. Check the
+response status and confirm that the body contains the requested HIG article,
+not an error page. If the representation is unavailable, use the original page
+or search restricted to `developer.apple.com`; do not assume every Apple
+documentation URL supports this transformation.
+
+Cite the original HIG page in findings. Markdown preserves text and image
+references, but does not replace inspecting diagrams, visual examples, or the
+actual app UI. Use the original page to resolve visual context and relative
+asset links when needed. Reuse guidance already retrieved during the task;
+avoid copying whole HIG articles into the skill.
 
 ## Core HIG
 
