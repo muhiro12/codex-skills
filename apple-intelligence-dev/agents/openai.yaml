@@ -1,0 +1,4 @@
+interface:
+  display_name: "Apple Intelligence Development"
+  short_description: "Build and verify native Apple Intelligence features"
+  default_prompt: "Use $apple-intelligence-dev to improve this Apple Intelligence feature and verify its behavior against current Apple guidance."

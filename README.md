@@ -7,6 +7,7 @@ System-managed skills, runtime assets, generated artifacts, and private local da
 
 - `app-store-release-notes-writer`: Generates App Store Connect-ready release notes across supported locales from a git range and project localization settings.
 - `apple-hig-ui-guardian`: Audits and repairs Apple-platform UI work against Apple's Human Interface Guidelines.
+- `apple-intelligence-dev`: Builds and evaluates Apple Intelligence features with current Apple guidance, grounded generation, lifecycle safety, and platform-specific evidence.
 - `apple-ios-dev-flow`: Uses current-repository evidence first, Apple guidance second, and an optional local sibling reference repository as a fallback for Apple-platform implementation work.
 - `apple-repo-verify-bootstrapper`: Derives an initial Apple verification contract from actual Xcode and package surfaces, retaining scripts only for uncovered checks.
 - `apple-sample-code-advisor`: Finds and applies Apple Developer sample code as official implementation guidance for Apple-platform work.
