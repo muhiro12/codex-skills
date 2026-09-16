@@ -26,6 +26,7 @@ System-managed skills, runtime assets, generated artifacts, and private local da
 - `skills-batch-auditor`: Reviews custom skills against current usage and tools, fixes deterministic drift, and applies portfolio changes when authorized.
 - `string-catalog-maintainer`: Audits and repairs Xcode string catalogs such as `Localizable.xcstrings` and related localization assets.
 - `swift-code-guardian`: Audits and repairs Swift code against official Swift guidance, API design conventions, and concurrency safety expectations.
+- `swiftdata-dev`: Implements and troubleshoots SwiftData using Apple guidance, scoped incident reports, and persistence verification.
 - `swiftdata-schema-auditor`: Reviews SwiftData schema definitions and explains entities, relationships, persistence, and migration risk.
 - `sync-xcode-skills`: Exports Xcode-provided agent Skills and installs Codex-compatible local copies.
 - `track-developer-principles`: Maintains a personal cross-repository principle system; the private record files themselves are intentionally not tracked here.

@@ -1,0 +1,4 @@
+interface:
+  display_name: "SwiftData Development"
+  short_description: "Build and evolve SwiftData persistence safely"
+  default_prompt: "Use $swiftdata-dev to implement or troubleshoot SwiftData using Apple guidance and relevant, evidence-scoped workarounds."
