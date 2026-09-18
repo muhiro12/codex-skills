@@ -1,6 +1,6 @@
-# Curated Codex Skills
+# Agent Skills
 
-This repository contains curated Codex skills for development and personal workflows.
+Reusable agent skills for development and personal workflows.
 System-managed skills, runtime assets, generated artifacts, and private local data are excluded.
 
 ## Local Installation
@@ -51,9 +51,13 @@ and should remain in their provider-managed locations.
 Each skill lives in its own directory and typically includes:
 
 - `SKILL.md`: the main instructions
-- `agents/openai.yaml`: skill-facing metadata
+- `agents/openai.yaml`: Codex-specific UI metadata and invocation policy
 - optional `scripts/` or `references/` directories when the skill needs helpers or supporting guidance
 - optional ignored data directories such as `records/`, `archives/`, or `cache/` when a skill owns mutable local state
+
+Other hosts need their own discovery and invocation adapters. Preserve explicit-only
+invocation policies in each host. A skill may depend on host-specific tools;
+installing its instructions alone does not provide those tools.
 
 Local data migrations are explicit maintenance operations. Run
 `python3 scripts/migrate_skill_data.py --list` to inspect available migrations

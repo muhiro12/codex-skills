@@ -4,7 +4,7 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$repo_root"
 
-temporary_root="$(mktemp -d "${TMPDIR:-/tmp}/codex-skills-verify.XXXXXX")"
+temporary_root="$(mktemp -d "${TMPDIR:-/tmp}/agent-skills-verify.XXXXXX")"
 cleanup() {
   rm -rf "$temporary_root"
 }

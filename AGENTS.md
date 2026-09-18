@@ -1,6 +1,6 @@
 # AGENTS.md
 
-This repository contains curated Codex skills. Keep its public contract
+This repository contains curated agent skills. Keep its public contract
 portable, English, and usable from a fresh clone.
 
 ## Repository Boundaries
