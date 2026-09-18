@@ -737,7 +737,7 @@ def write_catalog(
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--export-dir", type=Path, default=DEFAULT_EXPORT_DIR)
-    parser.add_argument("--skills-root", type=Path, default=Path.home() / ".codex" / "skills")
+    parser.add_argument("--skills-root", type=Path, default=Path.home() / ".agents" / "skills")
     parser.add_argument("--state-dir", type=Path, default=DEFAULT_STATE_DIR)
     parser.add_argument("--name-prefix", default="xcode-skill-")
     parser.add_argument("--export-only", action="store_true", help="Export but do not install into the skills root.")

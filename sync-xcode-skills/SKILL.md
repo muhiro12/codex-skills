@@ -10,6 +10,10 @@ description: Export Xcode-provided agent Skills through `xcrun mcpbridge run-age
 Use this skill to keep Codex's local skill set aligned with the Skills that Xcode exposes through its agent integration.
 Default response language is concise, polite Japanese.
 
+The default installation root is `~/.agents/skills`, Codex's user skill location.
+Use `--skills-root` for an explicitly selected alternate installation; changing
+`CODEX_HOME` does not redirect shared user skills.
+
 From Codex, run Xcode export as a standalone command first:
 
 ```bash

@@ -23,7 +23,7 @@ Use a skill-owned, repo-external cache by default:
 
 `<active-skills-root>/apple-sample-code-advisor/cache`
 
-Resolve `<active-skills-root>` from the parent directory of this loaded skill. If only the Codex home is available, use `${CODEX_HOME:-$HOME/.codex}/skills`. Prefer the loaded skill path when available so custom Codex homes, worktrees, and alternate installations do not accidentally read or mutate the default home cache.
+Resolve `<active-skills-root>` from the parent directory of this loaded skill. If its path is unavailable, use `~/.agents/skills`, the user skill location. Prefer the loaded skill path so worktrees and alternate installations do not accidentally read or mutate another installation's cache. `CODEX_HOME` controls Codex configuration and runtime state, not this shared user skill root.
 
 Never place downloaded sample projects inside the target product repository unless the user explicitly asks. Keep cached samples disposable and refreshable; they are local evidence, not vendored source.
 Treat legacy `~/.codex/cache/apple-sample-code` contents as a migration source only. Use the explicit migration workflow when needed; do not delete the legacy cache unless the user asks.

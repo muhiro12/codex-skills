@@ -3,6 +3,17 @@
 This repository contains curated Codex skills for development and personal workflows.
 System-managed skills, runtime assets, generated artifacts, and private local data are excluded.
 
+## Local Installation
+
+Use `~/.agents/skills` for user skills shared across repositories. Keep one
+maintained checkout there; Codex discovers the top-level skill directories.
+For an alternate checkout, link selected skill directories into that discovery
+root instead of keeping separately maintained copies.
+
+Codex settings and global instructions remain in `~/.codex/config.toml` and
+`~/.codex/AGENTS.md`. Bundled system skills and plugin caches are owned by Codex
+and should remain in their provider-managed locations.
+
 ## Included Skills
 
 - `app-store-release-notes-writer`: Generates App Store Connect-ready release notes across supported locales from a git range and project localization settings.

@@ -279,7 +279,7 @@ def parse_arguments() -> argparse.Namespace:
     )
     parser.add_argument(
         "--skills-root",
-        help="Skills root. Defaults to $CODEX_HOME/skills, then ~/.codex/skills.",
+        help="Skills root. Defaults to ~/.agents/skills; independent of CODEX_HOME.",
     )
     parser.add_argument(
         "--scope",
@@ -325,19 +325,7 @@ def parse_arguments() -> argparse.Namespace:
 
 
 def resolve_default_skills_root() -> Path:
-    code_home = os.environ.get("CODEX_HOME")
-    candidates: list[Path] = []
-
-    if code_home:
-        candidates.append((Path(code_home).expanduser() / "skills").resolve())
-
-    candidates.append((Path("~/.codex/skills").expanduser()).resolve())
-
-    for candidate in candidates:
-        if candidate.exists():
-            return candidate
-
-    return candidates[0]
+    return (Path.home() / ".agents" / "skills").resolve()
 
 
 def read_text(path: Path) -> str:
